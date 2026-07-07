@@ -1,0 +1,53 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.Python
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# --- macOS ---
+.DS_Store
+
+# --- Editor ---
+.vscode/
+.idea/
+
+# --- Expo / React Native (for when mobile/ is scaffolded) ---
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/.env
+mobile/.env.local
+
+# Metro
+.metro-health-check*
+
+# --- Env / secrets ---
+.env
+.env.local
+*.pem
+
+# --- Data (large raw/source files) ---
+# Raw MTA/GTFS source files are regenerable from the public feed — not tracked.
+# See data/raw/README.md for where to download them.
+data/raw/*
+!data/raw/README.md
+
+# data/processed/ IS tracked — it's the actual pipeline output the app depends on.

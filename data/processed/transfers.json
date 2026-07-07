@@ -1,0 +1,5715 @@
+{
+  "398": {
+    "complex_id": "398",
+    "display_name": "77 St (6)",
+    "gtfs_stop_ids": [
+      "627"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "399": {
+    "complex_id": "399",
+    "display_name": "68 St-Hunter College (6)",
+    "gtfs_stop_ids": [
+      "628"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "403": {
+    "complex_id": "403",
+    "display_name": "33 St (6)",
+    "gtfs_stop_ids": [
+      "632"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "404": {
+    "complex_id": "404",
+    "display_name": "28 St (6)",
+    "gtfs_stop_ids": [
+      "633"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "405": {
+    "complex_id": "405",
+    "display_name": "23 St-Baruch College (6)",
+    "gtfs_stop_ids": [
+      "634"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "407": {
+    "complex_id": "407",
+    "display_name": "Astor Pl (6)",
+    "gtfs_stop_ids": [
+      "636"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "409": {
+    "complex_id": "409",
+    "display_name": "Spring St (6)",
+    "gtfs_stop_ids": [
+      "638"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "413": {
+    "complex_id": "413",
+    "display_name": "Wall St (4,5)",
+    "gtfs_stop_ids": [
+      "419"
+    ],
+    "routes": [
+      "4",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "414": {
+    "complex_id": "414",
+    "display_name": "Bowling Green (4,5)",
+    "gtfs_stop_ids": [
+      "420"
+    ],
+    "routes": [
+      "4",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "416": {
+    "complex_id": "416",
+    "display_name": "Wakefield-241 St (2)",
+    "gtfs_stop_ids": [
+      "201"
+    ],
+    "routes": [
+      "2"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "417": {
+    "complex_id": "417",
+    "display_name": "Nereid Av (2,5)",
+    "gtfs_stop_ids": [
+      "204"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "418": {
+    "complex_id": "418",
+    "display_name": "233 St (2,5)",
+    "gtfs_stop_ids": [
+      "205"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "419": {
+    "complex_id": "419",
+    "display_name": "225 St (2,5)",
+    "gtfs_stop_ids": [
+      "206"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "420": {
+    "complex_id": "420",
+    "display_name": "219 St (2,5)",
+    "gtfs_stop_ids": [
+      "207"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "421": {
+    "complex_id": "421",
+    "display_name": "Gun Hill Rd (2,5)",
+    "gtfs_stop_ids": [
+      "208"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "422": {
+    "complex_id": "422",
+    "display_name": "Burke Av (2,5)",
+    "gtfs_stop_ids": [
+      "209"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "423": {
+    "complex_id": "423",
+    "display_name": "Allerton Av (2,5)",
+    "gtfs_stop_ids": [
+      "210"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "424": {
+    "complex_id": "424",
+    "display_name": "Pelham Pkwy (2,5)",
+    "gtfs_stop_ids": [
+      "211"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "425": {
+    "complex_id": "425",
+    "display_name": "Bronx Park East (2,5)",
+    "gtfs_stop_ids": [
+      "212"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "426": {
+    "complex_id": "426",
+    "display_name": "E 180 St (2,5)",
+    "gtfs_stop_ids": [
+      "213"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "427": {
+    "complex_id": "427",
+    "display_name": "West Farms Sq-E Tremont Av (2,5)",
+    "gtfs_stop_ids": [
+      "214"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "428": {
+    "complex_id": "428",
+    "display_name": "174 St (2,5)",
+    "gtfs_stop_ids": [
+      "215"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "429": {
+    "complex_id": "429",
+    "display_name": "Freeman St (2,5)",
+    "gtfs_stop_ids": [
+      "216"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "430": {
+    "complex_id": "430",
+    "display_name": "Simpson St (2,5)",
+    "gtfs_stop_ids": [
+      "217"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "431": {
+    "complex_id": "431",
+    "display_name": "Intervale Av (2,5)",
+    "gtfs_stop_ids": [
+      "218"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "432": {
+    "complex_id": "432",
+    "display_name": "Prospect Av (2,5)",
+    "gtfs_stop_ids": [
+      "219"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "433": {
+    "complex_id": "433",
+    "display_name": "Jackson Av (2,5)",
+    "gtfs_stop_ids": [
+      "220"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "434": {
+    "complex_id": "434",
+    "display_name": "3 Av-149 St (2,5)",
+    "gtfs_stop_ids": [
+      "221"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "436": {
+    "complex_id": "436",
+    "display_name": "Harlem-148 St (3)",
+    "gtfs_stop_ids": [
+      "301"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "437": {
+    "complex_id": "437",
+    "display_name": "145 St (3)",
+    "gtfs_stop_ids": [
+      "302"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "438": {
+    "complex_id": "438",
+    "display_name": "135 St (2,3)",
+    "gtfs_stop_ids": [
+      "224"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "439": {
+    "complex_id": "439",
+    "display_name": "125 St (2,3)",
+    "gtfs_stop_ids": [
+      "225"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "440": {
+    "complex_id": "440",
+    "display_name": "116 St (2,3)",
+    "gtfs_stop_ids": [
+      "226"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "441": {
+    "complex_id": "441",
+    "display_name": "110 St-Malcolm X Plaza (2,3)",
+    "gtfs_stop_ids": [
+      "227"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "442": {
+    "complex_id": "442",
+    "display_name": "Eastchester-Dyre Av (5)",
+    "gtfs_stop_ids": [
+      "501"
+    ],
+    "routes": [
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "443": {
+    "complex_id": "443",
+    "display_name": "Baychester Av (5)",
+    "gtfs_stop_ids": [
+      "502"
+    ],
+    "routes": [
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "444": {
+    "complex_id": "444",
+    "display_name": "Gun Hill Rd (5)",
+    "gtfs_stop_ids": [
+      "503"
+    ],
+    "routes": [
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "445": {
+    "complex_id": "445",
+    "display_name": "Pelham Pkwy (5)",
+    "gtfs_stop_ids": [
+      "504"
+    ],
+    "routes": [
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "446": {
+    "complex_id": "446",
+    "display_name": "Morris Park (5)",
+    "gtfs_stop_ids": [
+      "505"
+    ],
+    "routes": [
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "447": {
+    "complex_id": "447",
+    "display_name": "Flushing-Main St (7)",
+    "gtfs_stop_ids": [
+      "701"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "448": {
+    "complex_id": "448",
+    "display_name": "Mets-Willets Point (7)",
+    "gtfs_stop_ids": [
+      "702"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "449": {
+    "complex_id": "449",
+    "display_name": "111 St (7)",
+    "gtfs_stop_ids": [
+      "705"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "450": {
+    "complex_id": "450",
+    "display_name": "103 St-Corona Plaza (7)",
+    "gtfs_stop_ids": [
+      "706"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "451": {
+    "complex_id": "451",
+    "display_name": "Junction Blvd (7)",
+    "gtfs_stop_ids": [
+      "707"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "452": {
+    "complex_id": "452",
+    "display_name": "90 St-Elmhurst Av (7)",
+    "gtfs_stop_ids": [
+      "708"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "453": {
+    "complex_id": "453",
+    "display_name": "82 St-Jackson Hts (7)",
+    "gtfs_stop_ids": [
+      "709"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "455": {
+    "complex_id": "455",
+    "display_name": "69 St (7)",
+    "gtfs_stop_ids": [
+      "711"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "456": {
+    "complex_id": "456",
+    "display_name": "61 St-Woodside (7)",
+    "gtfs_stop_ids": [
+      "712"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "457": {
+    "complex_id": "457",
+    "display_name": "52 St (7)",
+    "gtfs_stop_ids": [
+      "713"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "458": {
+    "complex_id": "458",
+    "display_name": "46 St-Bliss St (7)",
+    "gtfs_stop_ids": [
+      "714"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "459": {
+    "complex_id": "459",
+    "display_name": "40 St-Lowery St (7)",
+    "gtfs_stop_ids": [
+      "715"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "460": {
+    "complex_id": "460",
+    "display_name": "33 St-Rawson St (7)",
+    "gtfs_stop_ids": [
+      "716"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "461": {
+    "complex_id": "461",
+    "display_name": "Queensboro Plaza (7,N,W)",
+    "gtfs_stop_ids": [
+      "718",
+      "R09"
+    ],
+    "routes": [
+      "7",
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "463": {
+    "complex_id": "463",
+    "display_name": "Hunters Point Av (7)",
+    "gtfs_stop_ids": [
+      "720"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "464": {
+    "complex_id": "464",
+    "display_name": "Vernon Blvd-Jackson Av (7)",
+    "gtfs_stop_ids": [
+      "721"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "471": {
+    "complex_id": "471",
+    "display_name": "34 St-Hudson Yards (7)",
+    "gtfs_stop_ids": [
+      "726"
+    ],
+    "routes": [
+      "7"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "475": {
+    "complex_id": "475",
+    "display_name": "96 St (Q)",
+    "gtfs_stop_ids": [
+      "Q05"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "476": {
+    "complex_id": "476",
+    "display_name": "86 St (Q)",
+    "gtfs_stop_ids": [
+      "Q04"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "477": {
+    "complex_id": "477",
+    "display_name": "72 St (Q)",
+    "gtfs_stop_ids": [
+      "Q03"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "501": {
+    "complex_id": "501",
+    "display_name": "St George (SIR)",
+    "gtfs_stop_ids": [
+      "S31"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "502": {
+    "complex_id": "502",
+    "display_name": "Tompkinsville (SIR)",
+    "gtfs_stop_ids": [
+      "S30"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "503": {
+    "complex_id": "503",
+    "display_name": "Stapleton (SIR)",
+    "gtfs_stop_ids": [
+      "S29"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "504": {
+    "complex_id": "504",
+    "display_name": "Clifton (SIR)",
+    "gtfs_stop_ids": [
+      "S28"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "505": {
+    "complex_id": "505",
+    "display_name": "Grasmere (SIR)",
+    "gtfs_stop_ids": [
+      "S27"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "506": {
+    "complex_id": "506",
+    "display_name": "Old Town (SIR)",
+    "gtfs_stop_ids": [
+      "S26"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "507": {
+    "complex_id": "507",
+    "display_name": "Dongan Hills (SIR)",
+    "gtfs_stop_ids": [
+      "S25"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "508": {
+    "complex_id": "508",
+    "display_name": "Jefferson Av (SIR)",
+    "gtfs_stop_ids": [
+      "S24"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "509": {
+    "complex_id": "509",
+    "display_name": "Grant City (SIR)",
+    "gtfs_stop_ids": [
+      "S23"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "510": {
+    "complex_id": "510",
+    "display_name": "New Dorp (SIR)",
+    "gtfs_stop_ids": [
+      "S22"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "511": {
+    "complex_id": "511",
+    "display_name": "Oakwood Heights (SIR)",
+    "gtfs_stop_ids": [
+      "S21"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "512": {
+    "complex_id": "512",
+    "display_name": "Bay Terrace (SIR)",
+    "gtfs_stop_ids": [
+      "S20"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "513": {
+    "complex_id": "513",
+    "display_name": "Great Kills (SIR)",
+    "gtfs_stop_ids": [
+      "S19"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "514": {
+    "complex_id": "514",
+    "display_name": "Eltingville (SIR)",
+    "gtfs_stop_ids": [
+      "S18"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "515": {
+    "complex_id": "515",
+    "display_name": "Annadale (SIR)",
+    "gtfs_stop_ids": [
+      "S17"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "516": {
+    "complex_id": "516",
+    "display_name": "Huguenot (SIR)",
+    "gtfs_stop_ids": [
+      "S16"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "517": {
+    "complex_id": "517",
+    "display_name": "Prince's Bay (SIR)",
+    "gtfs_stop_ids": [
+      "S15"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "518": {
+    "complex_id": "518",
+    "display_name": "Pleasant Plains (SIR)",
+    "gtfs_stop_ids": [
+      "S14"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "519": {
+    "complex_id": "519",
+    "display_name": "Richmond Valley (SIR)",
+    "gtfs_stop_ids": [
+      "S13"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "522": {
+    "complex_id": "522",
+    "display_name": "Tottenville (SIR)",
+    "gtfs_stop_ids": [
+      "S09"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "523": {
+    "complex_id": "523",
+    "display_name": "Arthur Kill (SIR)",
+    "gtfs_stop_ids": [
+      "S11"
+    ],
+    "routes": [
+      "SIR"
+    ],
+    "is_complex": false,
+    "borough": "SI"
+  },
+  "601": {
+    "complex_id": "601",
+    "display_name": "14 St/6 Av (1,2,3,L,F,M)",
+    "gtfs_stop_ids": [
+      "132",
+      "D19",
+      "L02"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3",
+      "L",
+      "F",
+      "M"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "602": {
+    "complex_id": "602",
+    "display_name": "14 St-Union Sq (4,5,6,L,N,Q,R,W)",
+    "gtfs_stop_ids": [
+      "635",
+      "L03",
+      "R20"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6",
+      "L",
+      "N",
+      "Q",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "603": {
+    "complex_id": "603",
+    "display_name": "149 St-Grand Concourse (2,4,5)",
+    "gtfs_stop_ids": [
+      "222",
+      "415"
+    ],
+    "routes": [
+      "2",
+      "4",
+      "5"
+    ],
+    "is_complex": true,
+    "borough": "Bx"
+  },
+  "604": {
+    "complex_id": "604",
+    "display_name": "161 St-Yankee Stadium (4,B,D)",
+    "gtfs_stop_ids": [
+      "414",
+      "D11"
+    ],
+    "routes": [
+      "4",
+      "B",
+      "D"
+    ],
+    "is_complex": true,
+    "borough": "Bx"
+  },
+  "605": {
+    "complex_id": "605",
+    "display_name": "168 St-Washington Hts (1,A,C)",
+    "gtfs_stop_ids": [
+      "112",
+      "A09"
+    ],
+    "routes": [
+      "1",
+      "A",
+      "C"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "606": {
+    "complex_id": "606",
+    "display_name": "Court Sq-23 St (7,E,F,G)",
+    "gtfs_stop_ids": [
+      "719",
+      "F09",
+      "G22"
+    ],
+    "routes": [
+      "7",
+      "E",
+      "F",
+      "G"
+    ],
+    "is_complex": true,
+    "borough": "Q"
+  },
+  "607": {
+    "complex_id": "607",
+    "display_name": "34 St-Herald Sq (B,D,F,M,N,Q,R,W)",
+    "gtfs_stop_ids": [
+      "D17",
+      "R17"
+    ],
+    "routes": [
+      "B",
+      "D",
+      "F",
+      "M",
+      "N",
+      "Q",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "608": {
+    "complex_id": "608",
+    "display_name": "4 Av-9 St (F,G,R)",
+    "gtfs_stop_ids": [
+      "F23",
+      "R33"
+    ],
+    "routes": [
+      "F",
+      "G",
+      "R"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "609": {
+    "complex_id": "609",
+    "display_name": "42 St-Bryant Pk/5 Av (7,B,D,F,M)",
+    "gtfs_stop_ids": [
+      "724",
+      "D16"
+    ],
+    "routes": [
+      "7",
+      "B",
+      "D",
+      "F",
+      "M"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "610": {
+    "complex_id": "610",
+    "display_name": "Grand Central-42 St (4,5,6,7,S)",
+    "gtfs_stop_ids": [
+      "631",
+      "723",
+      "901"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6",
+      "7",
+      "S"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "611": {
+    "complex_id": "611",
+    "display_name": "Times Sq-42 St/Port Authority Bus Terminal (1,2,3,7,A,C,E,N,Q,R,W,S)",
+    "gtfs_stop_ids": [
+      "127",
+      "725",
+      "902",
+      "A27",
+      "R16"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3",
+      "7",
+      "A",
+      "C",
+      "E",
+      "N",
+      "Q",
+      "R",
+      "W",
+      "S"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "612": {
+    "complex_id": "612",
+    "display_name": "Lexington Av/51-53 Sts (6,E,F)",
+    "gtfs_stop_ids": [
+      "630",
+      "F11"
+    ],
+    "routes": [
+      "6",
+      "E",
+      "F"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "613": {
+    "complex_id": "613",
+    "display_name": "Lexington Av/59 St (4,5,6,N,R,W)",
+    "gtfs_stop_ids": [
+      "629",
+      "R11"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6",
+      "N",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "614": {
+    "complex_id": "614",
+    "display_name": "59 St-Columbus Circle (1,A,C,B,D)",
+    "gtfs_stop_ids": [
+      "125",
+      "A24"
+    ],
+    "routes": [
+      "1",
+      "A",
+      "C",
+      "B",
+      "D"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "615": {
+    "complex_id": "615",
+    "display_name": "62 St/New Utrecht Av (D,N)",
+    "gtfs_stop_ids": [
+      "B16",
+      "N04"
+    ],
+    "routes": [
+      "D",
+      "N"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "616": {
+    "complex_id": "616",
+    "display_name": "Jackson Hts-Roosevelt Av/74 St-Broadway (7,E,F,M,R)",
+    "gtfs_stop_ids": [
+      "710",
+      "G14"
+    ],
+    "routes": [
+      "7",
+      "E",
+      "F",
+      "M",
+      "R"
+    ],
+    "is_complex": true,
+    "borough": "Q"
+  },
+  "617": {
+    "complex_id": "617",
+    "display_name": "Atlantic Av-Barclays Ctr (2,3,4,5,B,D,N,Q,R)",
+    "gtfs_stop_ids": [
+      "235",
+      "D24",
+      "R31"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "B",
+      "D",
+      "N",
+      "Q",
+      "R"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "618": {
+    "complex_id": "618",
+    "display_name": "14 St/8 Av (A,C,E,L)",
+    "gtfs_stop_ids": [
+      "A31",
+      "L01"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "E",
+      "L"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "619": {
+    "complex_id": "619",
+    "display_name": "Broadway-Lafayette St/Bleecker St (6,B,D,F,M)",
+    "gtfs_stop_ids": [
+      "637",
+      "D21"
+    ],
+    "routes": [
+      "6",
+      "B",
+      "D",
+      "F",
+      "M"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "620": {
+    "complex_id": "620",
+    "display_name": "Borough Hall/Court St (2,3,4,5,R)",
+    "gtfs_stop_ids": [
+      "232",
+      "423",
+      "R28"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "R"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "621": {
+    "complex_id": "621",
+    "display_name": "Broadway Junction (A,C,J,Z,L)",
+    "gtfs_stop_ids": [
+      "A51",
+      "J27",
+      "L22"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "J",
+      "Z",
+      "L"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "622": {
+    "complex_id": "622",
+    "display_name": "Brooklyn Bridge-City Hall/Chambers St (4,5,6,J,Z)",
+    "gtfs_stop_ids": [
+      "640",
+      "M21"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6",
+      "J",
+      "Z"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "623": {
+    "complex_id": "623",
+    "display_name": "Canal St (6,J,Z,N,Q,R,W)",
+    "gtfs_stop_ids": [
+      "639",
+      "M20",
+      "Q01",
+      "R23"
+    ],
+    "routes": [
+      "6",
+      "J",
+      "Z",
+      "N",
+      "Q",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "624": {
+    "complex_id": "624",
+    "display_name": "Chambers St/WTC/Park Place/Cortlandt St (2,3,A,C,E,R,W)",
+    "gtfs_stop_ids": [
+      "228",
+      "A36",
+      "E01",
+      "R25"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "A",
+      "C",
+      "E",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "625": {
+    "complex_id": "625",
+    "display_name": "Delancey St-Essex St (F,M,J,Z)",
+    "gtfs_stop_ids": [
+      "F15",
+      "M18"
+    ],
+    "routes": [
+      "F",
+      "M",
+      "J",
+      "Z"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "626": {
+    "complex_id": "626",
+    "display_name": "Franklin Av-Medgar Evers College/Botanic Garden (2,3,4,5,S)",
+    "gtfs_stop_ids": [
+      "239",
+      "S04"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "S"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "627": {
+    "complex_id": "627",
+    "display_name": "Franklin Av (C,S)",
+    "gtfs_stop_ids": [
+      "A45",
+      "S01"
+    ],
+    "routes": [
+      "C",
+      "S"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "628": {
+    "complex_id": "628",
+    "display_name": "Fulton St (2,3,4,5,A,C,J,Z)",
+    "gtfs_stop_ids": [
+      "229",
+      "418",
+      "A38",
+      "M22"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "A",
+      "C",
+      "J",
+      "Z"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "629": {
+    "complex_id": "629",
+    "display_name": "Metropolitan Av/Lorimer St (G,L)",
+    "gtfs_stop_ids": [
+      "G29",
+      "L10"
+    ],
+    "routes": [
+      "G",
+      "L"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "630": {
+    "complex_id": "630",
+    "display_name": "Myrtle-Wyckoff Avs (M,L)",
+    "gtfs_stop_ids": [
+      "L17",
+      "M08"
+    ],
+    "routes": [
+      "M",
+      "L"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "635": {
+    "complex_id": "635",
+    "display_name": "Whitehall St-South Ferry (1,R,W)",
+    "gtfs_stop_ids": [
+      "142",
+      "R27"
+    ],
+    "routes": [
+      "1",
+      "R",
+      "W"
+    ],
+    "is_complex": true,
+    "borough": "M"
+  },
+  "636": {
+    "complex_id": "636",
+    "display_name": "Jay St-MetroTech (A,C,F,R)",
+    "gtfs_stop_ids": [
+      "A41",
+      "R29"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "F",
+      "R"
+    ],
+    "is_complex": true,
+    "borough": "Bk"
+  },
+  "271": {
+    "complex_id": "271",
+    "display_name": "Steinway St (M,R)",
+    "gtfs_stop_ids": [
+      "G19"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "272": {
+    "complex_id": "272",
+    "display_name": "36 St (M,R)",
+    "gtfs_stop_ids": [
+      "G20"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "273": {
+    "complex_id": "273",
+    "display_name": "Queens Plaza (E,F,R)",
+    "gtfs_stop_ids": [
+      "G21"
+    ],
+    "routes": [
+      "E",
+      "F",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "276": {
+    "complex_id": "276",
+    "display_name": "5 Av/53 St (E,F)",
+    "gtfs_stop_ids": [
+      "F12"
+    ],
+    "routes": [
+      "E",
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "277": {
+    "complex_id": "277",
+    "display_name": "7 Av (E,B,D)",
+    "gtfs_stop_ids": [
+      "D14"
+    ],
+    "routes": [
+      "E",
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "278": {
+    "complex_id": "278",
+    "display_name": "Jamaica Center-Parsons/Archer (E,J,Z)",
+    "gtfs_stop_ids": [
+      "G05"
+    ],
+    "routes": [
+      "E",
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "279": {
+    "complex_id": "279",
+    "display_name": "Sutphin Blvd-Archer Av-JFK Airport (E,J,Z)",
+    "gtfs_stop_ids": [
+      "G06"
+    ],
+    "routes": [
+      "E",
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "280": {
+    "complex_id": "280",
+    "display_name": "Jamaica-Van Wyck (E)",
+    "gtfs_stop_ids": [
+      "G07"
+    ],
+    "routes": [
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "282": {
+    "complex_id": "282",
+    "display_name": "21 St (G)",
+    "gtfs_stop_ids": [
+      "G24"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "283": {
+    "complex_id": "283",
+    "display_name": "Greenpoint Av (G)",
+    "gtfs_stop_ids": [
+      "G26"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "284": {
+    "complex_id": "284",
+    "display_name": "Nassau Av (G)",
+    "gtfs_stop_ids": [
+      "G28"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "286": {
+    "complex_id": "286",
+    "display_name": "Broadway (G)",
+    "gtfs_stop_ids": [
+      "G30"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "287": {
+    "complex_id": "287",
+    "display_name": "Flushing Av (G)",
+    "gtfs_stop_ids": [
+      "G31"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "288": {
+    "complex_id": "288",
+    "display_name": "Myrtle-Willoughby Avs (G)",
+    "gtfs_stop_ids": [
+      "G32"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "289": {
+    "complex_id": "289",
+    "display_name": "Bedford-Nostrand Avs (G)",
+    "gtfs_stop_ids": [
+      "G33"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "290": {
+    "complex_id": "290",
+    "display_name": "Classon Av (G)",
+    "gtfs_stop_ids": [
+      "G34"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "291": {
+    "complex_id": "291",
+    "display_name": "Clinton-Washington Avs (G)",
+    "gtfs_stop_ids": [
+      "G35"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "292": {
+    "complex_id": "292",
+    "display_name": "Fulton St (G)",
+    "gtfs_stop_ids": [
+      "G36"
+    ],
+    "routes": [
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "293": {
+    "complex_id": "293",
+    "display_name": "Van Cortlandt Park-242 St (1)",
+    "gtfs_stop_ids": [
+      "101"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "294": {
+    "complex_id": "294",
+    "display_name": "238 St (1)",
+    "gtfs_stop_ids": [
+      "103"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "295": {
+    "complex_id": "295",
+    "display_name": "231 St (1)",
+    "gtfs_stop_ids": [
+      "104"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "296": {
+    "complex_id": "296",
+    "display_name": "Marble Hill-225 St (1)",
+    "gtfs_stop_ids": [
+      "106"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "297": {
+    "complex_id": "297",
+    "display_name": "215 St (1)",
+    "gtfs_stop_ids": [
+      "107"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "298": {
+    "complex_id": "298",
+    "display_name": "207 St (1)",
+    "gtfs_stop_ids": [
+      "108"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "299": {
+    "complex_id": "299",
+    "display_name": "Dyckman St (1)",
+    "gtfs_stop_ids": [
+      "109"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "300": {
+    "complex_id": "300",
+    "display_name": "191 St (1)",
+    "gtfs_stop_ids": [
+      "110"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "301": {
+    "complex_id": "301",
+    "display_name": "181 St (1)",
+    "gtfs_stop_ids": [
+      "111"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "303": {
+    "complex_id": "303",
+    "display_name": "157 St (1)",
+    "gtfs_stop_ids": [
+      "113"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "304": {
+    "complex_id": "304",
+    "display_name": "145 St (1)",
+    "gtfs_stop_ids": [
+      "114"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "305": {
+    "complex_id": "305",
+    "display_name": "137 St-City College (1)",
+    "gtfs_stop_ids": [
+      "115"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "306": {
+    "complex_id": "306",
+    "display_name": "125 St (1)",
+    "gtfs_stop_ids": [
+      "116"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "307": {
+    "complex_id": "307",
+    "display_name": "116 St-Columbia University (1)",
+    "gtfs_stop_ids": [
+      "117"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "308": {
+    "complex_id": "308",
+    "display_name": "Cathedral Pkwy (110 St) (1)",
+    "gtfs_stop_ids": [
+      "118"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "309": {
+    "complex_id": "309",
+    "display_name": "103 St (1)",
+    "gtfs_stop_ids": [
+      "119"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "310": {
+    "complex_id": "310",
+    "display_name": "96 St (1,2,3)",
+    "gtfs_stop_ids": [
+      "120"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "311": {
+    "complex_id": "311",
+    "display_name": "86 St (1)",
+    "gtfs_stop_ids": [
+      "121"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "312": {
+    "complex_id": "312",
+    "display_name": "79 St (1)",
+    "gtfs_stop_ids": [
+      "122"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "313": {
+    "complex_id": "313",
+    "display_name": "72 St (1,2,3)",
+    "gtfs_stop_ids": [
+      "123"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "314": {
+    "complex_id": "314",
+    "display_name": "66 St-Lincoln Center (1)",
+    "gtfs_stop_ids": [
+      "124"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "316": {
+    "complex_id": "316",
+    "display_name": "50 St (1)",
+    "gtfs_stop_ids": [
+      "126"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "318": {
+    "complex_id": "318",
+    "display_name": "34 St-Penn Station (1,2,3)",
+    "gtfs_stop_ids": [
+      "128"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "319": {
+    "complex_id": "319",
+    "display_name": "28 St (1)",
+    "gtfs_stop_ids": [
+      "129"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "320": {
+    "complex_id": "320",
+    "display_name": "23 St (1)",
+    "gtfs_stop_ids": [
+      "130"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "321": {
+    "complex_id": "321",
+    "display_name": "18 St (1)",
+    "gtfs_stop_ids": [
+      "131"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "323": {
+    "complex_id": "323",
+    "display_name": "Christopher St-Stonewall (1)",
+    "gtfs_stop_ids": [
+      "133"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "324": {
+    "complex_id": "324",
+    "display_name": "Houston St (1)",
+    "gtfs_stop_ids": [
+      "134"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "325": {
+    "complex_id": "325",
+    "display_name": "Canal St (1)",
+    "gtfs_stop_ids": [
+      "135"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "326": {
+    "complex_id": "326",
+    "display_name": "Franklin St (1)",
+    "gtfs_stop_ids": [
+      "136"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "327": {
+    "complex_id": "327",
+    "display_name": "Chambers St (1,2,3)",
+    "gtfs_stop_ids": [
+      "137"
+    ],
+    "routes": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "328": {
+    "complex_id": "328",
+    "display_name": "WTC Cortlandt (1)",
+    "gtfs_stop_ids": [
+      "138"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "329": {
+    "complex_id": "329",
+    "display_name": "Rector St (1)",
+    "gtfs_stop_ids": [
+      "139"
+    ],
+    "routes": [
+      "1"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "333": {
+    "complex_id": "333",
+    "display_name": "Wall St (2,3)",
+    "gtfs_stop_ids": [
+      "230"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "334": {
+    "complex_id": "334",
+    "display_name": "Clark St (2,3)",
+    "gtfs_stop_ids": [
+      "231"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "336": {
+    "complex_id": "336",
+    "display_name": "Hoyt St (2,3)",
+    "gtfs_stop_ids": [
+      "233"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "337": {
+    "complex_id": "337",
+    "display_name": "Nevins St (2,3,4,5)",
+    "gtfs_stop_ids": [
+      "234"
+    ],
+    "routes": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "339": {
+    "complex_id": "339",
+    "display_name": "Bergen St (2,3)",
+    "gtfs_stop_ids": [
+      "236"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "340": {
+    "complex_id": "340",
+    "display_name": "Grand Army Plaza (2,3)",
+    "gtfs_stop_ids": [
+      "237"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "341": {
+    "complex_id": "341",
+    "display_name": "Eastern Pkwy-Brooklyn Museum (2,3)",
+    "gtfs_stop_ids": [
+      "238"
+    ],
+    "routes": [
+      "2",
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "343": {
+    "complex_id": "343",
+    "display_name": "Nostrand Av (3)",
+    "gtfs_stop_ids": [
+      "248"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "344": {
+    "complex_id": "344",
+    "display_name": "Kingston Av (3)",
+    "gtfs_stop_ids": [
+      "249"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "345": {
+    "complex_id": "345",
+    "display_name": "Crown Hts-Utica Av (3,4)",
+    "gtfs_stop_ids": [
+      "250"
+    ],
+    "routes": [
+      "3",
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "346": {
+    "complex_id": "346",
+    "display_name": "Sutter Av-Rutland Rd (3)",
+    "gtfs_stop_ids": [
+      "251"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "347": {
+    "complex_id": "347",
+    "display_name": "Saratoga Av (3)",
+    "gtfs_stop_ids": [
+      "252"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "348": {
+    "complex_id": "348",
+    "display_name": "Rockaway Av (3)",
+    "gtfs_stop_ids": [
+      "253"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "349": {
+    "complex_id": "349",
+    "display_name": "Junius St (3)",
+    "gtfs_stop_ids": [
+      "254"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "350": {
+    "complex_id": "350",
+    "display_name": "Pennsylvania Av (3)",
+    "gtfs_stop_ids": [
+      "255"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "351": {
+    "complex_id": "351",
+    "display_name": "Van Siclen Av (3)",
+    "gtfs_stop_ids": [
+      "256"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "352": {
+    "complex_id": "352",
+    "display_name": "New Lots Av (3)",
+    "gtfs_stop_ids": [
+      "257"
+    ],
+    "routes": [
+      "3"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "353": {
+    "complex_id": "353",
+    "display_name": "President St-Medgar Evers College (2,5)",
+    "gtfs_stop_ids": [
+      "241"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "354": {
+    "complex_id": "354",
+    "display_name": "Sterling St (2,5)",
+    "gtfs_stop_ids": [
+      "242"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "355": {
+    "complex_id": "355",
+    "display_name": "Winthrop St (2,5)",
+    "gtfs_stop_ids": [
+      "243"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "356": {
+    "complex_id": "356",
+    "display_name": "Church Av (2,5)",
+    "gtfs_stop_ids": [
+      "244"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "357": {
+    "complex_id": "357",
+    "display_name": "Beverly Rd (2,5)",
+    "gtfs_stop_ids": [
+      "245"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "358": {
+    "complex_id": "358",
+    "display_name": "Newkirk Av-Little Haiti (2,5)",
+    "gtfs_stop_ids": [
+      "246"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "359": {
+    "complex_id": "359",
+    "display_name": "Flatbush Av-Brooklyn College (2,5)",
+    "gtfs_stop_ids": [
+      "247"
+    ],
+    "routes": [
+      "2",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "360": {
+    "complex_id": "360",
+    "display_name": "Pelham Bay Park (6)",
+    "gtfs_stop_ids": [
+      "601"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "361": {
+    "complex_id": "361",
+    "display_name": "Buhre Av (6)",
+    "gtfs_stop_ids": [
+      "602"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "362": {
+    "complex_id": "362",
+    "display_name": "Middletown Rd (6)",
+    "gtfs_stop_ids": [
+      "603"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "363": {
+    "complex_id": "363",
+    "display_name": "Westchester Sq-E Tremont Av (6)",
+    "gtfs_stop_ids": [
+      "604"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "364": {
+    "complex_id": "364",
+    "display_name": "Zerega Av (6)",
+    "gtfs_stop_ids": [
+      "606"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "365": {
+    "complex_id": "365",
+    "display_name": "Castle Hill Av (6)",
+    "gtfs_stop_ids": [
+      "607"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "366": {
+    "complex_id": "366",
+    "display_name": "Parkchester (6)",
+    "gtfs_stop_ids": [
+      "608"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "367": {
+    "complex_id": "367",
+    "display_name": "St Lawrence Av (6)",
+    "gtfs_stop_ids": [
+      "609"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "368": {
+    "complex_id": "368",
+    "display_name": "Morrison Av-Soundview (6)",
+    "gtfs_stop_ids": [
+      "610"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "369": {
+    "complex_id": "369",
+    "display_name": "Elder Av (6)",
+    "gtfs_stop_ids": [
+      "611"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "370": {
+    "complex_id": "370",
+    "display_name": "Whitlock Av (6)",
+    "gtfs_stop_ids": [
+      "612"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "371": {
+    "complex_id": "371",
+    "display_name": "Hunts Point Av (6)",
+    "gtfs_stop_ids": [
+      "613"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "372": {
+    "complex_id": "372",
+    "display_name": "Longwood Av (6)",
+    "gtfs_stop_ids": [
+      "614"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "373": {
+    "complex_id": "373",
+    "display_name": "E 149 St (6)",
+    "gtfs_stop_ids": [
+      "615"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "374": {
+    "complex_id": "374",
+    "display_name": "E 143 St-St Mary's St (6)",
+    "gtfs_stop_ids": [
+      "616"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "375": {
+    "complex_id": "375",
+    "display_name": "Cypress Av (6)",
+    "gtfs_stop_ids": [
+      "617"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "376": {
+    "complex_id": "376",
+    "display_name": "Brook Av (6)",
+    "gtfs_stop_ids": [
+      "618"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "377": {
+    "complex_id": "377",
+    "display_name": "3 Av-138 St (6)",
+    "gtfs_stop_ids": [
+      "619"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "378": {
+    "complex_id": "378",
+    "display_name": "Woodlawn (4)",
+    "gtfs_stop_ids": [
+      "401"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "379": {
+    "complex_id": "379",
+    "display_name": "Mosholu Pkwy (4)",
+    "gtfs_stop_ids": [
+      "402"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "380": {
+    "complex_id": "380",
+    "display_name": "Bedford Park Blvd-Lehman College (4)",
+    "gtfs_stop_ids": [
+      "405"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "381": {
+    "complex_id": "381",
+    "display_name": "Kingsbridge Rd (4)",
+    "gtfs_stop_ids": [
+      "406"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "382": {
+    "complex_id": "382",
+    "display_name": "Fordham Rd (4)",
+    "gtfs_stop_ids": [
+      "407"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "383": {
+    "complex_id": "383",
+    "display_name": "183 St (4)",
+    "gtfs_stop_ids": [
+      "408"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "384": {
+    "complex_id": "384",
+    "display_name": "Burnside Av (4)",
+    "gtfs_stop_ids": [
+      "409"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "385": {
+    "complex_id": "385",
+    "display_name": "176 St (4)",
+    "gtfs_stop_ids": [
+      "410"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "386": {
+    "complex_id": "386",
+    "display_name": "Mt Eden Av (4)",
+    "gtfs_stop_ids": [
+      "411"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "387": {
+    "complex_id": "387",
+    "display_name": "170 St (4)",
+    "gtfs_stop_ids": [
+      "412"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "388": {
+    "complex_id": "388",
+    "display_name": "167 St (4)",
+    "gtfs_stop_ids": [
+      "413"
+    ],
+    "routes": [
+      "4"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "391": {
+    "complex_id": "391",
+    "display_name": "138 St-Grand Concourse (4,5)",
+    "gtfs_stop_ids": [
+      "416"
+    ],
+    "routes": [
+      "4",
+      "5"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "392": {
+    "complex_id": "392",
+    "display_name": "125 St (4,5,6)",
+    "gtfs_stop_ids": [
+      "621"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "393": {
+    "complex_id": "393",
+    "display_name": "116 St (6)",
+    "gtfs_stop_ids": [
+      "622"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "394": {
+    "complex_id": "394",
+    "display_name": "110 St (6)",
+    "gtfs_stop_ids": [
+      "623"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "395": {
+    "complex_id": "395",
+    "display_name": "103 St (6)",
+    "gtfs_stop_ids": [
+      "624"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "396": {
+    "complex_id": "396",
+    "display_name": "96 St (6)",
+    "gtfs_stop_ids": [
+      "625"
+    ],
+    "routes": [
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "397": {
+    "complex_id": "397",
+    "display_name": "86 St (4,5,6)",
+    "gtfs_stop_ids": [
+      "626"
+    ],
+    "routes": [
+      "4",
+      "5",
+      "6"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "141": {
+    "complex_id": "141",
+    "display_name": "Park Pl (S)",
+    "gtfs_stop_ids": [
+      "S03"
+    ],
+    "routes": [
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "143": {
+    "complex_id": "143",
+    "display_name": "Inwood-207 St (A)",
+    "gtfs_stop_ids": [
+      "A02"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "144": {
+    "complex_id": "144",
+    "display_name": "Dyckman St (A)",
+    "gtfs_stop_ids": [
+      "A03"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "145": {
+    "complex_id": "145",
+    "display_name": "190 St (A)",
+    "gtfs_stop_ids": [
+      "A05"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "146": {
+    "complex_id": "146",
+    "display_name": "181 St (A)",
+    "gtfs_stop_ids": [
+      "A06"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "147": {
+    "complex_id": "147",
+    "display_name": "175 St (A)",
+    "gtfs_stop_ids": [
+      "A07"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "149": {
+    "complex_id": "149",
+    "display_name": "163 St-Amsterdam Av (C)",
+    "gtfs_stop_ids": [
+      "A10"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "150": {
+    "complex_id": "150",
+    "display_name": "155 St (C)",
+    "gtfs_stop_ids": [
+      "A11"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "151": {
+    "complex_id": "151",
+    "display_name": "145 St (A,C,B,D)",
+    "gtfs_stop_ids": [
+      "A12",
+      "D13"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "152": {
+    "complex_id": "152",
+    "display_name": "135 St (C,B)",
+    "gtfs_stop_ids": [
+      "A14"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "153": {
+    "complex_id": "153",
+    "display_name": "125 St (A,C,B,D)",
+    "gtfs_stop_ids": [
+      "A15"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "154": {
+    "complex_id": "154",
+    "display_name": "116 St (C,B)",
+    "gtfs_stop_ids": [
+      "A16"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "155": {
+    "complex_id": "155",
+    "display_name": "Cathedral Pkwy (110 St) (C,B)",
+    "gtfs_stop_ids": [
+      "A17"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "156": {
+    "complex_id": "156",
+    "display_name": "103 St (C,B)",
+    "gtfs_stop_ids": [
+      "A18"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "157": {
+    "complex_id": "157",
+    "display_name": "96 St (C,B)",
+    "gtfs_stop_ids": [
+      "A19"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "158": {
+    "complex_id": "158",
+    "display_name": "86 St (C,B)",
+    "gtfs_stop_ids": [
+      "A20"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "159": {
+    "complex_id": "159",
+    "display_name": "81 St-Museum of Natural History (C,B)",
+    "gtfs_stop_ids": [
+      "A21"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "160": {
+    "complex_id": "160",
+    "display_name": "72 St (C,B)",
+    "gtfs_stop_ids": [
+      "A22"
+    ],
+    "routes": [
+      "C",
+      "B"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "162": {
+    "complex_id": "162",
+    "display_name": "50 St (C,E)",
+    "gtfs_stop_ids": [
+      "A25"
+    ],
+    "routes": [
+      "C",
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "164": {
+    "complex_id": "164",
+    "display_name": "34 St-Penn Station (A,C,E)",
+    "gtfs_stop_ids": [
+      "A28"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "165": {
+    "complex_id": "165",
+    "display_name": "23 St (C,E)",
+    "gtfs_stop_ids": [
+      "A30"
+    ],
+    "routes": [
+      "C",
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "167": {
+    "complex_id": "167",
+    "display_name": "W 4 St-Wash Sq (A,C,E,B,D,F,M)",
+    "gtfs_stop_ids": [
+      "A32",
+      "D20"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "E",
+      "B",
+      "D",
+      "F",
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "168": {
+    "complex_id": "168",
+    "display_name": "Spring St (C,E)",
+    "gtfs_stop_ids": [
+      "A33"
+    ],
+    "routes": [
+      "C",
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "169": {
+    "complex_id": "169",
+    "display_name": "Canal St (A,C,E)",
+    "gtfs_stop_ids": [
+      "A34"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "E"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "173": {
+    "complex_id": "173",
+    "display_name": "High St (A,C)",
+    "gtfs_stop_ids": [
+      "A40"
+    ],
+    "routes": [
+      "A",
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "175": {
+    "complex_id": "175",
+    "display_name": "Hoyt-Schermerhorn Sts (A,C,G)",
+    "gtfs_stop_ids": [
+      "A42"
+    ],
+    "routes": [
+      "A",
+      "C",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "176": {
+    "complex_id": "176",
+    "display_name": "Lafayette Av (C)",
+    "gtfs_stop_ids": [
+      "A43"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "177": {
+    "complex_id": "177",
+    "display_name": "Clinton-Washington Avs (C)",
+    "gtfs_stop_ids": [
+      "A44"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "179": {
+    "complex_id": "179",
+    "display_name": "Nostrand Av (A,C)",
+    "gtfs_stop_ids": [
+      "A46"
+    ],
+    "routes": [
+      "A",
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "180": {
+    "complex_id": "180",
+    "display_name": "Kingston-Throop Avs (C)",
+    "gtfs_stop_ids": [
+      "A47"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "181": {
+    "complex_id": "181",
+    "display_name": "Utica Av (A,C)",
+    "gtfs_stop_ids": [
+      "A48"
+    ],
+    "routes": [
+      "A",
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "182": {
+    "complex_id": "182",
+    "display_name": "Ralph Av (C)",
+    "gtfs_stop_ids": [
+      "A49"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "183": {
+    "complex_id": "183",
+    "display_name": "Rockaway Av (C)",
+    "gtfs_stop_ids": [
+      "A50"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "185": {
+    "complex_id": "185",
+    "display_name": "Liberty Av (C)",
+    "gtfs_stop_ids": [
+      "A52"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "186": {
+    "complex_id": "186",
+    "display_name": "Van Siclen Av (C)",
+    "gtfs_stop_ids": [
+      "A53"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "187": {
+    "complex_id": "187",
+    "display_name": "Shepherd Av (C)",
+    "gtfs_stop_ids": [
+      "A54"
+    ],
+    "routes": [
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "188": {
+    "complex_id": "188",
+    "display_name": "Euclid Av (A,C)",
+    "gtfs_stop_ids": [
+      "A55"
+    ],
+    "routes": [
+      "A",
+      "C"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "189": {
+    "complex_id": "189",
+    "display_name": "Grant Av (A)",
+    "gtfs_stop_ids": [
+      "A57"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "190": {
+    "complex_id": "190",
+    "display_name": "80 St (A)",
+    "gtfs_stop_ids": [
+      "A59"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "191": {
+    "complex_id": "191",
+    "display_name": "88 St (A)",
+    "gtfs_stop_ids": [
+      "A60"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "192": {
+    "complex_id": "192",
+    "display_name": "Rockaway Blvd (A)",
+    "gtfs_stop_ids": [
+      "A61"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "193": {
+    "complex_id": "193",
+    "display_name": "104 St (A)",
+    "gtfs_stop_ids": [
+      "A63"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "194": {
+    "complex_id": "194",
+    "display_name": "111 St (A)",
+    "gtfs_stop_ids": [
+      "A64"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "195": {
+    "complex_id": "195",
+    "display_name": "Ozone Park-Lefferts Blvd (A)",
+    "gtfs_stop_ids": [
+      "A65"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "196": {
+    "complex_id": "196",
+    "display_name": "Aqueduct Racetrack (A)",
+    "gtfs_stop_ids": [
+      "H01"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "197": {
+    "complex_id": "197",
+    "display_name": "Aqueduct-N Conduit Av (A)",
+    "gtfs_stop_ids": [
+      "H02"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "198": {
+    "complex_id": "198",
+    "display_name": "Howard Beach-JFK Airport (A)",
+    "gtfs_stop_ids": [
+      "H03"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "199": {
+    "complex_id": "199",
+    "display_name": "Broad Channel (A,S)",
+    "gtfs_stop_ids": [
+      "H04"
+    ],
+    "routes": [
+      "A",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "200": {
+    "complex_id": "200",
+    "display_name": "Beach 90 St (A,S)",
+    "gtfs_stop_ids": [
+      "H12"
+    ],
+    "routes": [
+      "A",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "201": {
+    "complex_id": "201",
+    "display_name": "Beach 98 St (A,S)",
+    "gtfs_stop_ids": [
+      "H13"
+    ],
+    "routes": [
+      "A",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "202": {
+    "complex_id": "202",
+    "display_name": "Beach 105 St (A,S)",
+    "gtfs_stop_ids": [
+      "H14"
+    ],
+    "routes": [
+      "A",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "203": {
+    "complex_id": "203",
+    "display_name": "Rockaway Park-Beach 116 St (A,S)",
+    "gtfs_stop_ids": [
+      "H15"
+    ],
+    "routes": [
+      "A",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "204": {
+    "complex_id": "204",
+    "display_name": "Beach 67 St (A)",
+    "gtfs_stop_ids": [
+      "H06"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "205": {
+    "complex_id": "205",
+    "display_name": "Beach 60 St (A)",
+    "gtfs_stop_ids": [
+      "H07"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "206": {
+    "complex_id": "206",
+    "display_name": "Beach 44 St (A)",
+    "gtfs_stop_ids": [
+      "H08"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "207": {
+    "complex_id": "207",
+    "display_name": "Beach 36 St (A)",
+    "gtfs_stop_ids": [
+      "H09"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "208": {
+    "complex_id": "208",
+    "display_name": "Beach 25 St (A)",
+    "gtfs_stop_ids": [
+      "H10"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "209": {
+    "complex_id": "209",
+    "display_name": "Far Rockaway-Mott Av (A)",
+    "gtfs_stop_ids": [
+      "H11"
+    ],
+    "routes": [
+      "A"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "210": {
+    "complex_id": "210",
+    "display_name": "Norwood-205 St (D)",
+    "gtfs_stop_ids": [
+      "D01"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "211": {
+    "complex_id": "211",
+    "display_name": "Bedford Park Blvd (B,D)",
+    "gtfs_stop_ids": [
+      "D03"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "212": {
+    "complex_id": "212",
+    "display_name": "Kingsbridge Rd (B,D)",
+    "gtfs_stop_ids": [
+      "D04"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "213": {
+    "complex_id": "213",
+    "display_name": "Fordham Rd (B,D)",
+    "gtfs_stop_ids": [
+      "D05"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "214": {
+    "complex_id": "214",
+    "display_name": "182-183 Sts (B,D)",
+    "gtfs_stop_ids": [
+      "D06"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "215": {
+    "complex_id": "215",
+    "display_name": "Tremont Av (B,D)",
+    "gtfs_stop_ids": [
+      "D07"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "216": {
+    "complex_id": "216",
+    "display_name": "174-175 Sts (B,D)",
+    "gtfs_stop_ids": [
+      "D08"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "217": {
+    "complex_id": "217",
+    "display_name": "170 St (B,D)",
+    "gtfs_stop_ids": [
+      "D09"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "218": {
+    "complex_id": "218",
+    "display_name": "167 St (B,D)",
+    "gtfs_stop_ids": [
+      "D10"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bx"
+  },
+  "220": {
+    "complex_id": "220",
+    "display_name": "155 St (B,D)",
+    "gtfs_stop_ids": [
+      "D12"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "221": {
+    "complex_id": "221",
+    "display_name": "21 St-Queensbridge (M)",
+    "gtfs_stop_ids": [
+      "B04"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "222": {
+    "complex_id": "222",
+    "display_name": "Roosevelt Island (M)",
+    "gtfs_stop_ids": [
+      "B06"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "223": {
+    "complex_id": "223",
+    "display_name": "Lexington Av/63 St (M,Q)",
+    "gtfs_stop_ids": [
+      "B08"
+    ],
+    "routes": [
+      "M",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "224": {
+    "complex_id": "224",
+    "display_name": "57 St (M)",
+    "gtfs_stop_ids": [
+      "B10"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "225": {
+    "complex_id": "225",
+    "display_name": "47-50 Sts-Rockefeller Ctr (B,D,F,M)",
+    "gtfs_stop_ids": [
+      "D15"
+    ],
+    "routes": [
+      "B",
+      "D",
+      "F",
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "228": {
+    "complex_id": "228",
+    "display_name": "23 St (F,M)",
+    "gtfs_stop_ids": [
+      "D18"
+    ],
+    "routes": [
+      "F",
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "231": {
+    "complex_id": "231",
+    "display_name": "Grand St (B,D)",
+    "gtfs_stop_ids": [
+      "D22"
+    ],
+    "routes": [
+      "B",
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "232": {
+    "complex_id": "232",
+    "display_name": "2 Av (F)",
+    "gtfs_stop_ids": [
+      "F14"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "234": {
+    "complex_id": "234",
+    "display_name": "East Broadway (F)",
+    "gtfs_stop_ids": [
+      "F16"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "235": {
+    "complex_id": "235",
+    "display_name": "York St (F)",
+    "gtfs_stop_ids": [
+      "F18"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "236": {
+    "complex_id": "236",
+    "display_name": "Bergen St (F,G)",
+    "gtfs_stop_ids": [
+      "F20"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "237": {
+    "complex_id": "237",
+    "display_name": "Carroll St (F,G)",
+    "gtfs_stop_ids": [
+      "F21"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "238": {
+    "complex_id": "238",
+    "display_name": "Smith-9 Sts (F,G)",
+    "gtfs_stop_ids": [
+      "F22"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "240": {
+    "complex_id": "240",
+    "display_name": "7 Av (F,G)",
+    "gtfs_stop_ids": [
+      "F24"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "241": {
+    "complex_id": "241",
+    "display_name": "15 St-Prospect Park (F,G)",
+    "gtfs_stop_ids": [
+      "F25"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "242": {
+    "complex_id": "242",
+    "display_name": "Fort Hamilton Pkwy (F,G)",
+    "gtfs_stop_ids": [
+      "F26"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "243": {
+    "complex_id": "243",
+    "display_name": "Church Av (F,G)",
+    "gtfs_stop_ids": [
+      "F27"
+    ],
+    "routes": [
+      "F",
+      "G"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "244": {
+    "complex_id": "244",
+    "display_name": "Ditmas Av (F)",
+    "gtfs_stop_ids": [
+      "F29"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "245": {
+    "complex_id": "245",
+    "display_name": "18 Av (F)",
+    "gtfs_stop_ids": [
+      "F30"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "246": {
+    "complex_id": "246",
+    "display_name": "Avenue I (F)",
+    "gtfs_stop_ids": [
+      "F31"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "247": {
+    "complex_id": "247",
+    "display_name": "Bay Pkwy (F)",
+    "gtfs_stop_ids": [
+      "F32"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "248": {
+    "complex_id": "248",
+    "display_name": "Avenue N (F)",
+    "gtfs_stop_ids": [
+      "F33"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "249": {
+    "complex_id": "249",
+    "display_name": "Avenue P (F)",
+    "gtfs_stop_ids": [
+      "F34"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "250": {
+    "complex_id": "250",
+    "display_name": "Kings Hwy (F)",
+    "gtfs_stop_ids": [
+      "F35"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "251": {
+    "complex_id": "251",
+    "display_name": "Avenue U (F)",
+    "gtfs_stop_ids": [
+      "F36"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "252": {
+    "complex_id": "252",
+    "display_name": "Avenue X (F)",
+    "gtfs_stop_ids": [
+      "F38"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "253": {
+    "complex_id": "253",
+    "display_name": "Neptune Av (F)",
+    "gtfs_stop_ids": [
+      "F39"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "254": {
+    "complex_id": "254",
+    "display_name": "Jamaica-179 St (F)",
+    "gtfs_stop_ids": [
+      "F01"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "255": {
+    "complex_id": "255",
+    "display_name": "169 St (F)",
+    "gtfs_stop_ids": [
+      "F02"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "256": {
+    "complex_id": "256",
+    "display_name": "Parsons Blvd (F)",
+    "gtfs_stop_ids": [
+      "F03"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "257": {
+    "complex_id": "257",
+    "display_name": "Sutphin Blvd (F)",
+    "gtfs_stop_ids": [
+      "F04"
+    ],
+    "routes": [
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "258": {
+    "complex_id": "258",
+    "display_name": "Briarwood (E,F)",
+    "gtfs_stop_ids": [
+      "F05"
+    ],
+    "routes": [
+      "E",
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "259": {
+    "complex_id": "259",
+    "display_name": "Kew Gardens-Union Tpke (E,F)",
+    "gtfs_stop_ids": [
+      "F06"
+    ],
+    "routes": [
+      "E",
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "260": {
+    "complex_id": "260",
+    "display_name": "75 Av (E,F)",
+    "gtfs_stop_ids": [
+      "F07"
+    ],
+    "routes": [
+      "E",
+      "F"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "261": {
+    "complex_id": "261",
+    "display_name": "Forest Hills-71 Av (E,F,M,R)",
+    "gtfs_stop_ids": [
+      "G08"
+    ],
+    "routes": [
+      "E",
+      "F",
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "262": {
+    "complex_id": "262",
+    "display_name": "67 Av (M,R)",
+    "gtfs_stop_ids": [
+      "G09"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "263": {
+    "complex_id": "263",
+    "display_name": "63 Dr-Rego Park (M,R)",
+    "gtfs_stop_ids": [
+      "G10"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "264": {
+    "complex_id": "264",
+    "display_name": "Woodhaven Blvd (M,R)",
+    "gtfs_stop_ids": [
+      "G11"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "265": {
+    "complex_id": "265",
+    "display_name": "Grand Av-Newtown (M,R)",
+    "gtfs_stop_ids": [
+      "G12"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "266": {
+    "complex_id": "266",
+    "display_name": "Elmhurst Av (M,R)",
+    "gtfs_stop_ids": [
+      "G13"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "268": {
+    "complex_id": "268",
+    "display_name": "65 St (M,R)",
+    "gtfs_stop_ids": [
+      "G15"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "269": {
+    "complex_id": "269",
+    "display_name": "Northern Blvd (M,R)",
+    "gtfs_stop_ids": [
+      "G16"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "270": {
+    "complex_id": "270",
+    "display_name": "46 St (M,R)",
+    "gtfs_stop_ids": [
+      "G18"
+    ],
+    "routes": [
+      "M",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "1": {
+    "complex_id": "1",
+    "display_name": "Astoria-Ditmars Blvd (N,W)",
+    "gtfs_stop_ids": [
+      "R01"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "2": {
+    "complex_id": "2",
+    "display_name": "Astoria Blvd (N,W)",
+    "gtfs_stop_ids": [
+      "R03"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "3": {
+    "complex_id": "3",
+    "display_name": "30 Av (N,W)",
+    "gtfs_stop_ids": [
+      "R04"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "4": {
+    "complex_id": "4",
+    "display_name": "Broadway (N,W)",
+    "gtfs_stop_ids": [
+      "R05"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "5": {
+    "complex_id": "5",
+    "display_name": "36 Av (N,W)",
+    "gtfs_stop_ids": [
+      "R06"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "6": {
+    "complex_id": "6",
+    "display_name": "39 Av-Dutch Kills (N,W)",
+    "gtfs_stop_ids": [
+      "R08"
+    ],
+    "routes": [
+      "N",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "8": {
+    "complex_id": "8",
+    "display_name": "5 Av/59 St (N,R,W)",
+    "gtfs_stop_ids": [
+      "R13"
+    ],
+    "routes": [
+      "N",
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "9": {
+    "complex_id": "9",
+    "display_name": "57 St-7 Av (N,Q,R,W)",
+    "gtfs_stop_ids": [
+      "R14"
+    ],
+    "routes": [
+      "N",
+      "Q",
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "10": {
+    "complex_id": "10",
+    "display_name": "49 St (N,R,W)",
+    "gtfs_stop_ids": [
+      "R15"
+    ],
+    "routes": [
+      "N",
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "13": {
+    "complex_id": "13",
+    "display_name": "28 St (R,W)",
+    "gtfs_stop_ids": [
+      "R18"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "14": {
+    "complex_id": "14",
+    "display_name": "23 St (R,W)",
+    "gtfs_stop_ids": [
+      "R19"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "16": {
+    "complex_id": "16",
+    "display_name": "8 St-NYU (R,W)",
+    "gtfs_stop_ids": [
+      "R21"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "17": {
+    "complex_id": "17",
+    "display_name": "Prince St (R,W)",
+    "gtfs_stop_ids": [
+      "R22"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "20": {
+    "complex_id": "20",
+    "display_name": "City Hall (R,W)",
+    "gtfs_stop_ids": [
+      "R24"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "22": {
+    "complex_id": "22",
+    "display_name": "Rector St (R,W)",
+    "gtfs_stop_ids": [
+      "R26"
+    ],
+    "routes": [
+      "R",
+      "W"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "26": {
+    "complex_id": "26",
+    "display_name": "DeKalb Av (B,Q,R)",
+    "gtfs_stop_ids": [
+      "R30"
+    ],
+    "routes": [
+      "B",
+      "Q",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "28": {
+    "complex_id": "28",
+    "display_name": "Union St (R)",
+    "gtfs_stop_ids": [
+      "R32"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "30": {
+    "complex_id": "30",
+    "display_name": "Prospect Av (R)",
+    "gtfs_stop_ids": [
+      "R34"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "31": {
+    "complex_id": "31",
+    "display_name": "25 St (R)",
+    "gtfs_stop_ids": [
+      "R35"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "32": {
+    "complex_id": "32",
+    "display_name": "36 St (D,N,R)",
+    "gtfs_stop_ids": [
+      "R36"
+    ],
+    "routes": [
+      "D",
+      "N",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "33": {
+    "complex_id": "33",
+    "display_name": "45 St (R)",
+    "gtfs_stop_ids": [
+      "R39"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "34": {
+    "complex_id": "34",
+    "display_name": "53 St (R)",
+    "gtfs_stop_ids": [
+      "R40"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "35": {
+    "complex_id": "35",
+    "display_name": "59 St (N,R)",
+    "gtfs_stop_ids": [
+      "R41"
+    ],
+    "routes": [
+      "N",
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "36": {
+    "complex_id": "36",
+    "display_name": "Bay Ridge Av (R)",
+    "gtfs_stop_ids": [
+      "R42"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "37": {
+    "complex_id": "37",
+    "display_name": "77 St (R)",
+    "gtfs_stop_ids": [
+      "R43"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "38": {
+    "complex_id": "38",
+    "display_name": "86 St (R)",
+    "gtfs_stop_ids": [
+      "R44"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "39": {
+    "complex_id": "39",
+    "display_name": "Bay Ridge-95 St (R)",
+    "gtfs_stop_ids": [
+      "R45"
+    ],
+    "routes": [
+      "R"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "41": {
+    "complex_id": "41",
+    "display_name": "7 Av (B,Q)",
+    "gtfs_stop_ids": [
+      "D25"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "42": {
+    "complex_id": "42",
+    "display_name": "Prospect Park (B,Q,S)",
+    "gtfs_stop_ids": [
+      "D26"
+    ],
+    "routes": [
+      "B",
+      "Q",
+      "S"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "43": {
+    "complex_id": "43",
+    "display_name": "Parkside Av (Q)",
+    "gtfs_stop_ids": [
+      "D27"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "44": {
+    "complex_id": "44",
+    "display_name": "Church Av (B,Q)",
+    "gtfs_stop_ids": [
+      "D28"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "45": {
+    "complex_id": "45",
+    "display_name": "Beverley Rd (Q)",
+    "gtfs_stop_ids": [
+      "D29"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "46": {
+    "complex_id": "46",
+    "display_name": "Cortelyou Rd (Q)",
+    "gtfs_stop_ids": [
+      "D30"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "47": {
+    "complex_id": "47",
+    "display_name": "Newkirk Plaza (B,Q)",
+    "gtfs_stop_ids": [
+      "D31"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "48": {
+    "complex_id": "48",
+    "display_name": "Avenue H (Q)",
+    "gtfs_stop_ids": [
+      "D32"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "49": {
+    "complex_id": "49",
+    "display_name": "Avenue J (Q)",
+    "gtfs_stop_ids": [
+      "D33"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "50": {
+    "complex_id": "50",
+    "display_name": "Avenue M (Q)",
+    "gtfs_stop_ids": [
+      "D34"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "51": {
+    "complex_id": "51",
+    "display_name": "Kings Hwy (B,Q)",
+    "gtfs_stop_ids": [
+      "D35"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "52": {
+    "complex_id": "52",
+    "display_name": "Avenue U (Q)",
+    "gtfs_stop_ids": [
+      "D37"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "53": {
+    "complex_id": "53",
+    "display_name": "Neck Rd (Q)",
+    "gtfs_stop_ids": [
+      "D38"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "54": {
+    "complex_id": "54",
+    "display_name": "Sheepshead Bay (B,Q)",
+    "gtfs_stop_ids": [
+      "D39"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "55": {
+    "complex_id": "55",
+    "display_name": "Brighton Beach (B,Q)",
+    "gtfs_stop_ids": [
+      "D40"
+    ],
+    "routes": [
+      "B",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "56": {
+    "complex_id": "56",
+    "display_name": "Ocean Pkwy (Q)",
+    "gtfs_stop_ids": [
+      "D41"
+    ],
+    "routes": [
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "57": {
+    "complex_id": "57",
+    "display_name": "W 8 St-NY Aquarium (F,Q)",
+    "gtfs_stop_ids": [
+      "D42"
+    ],
+    "routes": [
+      "F",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "58": {
+    "complex_id": "58",
+    "display_name": "Coney Island-Stillwell Av (D,F,N,Q)",
+    "gtfs_stop_ids": [
+      "D43"
+    ],
+    "routes": [
+      "D",
+      "F",
+      "N",
+      "Q"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "59": {
+    "complex_id": "59",
+    "display_name": "9 Av (D)",
+    "gtfs_stop_ids": [
+      "B12"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "60": {
+    "complex_id": "60",
+    "display_name": "Fort Hamilton Pkwy (D)",
+    "gtfs_stop_ids": [
+      "B13"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "61": {
+    "complex_id": "61",
+    "display_name": "50 St (D)",
+    "gtfs_stop_ids": [
+      "B14"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "62": {
+    "complex_id": "62",
+    "display_name": "55 St (D)",
+    "gtfs_stop_ids": [
+      "B15"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "64": {
+    "complex_id": "64",
+    "display_name": "71 St (D)",
+    "gtfs_stop_ids": [
+      "B17"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "65": {
+    "complex_id": "65",
+    "display_name": "79 St (D)",
+    "gtfs_stop_ids": [
+      "B18"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "66": {
+    "complex_id": "66",
+    "display_name": "18 Av (D)",
+    "gtfs_stop_ids": [
+      "B19"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "67": {
+    "complex_id": "67",
+    "display_name": "20 Av (D)",
+    "gtfs_stop_ids": [
+      "B20"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "68": {
+    "complex_id": "68",
+    "display_name": "Bay Pkwy (D)",
+    "gtfs_stop_ids": [
+      "B21"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "69": {
+    "complex_id": "69",
+    "display_name": "25 Av (D)",
+    "gtfs_stop_ids": [
+      "B22"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "70": {
+    "complex_id": "70",
+    "display_name": "Bay 50 St (D)",
+    "gtfs_stop_ids": [
+      "B23"
+    ],
+    "routes": [
+      "D"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "71": {
+    "complex_id": "71",
+    "display_name": "8 Av (N)",
+    "gtfs_stop_ids": [
+      "N02"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "72": {
+    "complex_id": "72",
+    "display_name": "Fort Hamilton Pkwy (N)",
+    "gtfs_stop_ids": [
+      "N03"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "74": {
+    "complex_id": "74",
+    "display_name": "18 Av (N)",
+    "gtfs_stop_ids": [
+      "N05"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "75": {
+    "complex_id": "75",
+    "display_name": "20 Av (N)",
+    "gtfs_stop_ids": [
+      "N06"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "76": {
+    "complex_id": "76",
+    "display_name": "Bay Pkwy (N)",
+    "gtfs_stop_ids": [
+      "N07"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "77": {
+    "complex_id": "77",
+    "display_name": "Kings Hwy (N)",
+    "gtfs_stop_ids": [
+      "N08"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "78": {
+    "complex_id": "78",
+    "display_name": "Avenue U (N)",
+    "gtfs_stop_ids": [
+      "N09"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "79": {
+    "complex_id": "79",
+    "display_name": "86 St (N)",
+    "gtfs_stop_ids": [
+      "N10"
+    ],
+    "routes": [
+      "N"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "80": {
+    "complex_id": "80",
+    "display_name": "121 St (J,Z)",
+    "gtfs_stop_ids": [
+      "J12"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "81": {
+    "complex_id": "81",
+    "display_name": "111 St (J)",
+    "gtfs_stop_ids": [
+      "J13"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "82": {
+    "complex_id": "82",
+    "display_name": "104 St (J,Z)",
+    "gtfs_stop_ids": [
+      "J14"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "83": {
+    "complex_id": "83",
+    "display_name": "Woodhaven Blvd (J,Z)",
+    "gtfs_stop_ids": [
+      "J15"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "84": {
+    "complex_id": "84",
+    "display_name": "85 St-Forest Pkwy (J)",
+    "gtfs_stop_ids": [
+      "J16"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "85": {
+    "complex_id": "85",
+    "display_name": "75 St-Elderts Ln (J,Z)",
+    "gtfs_stop_ids": [
+      "J17"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "86": {
+    "complex_id": "86",
+    "display_name": "Cypress Hills (J)",
+    "gtfs_stop_ids": [
+      "J19"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "87": {
+    "complex_id": "87",
+    "display_name": "Crescent St (J,Z)",
+    "gtfs_stop_ids": [
+      "J20"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "88": {
+    "complex_id": "88",
+    "display_name": "Norwood Av (J,Z)",
+    "gtfs_stop_ids": [
+      "J21"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "89": {
+    "complex_id": "89",
+    "display_name": "Cleveland St (J)",
+    "gtfs_stop_ids": [
+      "J22"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "90": {
+    "complex_id": "90",
+    "display_name": "Van Siclen Av (J,Z)",
+    "gtfs_stop_ids": [
+      "J23"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "91": {
+    "complex_id": "91",
+    "display_name": "Alabama Av (J,Z)",
+    "gtfs_stop_ids": [
+      "J24"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "93": {
+    "complex_id": "93",
+    "display_name": "Chauncey St (J,Z)",
+    "gtfs_stop_ids": [
+      "J28"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "94": {
+    "complex_id": "94",
+    "display_name": "Halsey St (J)",
+    "gtfs_stop_ids": [
+      "J29"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "95": {
+    "complex_id": "95",
+    "display_name": "Gates Av (J,Z)",
+    "gtfs_stop_ids": [
+      "J30"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "96": {
+    "complex_id": "96",
+    "display_name": "Kosciuszko St (J)",
+    "gtfs_stop_ids": [
+      "J31"
+    ],
+    "routes": [
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "97": {
+    "complex_id": "97",
+    "display_name": "Myrtle Av (M,J,Z)",
+    "gtfs_stop_ids": [
+      "M11"
+    ],
+    "routes": [
+      "M",
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "98": {
+    "complex_id": "98",
+    "display_name": "Flushing Av (M,J)",
+    "gtfs_stop_ids": [
+      "M12"
+    ],
+    "routes": [
+      "M",
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "99": {
+    "complex_id": "99",
+    "display_name": "Lorimer St (M,J)",
+    "gtfs_stop_ids": [
+      "M13"
+    ],
+    "routes": [
+      "M",
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "100": {
+    "complex_id": "100",
+    "display_name": "Hewes St (M,J)",
+    "gtfs_stop_ids": [
+      "M14"
+    ],
+    "routes": [
+      "M",
+      "J"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "101": {
+    "complex_id": "101",
+    "display_name": "Marcy Av (M,J,Z)",
+    "gtfs_stop_ids": [
+      "M16"
+    ],
+    "routes": [
+      "M",
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "103": {
+    "complex_id": "103",
+    "display_name": "Bowery (J,Z)",
+    "gtfs_stop_ids": [
+      "M19"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "107": {
+    "complex_id": "107",
+    "display_name": "Broad St (J,Z)",
+    "gtfs_stop_ids": [
+      "M23"
+    ],
+    "routes": [
+      "J",
+      "Z"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "108": {
+    "complex_id": "108",
+    "display_name": "Middle Village-Metropolitan Av (M)",
+    "gtfs_stop_ids": [
+      "M01"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "109": {
+    "complex_id": "109",
+    "display_name": "Fresh Pond Rd (M)",
+    "gtfs_stop_ids": [
+      "M04"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "110": {
+    "complex_id": "110",
+    "display_name": "Forest Av (M)",
+    "gtfs_stop_ids": [
+      "M05"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "111": {
+    "complex_id": "111",
+    "display_name": "Seneca Av (M)",
+    "gtfs_stop_ids": [
+      "M06"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "113": {
+    "complex_id": "113",
+    "display_name": "Knickerbocker Av (M)",
+    "gtfs_stop_ids": [
+      "M09"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "114": {
+    "complex_id": "114",
+    "display_name": "Central Av (M)",
+    "gtfs_stop_ids": [
+      "M10"
+    ],
+    "routes": [
+      "M"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "118": {
+    "complex_id": "118",
+    "display_name": "3 Av (L)",
+    "gtfs_stop_ids": [
+      "L05"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "119": {
+    "complex_id": "119",
+    "display_name": "1 Av (L)",
+    "gtfs_stop_ids": [
+      "L06"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "M"
+  },
+  "120": {
+    "complex_id": "120",
+    "display_name": "Bedford Av (L)",
+    "gtfs_stop_ids": [
+      "L08"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "122": {
+    "complex_id": "122",
+    "display_name": "Graham Av (L)",
+    "gtfs_stop_ids": [
+      "L11"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "123": {
+    "complex_id": "123",
+    "display_name": "Grand St (L)",
+    "gtfs_stop_ids": [
+      "L12"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "124": {
+    "complex_id": "124",
+    "display_name": "Montrose Av (L)",
+    "gtfs_stop_ids": [
+      "L13"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "125": {
+    "complex_id": "125",
+    "display_name": "Morgan Av (L)",
+    "gtfs_stop_ids": [
+      "L14"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "126": {
+    "complex_id": "126",
+    "display_name": "Jefferson St (L)",
+    "gtfs_stop_ids": [
+      "L15"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "127": {
+    "complex_id": "127",
+    "display_name": "DeKalb Av (L)",
+    "gtfs_stop_ids": [
+      "L16"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "129": {
+    "complex_id": "129",
+    "display_name": "Halsey St (L)",
+    "gtfs_stop_ids": [
+      "L19"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Q"
+  },
+  "130": {
+    "complex_id": "130",
+    "display_name": "Wilson Av (L)",
+    "gtfs_stop_ids": [
+      "L20"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "131": {
+    "complex_id": "131",
+    "display_name": "Bushwick Av-Aberdeen St (L)",
+    "gtfs_stop_ids": [
+      "L21"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "133": {
+    "complex_id": "133",
+    "display_name": "Atlantic Av (L)",
+    "gtfs_stop_ids": [
+      "L24"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "134": {
+    "complex_id": "134",
+    "display_name": "Sutter Av (L)",
+    "gtfs_stop_ids": [
+      "L25"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "135": {
+    "complex_id": "135",
+    "display_name": "Livonia Av (L)",
+    "gtfs_stop_ids": [
+      "L26"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "136": {
+    "complex_id": "136",
+    "display_name": "New Lots Av (L)",
+    "gtfs_stop_ids": [
+      "L27"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "137": {
+    "complex_id": "137",
+    "display_name": "East 105 St (L)",
+    "gtfs_stop_ids": [
+      "L28"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  },
+  "138": {
+    "complex_id": "138",
+    "display_name": "Canarsie-Rockaway Pkwy (L)",
+    "gtfs_stop_ids": [
+      "L29"
+    ],
+    "routes": [
+      "L"
+    ],
+    "is_complex": false,
+    "borough": "Bk"
+  }
+}
