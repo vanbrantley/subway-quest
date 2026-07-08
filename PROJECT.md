@@ -1,4 +1,4 @@
-# Subway Quest — Project Context
+# SubwayQuest
 
 ## What this is
 
@@ -78,8 +78,8 @@ root/
 ## Status / order of operations
 
 1. ✅ **Data precompute** — done, verified, described above
-2. ⬜ **Scaffold Expo project** — bare app, navigation shell, nothing functional yet
-3. ⬜ **Map screen** — render stations + route polylines from static JSON, pan/zoom, nothing tappable yet
+2. ✅ **Scaffold Expo project** — bare app, navigation shell, nothing functional yet
+3. ✅ **Map screen** — render stations + route polylines from static JSON, pan/zoom, nothing tappable yet
 4. ⬜ **Station tap → station info view** — static JSON only, no trip logic
 5. ⬜ **Trip logging flow** — start trip → pick line → pick start/end via station picker → add transfer (intelligently filtered by complex) → undo → complete trip, written to local SQLite
 6. ⬜ **Supabase wiring + outbox sync** — flush local trips to Supabase when online
@@ -93,3 +93,4 @@ Each step should be independently testable on-device via TestFlight, not just at
 - Snowflake vs. Redshift for the eventual analytics warehouse
 - Power BI vs. Streamlit for the eventual BI/dashboard layer
 - Whether/how to simplify `route_shapes.json` polyline precision before bundling into the app
+- Parallel-offset rendering for routes that share physical track (e.g. lines run together and only the topmost renders, unlike Google Maps' zoom-dependent line-spreading). `react-native-maps`' `Polyline` draws raw lat/lon with no concept of nearby-line offset — real fix would need a vector-tile renderer (Mapbox GL/MapLibre) with zoom-dependent style expressions, or a cheaper static-offset approximation in the pipeline. Deferred; not blocking.

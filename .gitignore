@@ -36,6 +36,9 @@ mobile/*.mobileprovision
 mobile/.env
 mobile/.env.local
 
+# Copied pipeline output — regenerated via `node scripts/sync-data.js`, not hand-edited
+mobile/src/data/*.json
+
 # Metro
 .metro-health-check*
 
