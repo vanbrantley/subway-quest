@@ -160,7 +160,6 @@ CREATE TABLE legs (
                                                 -- and for identifying transfers between consecutive legs
 
     route_id           TEXT NOT NULL,
-    direction_id       TEXT NOT NULL,
     entry_station_id   TEXT NOT NULL,          -- named entry/exit here rather than the event payload's shared "station_id",
     exit_station_id    TEXT NOT NULL,          -- since one row needs to hold both
 

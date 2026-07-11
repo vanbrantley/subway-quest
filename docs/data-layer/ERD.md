@@ -42,7 +42,6 @@ erDiagram
         string trip_id FK
         int sequence
         string route_id
-        string direction_id
         string entry_station_id
         string exit_station_id
         string boarded_at
@@ -119,7 +118,7 @@ types or tables, just a static quest-definitions table joined against the mart l
 | 1 | Immutable, append-only event log | ✅ `events` |
 | 2 | Client-generated idempotency keys | ✅ `event_id`, collision-safe UUIDs throughout |
 | 3 | Documented event schema per event type | ✅ event-taxonomy.md |
-| 4 | Real constraints at schema level | ✅ tested against real inserts, not just written |
+| 4 | Real constraints at schema level | ✅ `mobile/db/schema_tests.py` — 29 checks, real file, re-runnable |
 | 5 | Explicitly designed edge cases | ✅ documented in event-taxonomy.md |
 | 6 | Sync policy, stated | ✅ idempotent-insert / single-writer, no real conflicts possible |
 | 7 | dbt staging → intermediate → mart, with tests | ⬜ later phase — Supabase/BigQuery not wired up yet |

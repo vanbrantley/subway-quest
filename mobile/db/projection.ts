@@ -18,7 +18,6 @@ export type DraftLeg = {
     // maintaining this via push/pop; schema.sql's UNIQUE(trip_id, sequence)
     // and CHECK(sequence >= 1) catch a violation if it doesn't
     routeId: string;
-    directionId: string;
     entryStationId: string;
     exitStationId: string;
 };
@@ -38,11 +37,37 @@ export type CommitContext = {
 
 const EVENT_VERSION = 1;
 
-/** Combines the user-picked date with the actual current time-of-day.
- *  Only the date is ever user-editable — see taxonomy doc's "Date-only backdating". */
+/** Local calendar date ('YYYY-MM-DD') for a given moment. Deliberately NOT
+ *  `date.toISOString().slice(0, 10)` — that returns the UTC calendar date,
+ *  which is wrong near local midnight (see buildOccurredAt below). */
+function localDateString(d: Date = new Date()): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/** Combines the user-picked local calendar date with the actual current
+ *  local time-of-day, producing a correct UTC instant. Only the date is
+ *  ever user-editable — see taxonomy doc's "Date-only backdating".
+ *
+ *  FIXED (was a real bug): the original implementation built this by
+ *  slicing the time-of-day off `new Date().toISOString()` (always UTC) and
+ *  gluing it directly onto the local `pickedDate` string. Those are two
+ *  different reference frames — the result claimed to be UTC (`Z` suffix)
+ *  but wasn't, and could resolve to a date a full day off from what
+ *  actually happened depending on the offset and time of day. Fixed by
+ *  constructing the moment from consistent local-time components via the
+ *  Date constructor (which interprets year/month/day/hours as local time),
+ *  then letting `toISOString()` do one correct local→UTC conversion. */
 function buildOccurredAt(pickedDate: string): string {
-    const timeOfDay = new Date().toISOString().slice(11); // 'HH:MM:SS.sssZ'
-    return `${pickedDate}T${timeOfDay}`;
+    const [year, month, day] = pickedDate.split('-').map(Number);
+    const now = new Date();
+    const localMoment = new Date(
+        year, month - 1, day,
+        now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()
+    );
+    return localMoment.toISOString();
 }
 
 async function insertEvent(
@@ -107,7 +132,7 @@ export async function commitTrip(
             await insertEvent(db, {
                 eventType: 'leg_boarded', eventDomain: 'trip', occurredAt, recordedAt, ctx,
                 tripId, legId,
-                payload: { station_id: leg.entryStationId, route_id: leg.routeId, direction_id: leg.directionId },
+                payload: { station_id: leg.entryStationId, route_id: leg.routeId },
             });
 
             await insertEvent(db, {
@@ -137,10 +162,10 @@ export async function commitTrip(
             const legId = legIds[i];
             await db.runAsync(
                 `INSERT INTO legs
-           (leg_id, trip_id, sequence, route_id, direction_id,
+           (leg_id, trip_id, sequence, route_id,
             entry_station_id, exit_station_id, boarded_at, alighted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [legId, tripId, leg.sequence, leg.routeId, leg.directionId, leg.entryStationId, leg.exitStationId, occurredAt, occurredAt]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [legId, tripId, leg.sequence, leg.routeId, leg.entryStationId, leg.exitStationId, occurredAt, occurredAt]
             );
         }
     });
@@ -160,7 +185,7 @@ export async function deleteTrip(
     ctx: CommitContext,
     reason?: string
 ): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateString();
     const occurredAt = buildOccurredAt(today);
     const recordedAt = new Date().toISOString();
 

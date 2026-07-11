@@ -31,6 +31,16 @@ rows — still small, still fine to query however's convenient), but it does mea
 real indexing/clustering on `device_id`/`user_id` and `trip_id` from day one, and every client-generated
 ID needs to be collision-safe across independent phones, not just internally consistent on one device.
 
+**`device_id`-scoping is an organizational convenience, not a security boundary — stated explicitly so
+it isn't mistaken for one.** `device_id` is a client-generated UUID with nothing cryptographically
+backing it: no signed token proves a given Supabase request actually comes from the device claiming
+that `device_id`. So while planned RLS policies keyed on `device_id` will correctly *organize* data by
+who it belongs to, they don't yet *protect* it — anyone who obtained or guessed another `device_id`
+could read or write rows under it. Real client isolation doesn't exist until either real auth ships
+(a signed session, not a self-reported UUID) or requests carry some other form of signed device
+attestation. Worth being upfront about this now rather than having it discovered during Supabase
+wiring — the honest posture is "no real isolation yet," not "isolated by `device_id`."
+
 ## Sync policy
 
 **There is no conflict resolution, by design — not "last-write-wins," genuinely nothing to resolve.**
@@ -108,7 +118,7 @@ One row per continuous ride. A trip has one or more legs.
 
 | event_type | payload | grain |
 |---|---|---|
-| `leg_boarded` | `{ trip_id, leg_id, station_id, route_id, direction_id }` | Once per leg, on boarding. |
+| `leg_boarded` | `{ trip_id, leg_id, station_id, route_id }` | Once per leg, on boarding. |
 | `leg_alighted` | `{ trip_id, leg_id, station_id }` | Once per leg, on alighting. |
 
 **Transfers are not a separate event type.** A transfer is the pattern `leg_alighted` → `leg_boarded`
@@ -137,7 +147,7 @@ where drafting friction (undos, abandonment) becomes measurable, without touchin
 | event_type | payload | grain |
 |---|---|---|
 | `trip_draft_started` | `{ draft_id }` | Once per drafting session — screen opened. |
-| `draft_leg_added` | `{ draft_id, sequence, route_id, direction_id, entry_station_id }` | Once per leg added to the draft. |
+| `draft_leg_added` | `{ draft_id, sequence, route_id, entry_station_id }` | Once per leg added to the draft. |
 | `draft_leg_removed` | `{ draft_id, sequence }` | Once per leg removed from the draft — the undo-count signal. |
 | `trip_draft_committed` | `{ draft_id, trip_id }` | Fired at the "Log Trip" tap, alongside (same transaction as) the trip-domain bundle it produces. Bridges `draft_id` to the `trip_id` it became, for downstream questions like "did sessions with more undos still convert." |
 | `trip_draft_abandoned` | `{ draft_id }` | Terminal event when the user backs out without committing. Undo/edit counts for the session aren't duplicated here — derivable downstream by grouping on `draft_id`. |
@@ -208,6 +218,17 @@ that already happened, never an instruction.
 - No time-of-day input, anywhere — only date-level backdating. Per-leg real timestamps were never
   something batch logging could honestly provide.
 - Product event taxonomy intentionally thin — grows with actual UI, not ahead of it.
+- **No `direction_id` stored anywhere** — briefly added to `legs` and `leg_boarded`'s payload, then
+  removed. Fully redundant with `entry_station_id`/`exit_station_id`: given those two stations and a
+  route, direction is derivable from their relative order in `network/processed/route_stops.json`'s
+  stop sequence. Storing it separately meant holding a fact that could theoretically disagree with the
+  stations that actually imply it — same "don't store what's derivable" reasoning already applied to
+  transfers, just not caught here the first time.
+- **`station_id`/`route_id` values are not validated against a reference table at the DB layer.**
+  There's no local reference table to `CHECK`/FK against — static network data (stations, routes) is
+  bundled JSON (`network/processed/`), not loaded into SQLite. Correctly out of scope given that
+  architecture, but stated explicitly as a trust boundary rather than left implicit: a typo'd or
+  malformed station/route ID in a payload will pass every constraint this schema has.
 
 ## Not yet decided — follow-up work
 
