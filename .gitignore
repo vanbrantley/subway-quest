@@ -49,8 +49,8 @@ mobile/src/data/*.json
 
 # --- Data (large raw/source files) ---
 # Raw MTA/GTFS source files are regenerable from the public feed — not tracked.
-# See data/raw/README.md for where to download them.
-data/raw/*
-!data/raw/README.md
+# See network/raw/README.md for where to download them.
+network/raw/*
+!network/raw/README.md
 
-# data/processed/ IS tracked — it's the actual pipeline output the app depends on.
+# network/processed/ IS tracked — it's the actual pipeline output the app depends on.

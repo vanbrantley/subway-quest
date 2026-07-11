@@ -1,6 +1,6 @@
 # Raw data (not tracked in git)
 
-This folder is gitignored — these files are large (40MB+ combined) and fully regenerable from public sources. `data/processed/` (the actual pipeline output) IS tracked in git, so you only need these raw files if you want to re-run `build_static_data.py` yourself.
+This folder is gitignored — these files are large (40MB+ combined) and fully regenerable from public sources. `network/processed/` (the actual pipeline output) IS tracked in git, so you only need these raw files if you want to re-run `build_static_data.py` yourself.
 
 ## Where to get each file
 
@@ -14,13 +14,13 @@ These come from MTA's separate open data portal, not the GTFS zip above. Search 
 
 ## Regenerating processed output
 
-Once all six files are in this folder, run from `data/scripts/`:
+Once all six files are in this folder, run from `network/scripts/`:
 
 ```bash
 python3 build_static_data.py
 ```
 
-This overwrites `data/processed/*.json` with fresh output.
+This overwrites `network/processed/*.json` with fresh output.
 
 ## Note
 

@@ -22,7 +22,7 @@ from pathlib import Path
 from collections import defaultdict
 
 # Resolve paths relative to this script's location, assuming the structure:
-#   data/
+#   network/
 #     raw/          <- input files
 #     processed/    <- output files land here
 #     scripts/
