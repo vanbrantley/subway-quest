@@ -14,8 +14,8 @@ never disagree with it, because they're derived from it, not written independent
 | `event_version` | integer | Versions the *payload shape* for this `event_type`. Starts at `1`. Bump on any breaking payload change; never mutate the meaning of an existing version. |
 | `occurred_at` | ISO8601 text | The date the ride happened, as picked by the user (see "Date-only backdating" below) combined with the actual current time-of-day at logging. Not free-typed, not live-tracked — see that section for the full reasoning. |
 | `recorded_at` | ISO8601 text | Local device time the row was written to SQLite. |
-| `device_id` | text | Stable per-install identifier, client-generated (a random UUID stored in local secure storage — not a hardware/ad identifier, for privacy). The pre-auth tenant key: every row is scoped to a `device_id` today, since there's no login yet. Known limitation, accepted deliberately: a reinstall generates a new `device_id` and orphans prior history — acceptable until real auth exists to carry identity across installs. |
-| `user_id` | UUID (text), nullable | **Auth-readiness field, unpopulated until real auth ships.** Maps to Supabase's `auth.users.id` once login exists. Added now so the column doesn't need a schema migration later — just a backfill. Migration path: when a user signs in for the first time, all of that `device_id`'s historical rows get `user_id` backfilled via a `device_to_user` mapping table (also enables multi-device support later, since one `user_id` can then map to several `device_id`s). Supabase RLS policies key off `device_id` for now, `user_id` once populated. |
+| `device_id` | text | Stable per-install identifier, client-generated (a random UUID stored in local secure storage — not a hardware/ad identifier, for privacy). Secondary now — diagnostic and multi-device analytics use, not the security boundary. A reinstall generates a new `device_id`; that's fine, since identity is carried by `user_id`/real auth, not by this field. |
+| `user_id` | UUID (text), NOT NULL | **Real auth from day one — resolved, not deferred.** Maps to Supabase's `auth.users.id`. Sign-in happens before any event can be created, so this is always known at write time; no backfill, no `device_to_user` mapping table needed (an earlier design deferred auth and required both — superseded). Supabase RLS policies key on `auth.uid() = user_id` — a verified identity from a signed session token, not a self-reported value, which is what makes this a real security boundary rather than an organizational one. |
 | `trip_id` | UUID (text), nullable | Real column, not buried in `payload` — needed for `NOT NULL`/`CHECK` enforcement and for cheap filtering (e.g. "everything for this trip") both on-device and once this is a shared multi-tenant table in Supabase/BigQuery. `NOT NULL` for every `event_domain = 'trip'` row; `NULL` for `event_domain = 'product'` rows. **Must be a client-generated UUID, never a locally-incrementing integer** — this app ships to TestFlight/the App Store for many independent users, and integer IDs generated offline on different phones would collide the moment two users' events land in the same shared Supabase table. |
 | `leg_id` | UUID (text), nullable | Same UUID requirement as `trip_id`, same collision reasoning. `NOT NULL` only for `leg_boarded`/`leg_alighted`; `NULL` everywhere else. |
 | `payload` | JSON (text) | Everything else per event type — station/route/direction, screen names, etc. `trip_id`/`leg_id` are pulled out as real columns above rather than left in here, precisely because they're the fields that need enforcement and filtering; the rest varies enough per event type that forcing it into columns would just produce a wide table full of nulls. |
@@ -31,15 +31,13 @@ rows — still small, still fine to query however's convenient), but it does mea
 real indexing/clustering on `device_id`/`user_id` and `trip_id` from day one, and every client-generated
 ID needs to be collision-safe across independent phones, not just internally consistent on one device.
 
-**`device_id`-scoping is an organizational convenience, not a security boundary — stated explicitly so
-it isn't mistaken for one.** `device_id` is a client-generated UUID with nothing cryptographically
-backing it: no signed token proves a given Supabase request actually comes from the device claiming
-that `device_id`. So while planned RLS policies keyed on `device_id` will correctly *organize* data by
-who it belongs to, they don't yet *protect* it — anyone who obtained or guessed another `device_id`
-could read or write rows under it. Real client isolation doesn't exist until either real auth ships
-(a signed session, not a self-reported UUID) or requests carry some other form of signed device
-attestation. Worth being upfront about this now rather than having it discovered during Supabase
-wiring — the honest posture is "no real isolation yet," not "isolated by `device_id`."
+**Real client isolation exists, via real auth — this used to be an open gap, now resolved by design.**
+An earlier version of this doc deferred auth entirely and used `device_id` as the pre-auth tenant key —
+that meant no request could be cryptographically verified as coming from the device it claimed to, so
+RLS keyed on `device_id` would have organized data without actually protecting it. Superseded: real auth
+(Supabase Auth, e.g. Sign in with Apple) exists from day one, so every event is created by an
+authenticated session, `user_id` is always known and verified, and RLS policies keyed on
+`auth.uid() = user_id` provide genuine row-level security, not just an organizational convention.
 
 ## Sync policy
 
@@ -239,10 +237,16 @@ removed entirely (`trip_leg_undone` retired, replaced by `trip_deleted`), date-o
 policy (see "Sync policy" above — checklist item 6).
 
 **Deferred from earlier in this design pass, still real:**
-- `device_to_user` mapping table shape, for when auth ships.
-- Supabase RLS policy design keyed on `device_id` (and later `user_id`).
+- **Supabase `raw_events` needs a `received_at` column (server-stamped, `DEFAULT now()`), not present
+  locally.** Required for sync-latency dashboard reporting — see `docs/dashboard/spec.md`'s "Sync
+  health" row. Flagged here explicitly since it can't go in this doc's Envelope table (it's not a local
+  field — it's server-side receipt metadata, the mirror image of `sync_status`, which stays local-only
+  forever) or in `schema.sql` (also local-only) — easy to lose track of otherwise, since it only
+  becomes obvious while designing the dashboard, not while designing the local schema.
+- Actual Supabase RLS policy statements (`auth.uid() = user_id`, per table) — the pattern is decided,
+  the real SQL isn't written yet.
 - Index/clustering plan for the shared Supabase and BigQuery tables now that this is confirmed
-  multi-tenant (e.g. composite index on `device_id, trip_id`, BigQuery clustering on `device_id`).
+  multi-tenant (e.g. composite index on `user_id, trip_id`, BigQuery clustering on `user_id`).
 - Data dictionary / ERD tying event log → operational tables → warehouse marts together visually
   (checklist item 9 — genuinely separate task from the schema itself).
 

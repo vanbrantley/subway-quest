@@ -32,7 +32,8 @@ export type TripDraft = {
 
 export type CommitContext = {
     deviceId: string;
-    userId: string | null;
+    userId: string; // required — real auth exists from day one, sign-in happens before any trip
+    // can be drafted, so this is always known. Not nullable.
 };
 
 const EVENT_VERSION = 1;

@@ -43,7 +43,7 @@ def fresh_db():
 def insert_event(cur, expect_ok, desc, **kw):
     kw.setdefault("leg_id", None)
     kw.setdefault("trip_id", None)
-    kw.setdefault("user_id", None)
+    kw.setdefault("user_id", "user1")  # NOT NULL now — real auth from day one
     cols = ",".join(kw.keys())
     qs = ",".join("?" for _ in kw)
     try:
@@ -127,6 +127,28 @@ def test_future_date_check():
     conn.close()
 
 
+def test_user_id_required():
+    """Real auth from day one — user_id must be NOT NULL, on events and on trips."""
+    conn = fresh_db()
+    cur = conn.cursor()
+
+    insert_event(cur, False, "event with NULL user_id: rejected (auth required from day one)",
+        event_id="e1", event_type="trip_started", event_domain="trip", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
+        device_id="dev1", user_id=None, trip_id="trip1", payload="{}")
+
+    try:
+        cur.execute("""INSERT INTO trips (trip_id, device_id, user_id, origin_station_id,
+                                           destination_station_id, started_at, ended_at)
+                       VALUES ('trip1', 'dev1', NULL, 'L08', '631', '2026-07-10T09:00:00Z', '2026-07-10T09:22:00Z')""")
+        ok = True
+    except sqlite3.IntegrityError:
+        ok = False
+    check("trips row with NULL user_id: rejected", ok is False)
+
+    conn.close()
+
+
 def test_sync_status_trigger():
     conn = fresh_db()
     cur = conn.cursor()
@@ -163,8 +185,8 @@ def test_full_trip_lifecycle():
         occurred_at="2026-07-05T16:00:00Z", recorded_at="2026-07-11T14:00:00Z",
         device_id="dev1", trip_id=trip_id, payload=json.dumps({"destination_station_id": "L03"}))
 
-    cur.execute("""INSERT INTO trips (trip_id, device_id, origin_station_id, destination_station_id, started_at, ended_at)
-                   VALUES (?, 'dev1', 'L08', 'L03', '2026-07-05T16:00:00Z', '2026-07-05T16:00:00Z')""", (trip_id,))
+    cur.execute("""INSERT INTO trips (trip_id, device_id, user_id, origin_station_id, destination_station_id, started_at, ended_at)
+                   VALUES (?, 'dev1', 'user1', 'L08', 'L03', '2026-07-05T16:00:00Z', '2026-07-05T16:00:00Z')""", (trip_id,))
     cur.execute("""INSERT INTO legs (leg_id, trip_id, sequence, route_id, entry_station_id, exit_station_id, boarded_at, alighted_at)
                    VALUES ('leg1', ?, 1, 'L', 'L08', 'L03', '2026-07-05T16:00:00Z', '2026-07-05T16:00:00Z')""", (trip_id,))
 
@@ -197,6 +219,7 @@ if __name__ == "__main__":
     test_domain_grain_check()
     test_json_validity()
     test_future_date_check()
+    test_user_id_required()
     test_sync_status_trigger()
     test_full_trip_lifecycle()
 

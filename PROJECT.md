@@ -12,7 +12,7 @@ Secondary goal: this is also a data portfolio piece. The app is framed as a firs
 
 ## Where things stand right now (as of this handover)
 
-The data pipeline, a working map screen, **and the full data layer** are done and verified. The data layer — event taxonomy, SQLite schema, the app-side commit/delete functions, sync policy, and a data dictionary/ERD — was deliberately built and tested before any trip-logging UI, specifically to counter the person's known pattern of losing rigor once a full-stack MVP is visible. See `docs/data-layer/event-taxonomy.md` and `docs/data-layer/erd.md` for the full design record — worth reading before touching `mobile/db/`, since several early ideas in that history (mid-trip undo, a hardcoded `user_id`, per-row `status` flags) were deliberately overturned during that design pass and no longer reflect the real schema.
+The data pipeline, a working map screen, **and the full data layer** are done and verified. The data layer — event taxonomy, SQLite schema, the app-side commit/delete functions, sync policy, and a data dictionary/ERD — was deliberately built and tested before any trip-logging UI, specifically to counter the person's known pattern of losing rigor once a full-stack MVP is visible. See `docs/data-layer/event-taxonomy.md` and `docs/data-layer/erd.md` for the full design record — worth reading before touching `mobile/db/`, since several early ideas in that history (mid-trip undo, a deferred/nullable `user_id`, per-row `status` flags, a stored `direction_id`) were deliberately overturned during that design pass and no longer reflect the real schema. Auth in particular changed twice — see "Real auth from day one" below for the final state.
 
 The next session's job is **UI implementation + Supabase wiring** — turning the already-designed and already-tested data layer into working screens, not more schema design. See "Order of operations" below.
 
@@ -84,6 +84,7 @@ root/
       trip/                  # empty, reserved
     db/
       schema.sql            # local SQLite schema — events, sync_status, trips, legs
+      schema_tests.py        # persisted, re-runnable schema validation — `python3 mobile/db/schema_tests.py`
       projection.ts          # commitTrip + deleteTrip — the only two projection operations
     data/                    # gitignored; populated by scripts/sync-data.js
     types/
@@ -102,8 +103,21 @@ Renamed from `data/` to `network/` partway through this project (it holds subway
 
 ## Design decisions and why
 
-### Auth is deferred, but the schema isn't
-We are NOT implementing Supabase auth in this first build phase. **Revised during the data-layer design pass:** rather than a hardcoded `user_id`, `device_id` (client-generated, stable per-install) is the actual pre-auth tenant key on every row, and `user_id` is a nullable column present from day one but unpopulated until real auth ships — along with a stated migration path (a `device_to_user` mapping table backfills it once someone signs in). This was a deliberate correction, not just a rename: a single hardcoded `user_id` assumed one real user forever, but this app is headed to TestFlight and the App Store, so the schema needed to be genuinely multi-tenant (`device_id`-scoped) even before auth exists, not just multi-row. See `docs/data-layer/event-taxonomy.md`'s "Envelope" section for the full reasoning.
+### Real auth from day one (final — superseded two earlier decisions)
+**This decision has changed twice now, worth understanding both revisions, not just the current state.**
+Originally: a hardcoded `user_id` for the one real user, no auth at all. First revision (during the
+data-layer design pass): `device_id` became the pre-auth tenant key, `user_id` nullable pending a
+future `device_to_user` backfill — reasoning at the time was that standing up auth before validating
+the core UX would be premature. **Final decision:** that reasoning didn't hold once the project moved
+toward being a real multi-user TestFlight app rather than a personal tool — `device_id` has no
+cryptographic backing, so RLS keyed on it would organize data without actually protecting it once
+strangers' data was at stake. Real auth (Supabase Auth, e.g. Sign in with Apple — natural fit for an
+iOS-only app) now exists from day one: `user_id` is `NOT NULL` everywhere, known at write time since
+sign-in happens before any event can be created, and RLS keyed on `auth.uid() = user_id` provides
+genuine row-level security. The `device_to_user` mapping table is gone — not deferred, just
+unnecessary, since there's nothing to backfill when auth exists from the start. `device_id` still
+exists, but as a secondary diagnostic/multi-device field, not the tenant key. See
+`docs/data-layer/event-taxonomy.md`'s "Envelope" section for the full reasoning.
 
 ### Offline-first is core to the product, not an add-on
 Because the subway is underground and connectivity is unreliable, two categories of data are handled differently:
@@ -133,6 +147,18 @@ model, sync policy, every design decision with reasoning) and `docs/data-layer/e
 full pipeline diagram, final rigor-checklist status). `mobile/db/schema.sql` and
 `mobile/db/projection.ts` are the real, tested artifacts — `projection.ts` exposes exactly two
 operations, `commitTrip` and `deleteTrip`, which is all the data layer ever needs to be driven by.
+`mobile/db/schema_tests.py` is a real, re-runnable test file (`python3 mobile/db/schema_tests.py`) —
+not just a claim that testing happened.
+
+**Cross-reviewed by a separate chat instance before this session closed, real issues found and fixed:**
+a genuine timezone bug in `buildOccurredAt` (it glued a local calendar date to a UTC time-of-day,
+producing internally inconsistent timestamps — fixed to build from consistent local-time components);
+`device_id`-based Supabase RLS was implied to provide real isolation when it doesn't yet (no
+cryptographic backing on `device_id` — first stated explicitly as a known gap, then genuinely resolved
+in a later revision by moving to real auth from day one, see "Real auth from day one" below); and
+`direction_id` was briefly added to `legs`/`leg_boarded` then removed again as redundant (fully
+derivable from `entry_station_id`/`exit_station_id`'s order in `route_stops.json`). Worth knowing this
+review happened — it's why the design looks slightly different from a first pass.
 
 **The single highest-leverage idea, still true:** the event log (`events` locally, `raw_events` schema
 in Supabase) is genuinely immutable and append-only; the operational tables (`trips`, `legs`) are a

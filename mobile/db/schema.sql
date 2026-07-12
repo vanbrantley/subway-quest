@@ -22,8 +22,12 @@ CREATE TABLE events (
                                                  -- taxonomy doc's "Date-only backdating". Never free-typed.
     recorded_at     TEXT NOT NULL,              -- ISO8601, local write time
 
-    device_id       TEXT NOT NULL,              -- pre-auth tenant key, client-generated
-    user_id         TEXT,                       -- nullable until real auth ships; maps to Supabase auth.users.id
+    device_id       TEXT NOT NULL,              -- client-generated; secondary diagnostic/multi-device
+                                                 -- identifier now that user_id (real auth) is the actual
+                                                 -- tenant/security key — see event-taxonomy.md's Envelope
+    user_id         TEXT NOT NULL,              -- maps to Supabase auth.users.id — real auth from day one,
+                                                 -- not deferred (see event-taxonomy.md's Envelope section);
+                                                 -- known at write time since sign-in happens before any event exists
 
     trip_id         TEXT,                       -- real column (not in payload) for enforcement + filtering; nullable per event_type, see CHECK below
     leg_id          TEXT,                       -- same reasoning as trip_id
@@ -144,7 +148,7 @@ END;
 CREATE TABLE trips (
     trip_id                  TEXT PRIMARY KEY,     -- same UUID as the trip_started event's trip_id
     device_id                TEXT NOT NULL,
-    user_id                  TEXT,                 -- nullable until auth ships, mirrors events.user_id
+    user_id                  TEXT NOT NULL,        -- real auth from day one, mirrors events.user_id
 
     origin_station_id        TEXT NOT NULL,
     destination_station_id   TEXT NOT NULL,
