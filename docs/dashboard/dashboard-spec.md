@@ -79,12 +79,22 @@ instrumentation work." Deliberately kept separate so it's clear who each section
 ## In-app profile page (personal, not public)
 
 A smaller, personal-scope mirror of the exploration section above — same underlying logic, one user's
-data only, pulled live rather than from the batch/warehouse path:
+data only, pulled live rather than from the batch/warehouse path.
 
-- % of system explored (this user only), likely with the same station-colored map at personal scale
-- Lines/branches ridden
-- Quest/achievement progress — which are complete, which are closest
-- Trips logged over time (personal), a smaller version of the public growth chart
+**Synced from `docs/ui/spec.md`'s Profile tab section — the fuller, authoritative list:**
+
+- Rides logged, stations visited
+- % of network visited — overall, and split by borough
+- Favorite station, favorite line — both computed (most-visited/most-ridden), never manually set
+- Least-travelled line(s)
+- Trip history (list, tapping an entry opens that trip's detail page)
+- Saved Stations list
+- Achievements — completed/ongoing summary, linking to the full Achievements page
+
+Also, per the UI spec's map design: the same visited/saved distinction used on the map's markers
+(green for visited overrides saved status — "saved" means want-to-visit, which visiting fulfills — see
+`docs/ui/spec.md`) should stay visually consistent if this page shows any mini-map or station-list
+treatment of its own.
 
 ## Scrapped, with reasoning
 
