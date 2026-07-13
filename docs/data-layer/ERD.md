@@ -111,6 +111,46 @@ is ever synced (see taxonomy doc's "Envelope" section). Achievements/quests are 
 downstream join, not a schema addition — confirmed earlier in this design pass to need no new event
 types or tables, just a static quest-definitions table joined against the mart layer.
 
+## Supabase RLS design
+
+Every table in `operational` and `raw_events` enforces `auth.uid() = user_id` — real row-level
+security, not just an organizational convention (see PROJECT.md's "Real auth from day one"). The one
+real design question was **how `legs` gets checked**, since — like local SQLite — it only carries
+`trip_id`, not its own `user_id` column.
+
+**Considered: denormalizing `user_id` onto `legs`.** Would give every table an identical flat policy
+(`auth.uid() = user_id`), no joins anywhere. Rejected — it's a second, write-only copy of a fact
+`trips.user_id` already holds, kept in sync for no reason other than making its own policy simpler.
+
+**Decided: derive it via a subquery against `trips`, written as a non-correlated `IN`, not a
+correlated `EXISTS`.** The naive version of this —
+
+```sql
+using (exists (
+  select 1 from operational.trips
+  where trips.trip_id = legs.trip_id and trips.user_id = auth.uid()
+))
+```
+
+— is a known Postgres/Supabase anti-pattern: it re-evaluates the subquery per row instead of once per
+statement. The fix isn't to give up on deriving it, it's to write the derivation correctly:
+
+```sql
+using (
+  trip_id in (select trip_id from operational.trips where user_id = auth.uid())
+)
+```
+
+Same normalized data — nothing stored on `legs` beyond what it already has — but Postgres plans the
+subquery once per statement rather than once per row, per Supabase's own RLS performance guidance for
+this exact join-to-parent shape.
+
+**`raw_events` needs the same pattern on `WITH CHECK`, not just `USING`.** `events.user_id` is
+client-set at insert time; without a `WITH CHECK (auth.uid() = user_id)`, RLS would only ever be
+restricting *reads*, leaving no actual enforcement stopping a client from writing rows under someone
+else's `user_id`. This is the one place a policy gap would be a real cross-user data leak, not just an
+inconsistency — worth flagging as the actual enforcement mechanism, not incidental hardening.
+
 ## Data-layer rigor checklist — final status
 
 | # | item | status |

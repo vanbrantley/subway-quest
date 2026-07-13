@@ -5,6 +5,25 @@ my phone, I must be done" — see PROJECT.md's opening note on the avoidance pat
 partly to counter. When something on this list is genuinely done, check it. When the whole list is
 checked, *that's* done — not the moment a build first runs on-device.
 
+## Build sequence — how we know each stage actually works
+
+Dependency order, not the section order above — each milestone has a concrete check, not "it compiled"
+or "it's on my phone" (see this doc's own opening note on that trap).
+
+| # | Milestone | Verification |
+|---|---|---|
+| 1 | Supabase schema live | Schema SQL run in SQL Editor. Insert a test row as one auth user; confirm a second test session genuinely can't read it — a real RLS test, not just "no error." |
+| 2 | Auth + local trip logging | Real Sign-in-with-Apple on-device. Log a trip through the full flow, kill/reopen the app, trip persists. No sync yet — outbox rows stay `pending` on purpose. |
+| 3 | Sync worker | Log a trip on-device; confirm the `raw_events` rows land in Supabase under your own `auth.uid()`, and that a second test session still can't read them. |
+| 4 | EL job → BigQuery | Manually trigger the GitHub Actions workflow; query the BigQuery raw dataset, see real trip data land. |
+| 5 | dbt mart | `dbt run` + `dbt test` green. Hand-check one mart number against something known true (e.g. total trips logged). |
+| 6 | Min-N enforced | Query as if you were Power BI's service account; confirm small segments show suppressed/placeholder. At one real user, everything correctly showing "not enough data yet" is success, not a gap. |
+| 7 | Power BI live | Three pages built, Publish to Web working, page navigation functioning — resolves the unverified risk flagged in dashboard-spec.md. |
+| 8 | Achievements | Content designed, join logic working, achievements page shows real progress against real logged trips. |
+| 9 | Remaining mobile UI | Profile mini-dashboard, station drill-down, branch-aware picker — the rest of ui-spec.md. |
+| 10 | Release readiness | App Store Connect record, privacy policy, real testers recruited. |
+| 11 | Portfolio narrative | README, case study. |
+
 ## 1. Mobile UI
 
 - [ ] Trip-logging draft/commit flow — wired to `mobile/db/projection.ts`'s `commitTrip`/`deleteTrip`
