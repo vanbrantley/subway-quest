@@ -7,6 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "subwayquest",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.transitapps.subwayquest",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -21,11 +28,18 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7025fd7f-112d-41a2-97bc-027799b4f024"
+      }
     }
   }
 }
