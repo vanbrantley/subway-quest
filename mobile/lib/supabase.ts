@@ -11,16 +11,57 @@ import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase persists the session (access + refresh token) through this adapter. Using
-// SecureStore rather than plain AsyncStorage — the session is a real credential, not
-// app preferences, and SecureStore backs onto the iOS Keychain instead of a plaintext
-// file. iOS-only for v1 (per ui-spec.md), so no web/AsyncStorage branch needed here —
-// that's a real simplification, not an oversight, and would need revisiting if a web
-// or Android build ever gets added later.
+// Supabase persists the session (access + refresh token + user metadata) through this
+// adapter. Using SecureStore rather than plain AsyncStorage — the session is a real
+// credential, not app preferences, and SecureStore backs onto the iOS Keychain instead
+// of a plaintext file. iOS-only for v1 (per ui-spec.md), so no web/AsyncStorage branch
+// needed here — a real simplification, not an oversight.
+//
+// SecureStore has a real per-value size ceiling (~2048 bytes) — a full Supabase session
+// routinely exceeds that once it includes both tokens plus user metadata (full_name,
+// given_name, family_name). This chunks a value across multiple SecureStore keys under
+// that limit and reassembles it on read, rather than hitting the ceiling silently.
+const CHUNK_SIZE = 2000; // stay safely under SecureStore's ~2048-byte ceiling
+
+async function getAllChunks(key: string): Promise<string | null> {
+    const first = await SecureStore.getItemAsync(`${key}_0`);
+    if (first === null) return null;
+    let result = first;
+    let i = 1;
+    while (true) {
+        const chunk = await SecureStore.getItemAsync(`${key}_${i}`);
+        if (chunk === null) break;
+        result += chunk;
+        i++;
+    }
+    return result;
+}
+
+async function setAllChunks(key: string, value: string): Promise<void> {
+    const chunkCount = Math.ceil(value.length / CHUNK_SIZE);
+    for (let i = 0; i < chunkCount; i++) {
+        await SecureStore.setItemAsync(`${key}_${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+    }
+    // clean up leftover chunks if this value is shorter than what was stored before
+    let i = chunkCount;
+    while ((await SecureStore.getItemAsync(`${key}_${i}`)) !== null) {
+        await SecureStore.deleteItemAsync(`${key}_${i}`);
+        i++;
+    }
+}
+
+async function removeAllChunks(key: string): Promise<void> {
+    let i = 0;
+    while ((await SecureStore.getItemAsync(`${key}_${i}`)) !== null) {
+        await SecureStore.deleteItemAsync(`${key}_${i}`);
+        i++;
+    }
+}
+
 const ExpoSecureStoreAdapter = {
-    getItem: (key: string) => SecureStore.getItemAsync(key),
-    setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-    removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+    getItem: getAllChunks,
+    setItem: setAllChunks,
+    removeItem: removeAllChunks,
 };
 
 export const supabase = createClient(

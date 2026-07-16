@@ -13,21 +13,46 @@ import { supabase } from '../lib/supabase';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+
+  console.log('layout mounted');
+
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
 
-  useEffect(() => {
-    // Check whatever session SecureStore already has on launch — this is what makes
-    // "kill and reopen the app, still signed in" actually true, per ui-spec.md's
-    // "minimizing re-auth friction."
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setSessionLoaded(true);
-    });
+  // useEffect(() => {
+  //   // Check whatever session SecureStore already has on launch — this is what makes
+  //   // "kill and reopen the app, still signed in" actually true, per ui-spec.md's
+  //   // "minimizing re-auth friction."
+  //   supabase.auth.getSession().then(({ data: { session } }) => {
+  //     setSession(session);
+  //     setSessionLoaded(true);
+  //   });
 
-    // Keeps session state current for the lifetime of the app — sign-in, sign-out,
-    // and silent token refreshes (handled by the AppState listener in lib/supabase.ts)
-    // all flow through here.
+  //   // Keeps session state current for the lifetime of the app — sign-in, sign-out,
+  //   // and silent token refreshes (handled by the AppState listener in lib/supabase.ts)
+  //   // all flow through here.
+  //   const {
+  //     data: { subscription },
+  //   } = supabase.auth.onAuthStateChange((_event, session) => {
+  //     setSession(session);
+  //   });
+
+  //   return () => subscription.unsubscribe();
+  // }, []);
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) console.error('getSession error:', error);
+        setSession(session);
+        setSessionLoaded(true);
+      })
+      .catch((err) => {
+        console.error('getSession threw:', err);
+        setSessionLoaded(true); // fail open to the sign-in screen rather than hang forever
+      });
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -55,6 +80,7 @@ export default function RootLayout() {
       </Stack.Protected>
 
       <Stack.Protected guard={!session}>
+        {/* <Stack.Screen name="(auth)/index" /> */}
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>
