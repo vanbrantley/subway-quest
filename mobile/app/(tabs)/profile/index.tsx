@@ -1,11 +1,17 @@
 // mobile/app/(tabs)/profile/index.tsx
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { supabase } from '../../../lib/supabase';
+import { router } from 'expo-router';
 
 export default function ProfileScreen() {
     return (
         <View style={styles.container}>
             <Text style={styles.text}>Profile — stub</Text>
+
+            <Pressable style={styles.button} onPress={() => router.push('/debug')}>
+                <Text style={styles.buttonText}>Open Debug Dump</Text>
+            </Pressable>
+
             <Pressable style={styles.button} onPress={() => supabase.auth.signOut()}>
                 <Text style={styles.buttonText}>Sign Out</Text>
             </Pressable>

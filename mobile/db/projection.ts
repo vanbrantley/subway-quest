@@ -201,3 +201,16 @@ export async function deleteTrip(
         await db.runAsync(`DELETE FROM trips WHERE trip_id = ?`, [tripId]);
     });
 }
+
+export async function writeProductEvent(
+    db: SQLite.SQLiteDatabase,
+    eventType: 'screen_viewed' | 'station_detail_opened' | 'route_detail_opened' | 'feature_used'
+        | 'trip_draft_started' | 'draft_leg_added' | 'draft_leg_removed'
+        | 'trip_draft_committed' | 'trip_draft_abandoned',
+    payload: object,
+    ctx: CommitContext
+): Promise<void> {
+    const occurredAt = buildOccurredAt(localDateString());
+    const recordedAt = new Date().toISOString();
+    await insertEvent(db, { eventType, eventDomain: 'product', occurredAt, recordedAt, ctx, tripId: null, legId: null, payload });
+}

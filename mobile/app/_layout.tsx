@@ -4,11 +4,13 @@
 // route group the user even has access to. Every other screen just assumes it's
 // running in the right context; this file is what makes that assumption true.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { AuthContext } from '../contexts/AuthContext';
+import { DatabaseProvider } from '../contexts/DatabaseContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,6 +20,8 @@ export default function RootLayout() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [dbLoaded, setDbLoaded] = useState(false);
+  const handleDbReady = useCallback(() => setDbLoaded(true), []);
 
   useEffect(() => {
     supabase.auth
@@ -42,10 +46,10 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (sessionLoaded) {
+    if (sessionLoaded && dbLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [sessionLoaded]);
+  }, [sessionLoaded, dbLoaded]);
 
   if (!sessionLoaded) {
     return null; // splash screen stays up until the first session check resolves —
@@ -53,16 +57,19 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(tabs)" />
-        {/* <Stack.Screen name="log-trip" options={{ presentation: 'fullScreenModal' }} /> */}
-        <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
-      </Stack.Protected>
+    <AuthContext.Provider value={{ session, loading: false }}>
+      <DatabaseProvider onReady={handleDbReady}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={!!session}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
+          </Stack.Protected>
 
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-    </Stack>
+          <Stack.Protected guard={!session}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
+        </Stack>
+      </DatabaseProvider>
+    </AuthContext.Provider>
   );
 }

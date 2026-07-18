@@ -1,14 +1,19 @@
 // mobile/app/log-trip.tsx
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { randomUUID } from 'expo-crypto';
 import { LINE_COLORS } from '../constants/lineColors';
 import { LINE_ICONS } from '../constants/lineIcons';
 import { TripChipStrip } from '../components/trip-logging/TripChipStrip';
 import { StationPickerStep } from '../components/trip-logging/StationPickerStep';
+import { useDb } from '../contexts/DatabaseContext';
+import { useUserId } from '../contexts/AuthContext';
+import { getOrCreateDeviceId } from '../lib/device';
+import { commitTrip, writeProductEvent, localDateString, type TripDraft } from '../db/projection';
 import {
     getDisplayableRoutes,
     getStationIdsForRoute,
@@ -30,18 +35,53 @@ function getTransferEntryStop(priorLeg: DraftLeg | undefined, routeId: string): 
 
 export default function LogTripModal() {
     const insets = useSafeAreaInsets();
+    const db = useDb();
+    const userId = useUserId();
+    const draftId = useMemo(() => randomUUID(), []);
     const [pickedDate, setPickedDate] = useState(new Date());
     const [legs, setLegs] = useState<DraftLeg[]>([]);
     const [active, setActive] = useState<ActiveField>({ step: 'line', legIndex: 0 });
-    const [tripFinished, setTripFinished] = useState(false); // stub flag — real commit is next
     const [transferExpanded, setTransferExpanded] = useState(false);
     const today = new Date();
 
-    // The single place any leg's data is ever written. Truncating to legIndex before
-    // appending is what makes the cascade rule real, structurally — not something
-    // each caller below has to remember to do correctly on its own.
+    useEffect(() => {
+        (async () => {
+            const deviceId = await getOrCreateDeviceId();
+            await writeProductEvent(db, 'trip_draft_started', { draft_id: draftId }, { deviceId, userId });
+        })();
+    }, [db, draftId, userId]);
+
+    // The single place any leg's data is ever written — also the single place
+    // draft_leg_added/draft_leg_removed get decided, scoped to *completeness*
+    // (exitStationId set), not individual field writes. State update happens
+    // synchronously first; analytics writes are fire-and-forget afterward so a
+    // slow SQLite write never delays the UI truncation.
     function commitLeg(legIndex: number, updatedLeg: DraftLeg) {
-        setLegs((prev) => [...prev.slice(0, legIndex), updatedLeg]);
+        const discarded = legs.slice(legIndex); // old legs about to be cut, incl. legIndex's old value
+        setLegs([...legs.slice(0, legIndex), updatedLeg]);
+        logLegChange(legIndex, discarded, updatedLeg);
+    }
+
+    async function logLegChange(legIndex: number, discarded: DraftLeg[], updatedLeg: DraftLeg) {
+        try {
+            const deviceId = await getOrCreateDeviceId();
+            const ctx = { deviceId, userId };
+
+            // Only a leg that had genuinely reached "complete" and then got cut
+            // counts as a real correction — a leg still mid-pick (no exit yet)
+            // being truncated is normal in-progress editing, not a correction.
+            for (let i = 0; i < discarded.length; i++) {
+                if (discarded[i].exitStationId !== null) {
+                    await writeProductEvent(db, 'draft_leg_removed', { draft_id: draftId, sequence: legIndex + i + 1 }, ctx);
+                }
+            }
+
+            if (updatedLeg.exitStationId !== null) {
+                await writeProductEvent(db, 'draft_leg_added', { draft_id: draftId, sequence: legIndex + 1 }, ctx);
+            }
+        } catch (err) {
+            console.error('Failed to log draft leg event:', err);
+        }
     }
 
     function handleDateChange(event: DateTimePickerEvent, selectedDate?: Date) {
@@ -49,11 +89,7 @@ export default function LogTripModal() {
     }
 
     function handleChipTap(legIndex: number, field: 'line' | 'entry' | 'exit') {
-        // A transfer leg's entry is fully determined the moment its line is picked —
-        // nothing to reopen. A mixup gets fixed via the line chip instead.
         if (field === 'entry' && legIndex > 0) return;
-
-        setTripFinished(false);
         setActive({ step: field, legIndex });
     }
 
@@ -66,8 +102,6 @@ export default function LogTripModal() {
             return;
         }
 
-        // Transfer leg, re-picked via its line chip — entry re-derives from the leg
-        // before it, same as a freshly-added transfer would.
         const entryStopId = getTransferEntryStop(legs[legIndex - 1], routeId);
         commitLeg(legIndex, { routeId, entryStationId: entryStopId, exitStationId: null });
         setActive({ step: 'exit', legIndex });
@@ -94,8 +128,31 @@ export default function LogTripModal() {
         setActive({ step: 'exit', legIndex: nextLegIndex });
     }
 
-    function finishTrip() {
-        setTripFinished(true); // stub — real commit/discard wiring is the next chunk
+    async function finishTrip() {
+        const draft: TripDraft = {
+            originStationId: legs[0].entryStationId!,
+            destinationStationId: legs[legs.length - 1].exitStationId!,
+            pickedDate: localDateString(pickedDate),
+            legs: legs.map((leg, i) => ({
+                sequence: i + 1,
+                routeId: leg.routeId,
+                entryStationId: leg.entryStationId!,
+                exitStationId: leg.exitStationId!,
+            })),
+        };
+        const deviceId = await getOrCreateDeviceId();
+        const ctx = { deviceId, userId };
+        const tripId = await commitTrip(db, draft, ctx);
+        await writeProductEvent(db, 'trip_draft_committed', { draft_id: draftId, trip_id: tripId }, ctx);
+        router.replace({ pathname: '/trip', params: { tripId } });
+    }
+
+    async function discardDraft() {
+        if (legs.length > 0) {
+            const deviceId = await getOrCreateDeviceId();
+            await writeProductEvent(db, 'trip_draft_abandoned', { draft_id: draftId }, { deviceId, userId });
+        }
+        router.back();
     }
 
     const currentLeg = legs[active.legIndex];
@@ -111,7 +168,7 @@ export default function LogTripModal() {
     return (
         <View style={styles.container}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-                <Pressable onPress={() => router.back()} accessibilityLabel="Discard and close">
+                <Pressable onPress={discardDraft} accessibilityLabel="Discard and close">
                     <Ionicons name="close" size={28} color="#111" />
                 </Pressable>
                 <Text style={styles.title}>Log Trip</Text>
@@ -189,7 +246,7 @@ export default function LogTripModal() {
                     />
                 )}
 
-                {active.step === 'transfer' && currentLeg?.exitStationId && !tripFinished && (
+                {active.step === 'transfer' && currentLeg?.exitStationId && (
                     <View style={styles.transferSection}>
                         {!transferExpanded ? (
                             <View style={styles.postExitStack}>
@@ -236,8 +293,6 @@ export default function LogTripModal() {
                         )}
                     </View>
                 )}
-
-                {tripFinished && <Text style={styles.label}>Trip complete — commit/discard coming next</Text>}
             </View>
         </View>
     );
