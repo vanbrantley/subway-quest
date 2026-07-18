@@ -19,27 +19,6 @@ export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
 
-  // useEffect(() => {
-  //   // Check whatever session SecureStore already has on launch — this is what makes
-  //   // "kill and reopen the app, still signed in" actually true, per ui-spec.md's
-  //   // "minimizing re-auth friction."
-  //   supabase.auth.getSession().then(({ data: { session } }) => {
-  //     setSession(session);
-  //     setSessionLoaded(true);
-  //   });
-
-  //   // Keeps session state current for the lifetime of the app — sign-in, sign-out,
-  //   // and silent token refreshes (handled by the AppState listener in lib/supabase.ts)
-  //   // all flow through here.
-  //   const {
-  //     data: { subscription },
-  //   } = supabase.auth.onAuthStateChange((_event, session) => {
-  //     setSession(session);
-  //   });
-
-  //   return () => subscription.unsubscribe();
-  // }, []);
-
   useEffect(() => {
     supabase.auth
       .getSession()
@@ -77,10 +56,11 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
+        {/* <Stack.Screen name="log-trip" options={{ presentation: 'fullScreenModal' }} /> */}
+        <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
       </Stack.Protected>
 
       <Stack.Protected guard={!session}>
-        {/* <Stack.Screen name="(auth)/index" /> */}
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>

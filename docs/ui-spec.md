@@ -96,7 +96,61 @@ page).
   already in PROJECT.md — each station showing a checkmark if visited
 - Tapping a station in the list → canonical Station page
 
-## Trip-logging flow (FAB → full-screen modal)
+## Trip-logging flow (FAB → modal)
+
+**Presentation changed from full-screen to standard page-sheet modal, deviating from this doc's
+original wording.** Full-screen was the initial call because "speed is the whole point of this flow"
+— but in practice, a standard modal argues for that same goal more effectively than full-screen did:
+leaving the previous screen visibly underneath reinforces "quick action, not a context switch," and
+native swipe-down-to-dismiss solves a real one-handed reachability problem full-screen had (the X
+button, top-of-screen, was a genuine reach issue holding the phone normally — not a hypothetical).
+Confirmed the interactive swipe-to-dismiss doesn't conflict with the native picker wheels used in
+steps 3–4 below — a picker's spin gesture is mechanically distinct from a scroll/pan, the same
+combination iOS's own Calendar/Reminders apps use routinely.
+
+---
+
+**Steps 2–7 below were built as a single continuous chip-strip editor, not discrete full-screen
+steps as originally numbered — the numbering still describes the right sequence of *decisions*, just
+not the right UI shape. Documenting the as-built version:**
+
+A fixed-height horizontal strip sits under the date control, showing every decided fact as a small
+tappable chip (line icon, entry station, exit station), grouped per leg with a transfer icon between
+legs. Below it, one fixed-height "active area" always shows exactly one in-progress decision — the
+line grid, a station wheel, or the post-exit transfer prompt — never more than one at a time, and the
+modal itself never scrolls.
+
+**Editing is chip-tap-to-reopen, with a cascade rule generalized from leg-removal to any edit:**
+tapping a chip re-opens that exact field for editing. Confirming a *new* value (not just viewing an
+already-picked one) clears that field and everything logically downstream of it:
+- Editing a leg's **line** clears that leg's entry, exit, and every leg after it.
+- Editing a leg's **entry** clears that leg's exit and every leg after it (a new entry can put you on
+  a different branch, invalidating a previously-valid exit).
+- Editing a leg's **exit** clears only legs after this one (a new exit changes what transfers exist
+  next, but doesn't touch this leg's own line/entry).
+
+Merely tapping a chip to *view* the current picker never destroys data — only confirming a genuinely
+new value does. (An earlier build briefly cleared on tap alone; corrected once it was clear this
+silently destroyed progress from an idle tap.)
+
+**Origin/destination station lists are flat, not branch-grouped**, deliberately — a full "trunk
+first, branch tails grouped below" treatment is this doc's separately-listed, later "branch-aware
+station picker" deliverable for the canonical Line page, not this quick-logging flow. Known,
+accepted rough edge: near a branch point, the flat list can feel a little disorienting scrolling past
+where a line splits — non-blocking, revisit only if it's a real problem once used for real.
+
+**Transfer detection**, once a leg's exit is confirmed: every route reachable at that station's
+complex (via the transfers data), excluding the line just ridden. Picking one auto-sets the new leg's
+entry to the correct platform at that complex and skips straight to picking its exit — the rider is
+already standing there, per the original design intent. A complex with no other routes shows "No
+transfers available here" instead of an empty grid, with a "That's my trip" affordance to finish
+instead.
+
+**Custom SVG line icons** (not the plain colored-bubble originally sketched) are used throughout,
+falling back to a colored bubble with the route letter/number for any route without a custom icon
+yet (currently just SIR).
+
+---
 
 1. Date picker — defaults to today; calendar picker to backdate. Date-only, no time-of-day input, per
    the data layer's "Date-only backdating" design.

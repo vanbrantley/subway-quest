@@ -41,7 +41,7 @@ const EVENT_VERSION = 1;
 /** Local calendar date ('YYYY-MM-DD') for a given moment. Deliberately NOT
  *  `date.toISOString().slice(0, 10)` — that returns the UTC calendar date,
  *  which is wrong near local midnight (see buildOccurredAt below). */
-function localDateString(d: Date = new Date()): string {
+export function localDateString(d: Date = new Date()): string {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
