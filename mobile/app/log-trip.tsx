@@ -12,6 +12,7 @@ import { TripChipStrip } from '../components/trip-logging/TripChipStrip';
 import { StationPickerStep } from '../components/trip-logging/StationPickerStep';
 import { useDb } from '../contexts/DatabaseContext';
 import { useUserId } from '../contexts/AuthContext';
+import { useSyncEngine } from '../contexts/SyncContext';
 import { getOrCreateDeviceId } from '../lib/device';
 import { commitTrip, writeProductEvent, localDateString, type TripDraft } from '../db/projection';
 import {
@@ -37,6 +38,7 @@ export default function LogTripModal() {
     const insets = useSafeAreaInsets();
     const db = useDb();
     const userId = useUserId();
+    const { triggerSync } = useSyncEngine();
     const draftId = useMemo(() => randomUUID(), []);
     const [pickedDate, setPickedDate] = useState(new Date());
     const [legs, setLegs] = useState<DraftLeg[]>([]);
@@ -144,14 +146,14 @@ export default function LogTripModal() {
         const ctx = { deviceId, userId };
         const tripId = await commitTrip(db, draft, ctx);
         await writeProductEvent(db, 'trip_draft_committed', { draft_id: draftId, trip_id: tripId }, ctx);
+        triggerSync();
         router.replace({ pathname: '/trip', params: { tripId } });
     }
 
     async function discardDraft() {
-        if (legs.length > 0) {
-            const deviceId = await getOrCreateDeviceId();
-            await writeProductEvent(db, 'trip_draft_abandoned', { draft_id: draftId }, { deviceId, userId });
-        }
+        const deviceId = await getOrCreateDeviceId();
+        await writeProductEvent(db, 'trip_draft_abandoned', { draft_id: draftId }, { deviceId, userId });
+        triggerSync();
         router.back();
     }
 

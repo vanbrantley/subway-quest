@@ -11,7 +11,7 @@ new session, not reconstructed from git history.
 |---|---|---|---|
 | 1 | Supabase schema live | Insert as one auth user, confirm a second session can't read it | ✅ Done — verified with two impersonated test users |
 | 2 | Auth + local trip logging | Real Sign-in-with-Apple on-device; log a trip, kill/reopen, it persists | ✅ Done — full commit/discard wiring verified on-device via a six-point check: clean multi-leg trip with transfer, correction path (completeness-based `draft_leg_added`/`draft_leg_removed`), discard path, cold launch (no splash/blank flash), and kill/full-relaunch persistence, all cross-checked against raw `events`/`trips`/`legs`/`sync_status` rows via a dev-only `/debug` dump screen rather than eyeballing the UI. |
-| 3 | Sync worker | Log a trip on-device, confirm `raw_events` rows land under the right `auth.uid()` | ⬜ Not started |
+| 3 | Sync worker | Log a trip on-device, confirm `raw_events` rows land under the right `auth.uid()` | ✅ Done — verified via a six-point on-device check: backlog sync on mount (24 pre-existing local events flushed in one pass), product + trip domain both land correctly, idempotency (forced re-sync of all 24 rows produced zero duplicates), RLS/`user_id` correctness, offline write → sync failure → automatic recovery on reconnect with no app interaction (NetInfo-driven), and a foreground re-trigger as fallback. |
 | 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ⬜ Not started |
 | 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ⬜ Not started |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ⬜ Not started (mechanism decided — see `docs/dashboard-spec.md`) |
@@ -76,7 +76,7 @@ Two React contexts now sit above the whole app, in `app/_layout.tsx`:
   — a real gap caught during this session: gating splash on session alone left a brief blank-screen
   window while SQLite was still opening underneath.
 
-## Product-event instrumentation (new this session)
+## Product-event instrumentation
 
 `draft_leg_added`/`draft_leg_removed` are wired, scoped to **leg completeness**, not individual field
 writes — deliberate, since the chip-strip editor's `commitLeg` fires on every field pick (line, then
@@ -90,7 +90,7 @@ corrections. Actual rule:
 Verified on-device: a single line-chip correction after a leg was already complete produced exactly
 2× `draft_leg_added` / 1× `draft_leg_removed` for that leg — not one event per intermediate write.
 
-## Dev-only debug tooling (new this session, strip before release)
+## Dev-only debug tooling (strip before release)
 
 `app/debug.tsx` — dumps `events`/`trips`/`legs`/`sync_status` as raw JSON (and to console) via
 `useDb()`, gated on `__DEV__`. Reached right now via a **temporary button on the Profile tab stub**
@@ -146,28 +146,44 @@ into actual text via `Asset.fromModule()` + `File`.
   deep-linking need, so a search-param screen (`useLocalSearchParams`) was simpler than a dynamic
   route segment. Reads `trips`/`legs` live via `useDb()`.
 - `debug.tsx` — dev-only (`__DEV__`-gated), dumps `events`/`trips`/`legs`/`sync_status` as JSON, both
-  on-screen and to console. Not linked from any tab; reached via the temporary Profile button above.
-  Includes a back button (`router.back()`) since nothing else in the router tree points at it.
+  on-screen and to console. Not linked from any tab; reached via the temporary Profile button. Includes
+  a back button (`router.back()`). Now also shows live sync status (`isSyncing`/`lastSyncAt`/
+  `lastSyncError`) and two testing-only buttons: **Trigger Sync** (manual pass) and **Force Re-sync
+  All** (flips every locally-`synced` row back to `pending` and re-triggers — the only practical way to
+  exercise idempotency without a second device).
 
 **`components/`:** `LogTripFAB.tsx`; `trip-logging/types.ts` (`DraftLeg`, `ActiveField`),
 `TripChipStrip.tsx`, `StationPickerStep.tsx` (wraps `@react-native-picker/picker` with an explicit
 "Next" — a wheel's `onValueChange` fires on every resting value while scrolling, not just the final
 pick, so auto-advancing on it would yank the user forward mid-scroll).
 
-**`contexts/`** (new this session): `AuthContext.tsx` — plain context, no fetch logic of its own;
-`_layout.tsx` remains the one place session state is actually checked, this just exposes it
-(`useAuth()`, `useUserId()` — the latter throws outside an authed session, which should never happen
-given `Stack.Protected`). `DatabaseContext.tsx` — opens SQLite once via `SQLite.openDatabaseAsync`,
-runs `schema.sql` on first launch (keyed off `PRAGMA user_version`), exposes the handle via `useDb()`
-instead of each screen managing its own connection.
+**`contexts/`:** `AuthContext.tsx` — plain context, no fetch logic of its own; `_layout.tsx` remains
+the one place session state is actually checked, this just exposes it (`useAuth()`, `useUserId()` —
+the latter throws outside an authed session, which should never happen given `Stack.Protected`).
+`DatabaseContext.tsx` — opens SQLite once via `SQLite.openDatabaseAsync`, runs `schema.sql` on first
+launch (keyed off `PRAGMA user_version`), exposes the handle via `useDb()` instead of each screen
+managing its own connection. `SyncContext.tsx` (new this session) — triggers `runSync()` on mount, on
+`NetInfo` reporting connectivity restored, and on app foreground (belt-and-suspenders, since OS-level
+background network reporting isn't always reliable); exposes `triggerSync()` (called right after
+commit/discard in `log-trip.tsx` for lower sync latency) plus live `isSyncing`/`lastSyncAt`/
+`lastSyncError` state, surfaced on `/debug`. Coalesces overlapping trigger calls — a sync already in
+flight queues one more pass after, rather than starting a second overlapping request. Requires
+`@react-native-community/netinfo` — a real native module, **not available in Expo Go**; needed a fresh
+`eas build --profile development` before it could be tested at all.
 
 **`lib/`:** `supabase.ts` (chunked SecureStore adapter — a full session routinely exceeds
 SecureStore's ~2048-byte per-item ceiling; `AppState`-driven auto-refresh); `subwayData.ts` (all
 logic over the bundled GTFS data — station lookups, per-route station lists, valid-exit/default-exit
 logic, transfer routes + correct transfer-platform lookup; confirmed directly against the data that
-both directions of a route share the same stop set per branch, just reversed). `device.ts` (new this
-session) — client-generated `device_id`, generated once per install and persisted via `SecureStore`,
-cached in-memory after first read.
+both directions of a route share the same stop set per branch, just reversed); `device.ts` —
+client-generated `device_id`, generated once per install and persisted via `SecureStore`, cached
+in-memory after first read; `sync.ts` — flushes local `sync_status`-pending events
+to Supabase's `raw_events.events`. Trip-domain events grouped by `trip_id` and sent as one multi-row
+`upsert` per trip (a single Postgres statement is atomic — matches `data-layer.md`'s "one remote
+transaction per committed trip"); product events sync one row at a time. Idempotency via
+`upsert(..., { onConflict: 'event_id', ignoreDuplicates: true })` → `ON CONFLICT DO NOTHING`, needing
+only the `INSERT` grant `raw_events.events` already has. `received_at` deliberately omitted from the
+outgoing payload — server-stamped by `raw_events.stamp_received_at()`, never client-set.
 
 **`constants/`:** `lineColors.ts` (official MTA colors + display ordering — the SIR icon fallback,
 and the intended future source for Map tab polylines); `lineIcons.tsx` (custom SVG icons, one static
@@ -180,7 +196,7 @@ via plain `import` — no runtime fetch, matching the offline-first design.
 **`assets/subway-icons/`:** user-authored SVGs, one per route ID.
 
 **`db/`:** `schema.sql`, `schema_tests.py` — untouched this session. `projection.ts` —
-`commitTrip`/`deleteTrip` untouched (already built/tested prior session); **new this session:**
+`commitTrip`/`deleteTrip` untouched (already built/tested prior session);
 `writeProductEvent()`, a thin wrapper around the same `insertEvent` internals for product-domain
 events — used by `log-trip.tsx` for all five draft-session event types.
 
@@ -207,7 +223,7 @@ rendering for overlapping track, `route_shapes.json` polyline precision.
 
 - [x] `raw_events` schema (with `received_at`, server-stamped) + `operational` schema — live, RLS
       verified
-- [ ] Outbox sync worker — flushes local `events` → `raw_events`, idempotent insert, atomic per-trip flush
+- [x] Outbox sync worker — flushes local `events` → `raw_events`, idempotent insert, atomic per-trip flush
 - [x] Supabase Auth — Sign in with Apple, native flow
 - [x] RLS policies — written, live, verified with two impersonated test users
 

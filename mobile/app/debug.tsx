@@ -8,11 +8,13 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../contexts/DatabaseContext';
+import { useSyncEngine } from '../contexts/SyncContext';
 
 export default function DebugScreen() {
     const db = useDb();
     const insets = useSafeAreaInsets();
     const [data, setData] = useState<Record<string, unknown[]> | null>(null);
+    const { triggerSync, isSyncing, lastSyncAt, lastSyncError } = useSyncEngine();
 
     const refresh = useCallback(async () => {
         const [events, trips, legs, syncStatus] = await Promise.all([
@@ -27,6 +29,15 @@ export default function DebugScreen() {
     }, [db]);
 
     useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+
+    // Testing-only: resets already-synced rows back to pending so a sync
+    // pass has something to actually retry — the only way to exercise
+    // idempotency (ON CONFLICT DO NOTHING) without a real second device.
+    async function forceResyncAll() {
+        await db.runAsync(`UPDATE sync_status SET status = 'pending', synced_at = NULL WHERE status = 'synced'`);
+        await refresh();
+        triggerSync();
+    }
 
     // Guard is after hooks, not before — a pre-hook `if (!__DEV__) return null`
     // would violate rules-of-hooks (hook count/order must stay identical across
@@ -44,6 +55,20 @@ export default function DebugScreen() {
                 <Pressable onPress={refresh} style={styles.refreshButton}>
                     <Text style={styles.refreshText}>Refresh</Text>
                 </Pressable>
+            </View>
+            <View style={styles.syncBar}>
+                <Text style={styles.syncText}>
+                    {isSyncing ? 'Syncing…' : lastSyncAt ? `Last synced: ${lastSyncAt.toLocaleTimeString()}` : 'Not synced yet'}
+                </Text>
+                {lastSyncError && <Text style={styles.syncError}>Error: {lastSyncError}</Text>}
+                <View style={styles.syncButtons}>
+                    <Pressable onPress={triggerSync} style={styles.syncButton}>
+                        <Text style={styles.syncButtonText}>Trigger Sync</Text>
+                    </Pressable>
+                    <Pressable onPress={forceResyncAll} style={styles.syncButton}>
+                        <Text style={styles.syncButtonText}>Force Re-sync All</Text>
+                    </Pressable>
+                </View>
             </View>
             <ScrollView contentContainerStyle={styles.content}>
                 {data ? (
@@ -71,4 +96,10 @@ const styles = StyleSheet.create({
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 6, color: '#333' },
     json: { fontFamily: 'Courier', fontSize: 11, color: '#444' },
+    syncBar: { paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    syncText: { fontSize: 13, color: '#444', marginBottom: 4 },
+    syncError: { fontSize: 12, color: '#c00', marginBottom: 6 },
+    syncButtons: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    syncButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#111', borderRadius: 14 },
+    syncButtonText: { color: '#fff', fontWeight: '600', fontSize: 12 },
 });
