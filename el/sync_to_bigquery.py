@@ -21,7 +21,6 @@ Requires env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_APPLICATION_C
 
 import os
 import sys
-import json
 from datetime import datetime, timezone
 
 from supabase import create_client
@@ -120,9 +119,16 @@ def to_bq_row(event: dict, loaded_at: str) -> dict:
         "occurred_at", "recorded_at", "received_at", "device_id",
         "user_id", "trip_id", "leg_id",
     )}
-    # payload comes back from Supabase as a parsed dict already (jsonb) —
-    # BigQuery's JSON type wants a JSON-encoded string on load.
-    row["payload"] = json.dumps(event["payload"])
+    # payload comes back from Supabase as a parsed dict already (jsonb).
+    # Leave it as a real dict — load_table_from_json serializes the whole
+    # row to NDJSON itself, so a nested dict here becomes a proper nested
+    # JSON object in the row, which is what BigQuery's JSON column type
+    # actually wants. json.dumps()'ing it first was the bug: it turned the
+    # dict into a JSON *string*, which then got serialized a second time
+    # by NDJSON encoding, landing as an escaped string value in BigQuery
+    # rather than a real JSON object — which is why JSON_VALUE() returned
+    # null on every row instead of the real field values.
+    row["payload"] = event["payload"]
     row["loaded_at"] = loaded_at
     return row
 

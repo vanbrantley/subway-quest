@@ -9,6 +9,9 @@ create schema if not exists operational;
 grant usage on schema raw_events to authenticated;
 grant usage on schema operational to authenticated;
 
+grant usage on schema raw_events to service_role;
+grant select on raw_events.events to service_role;
+
 comment on schema raw_events is
   'Server mirror of the local events log, synced from device via the outbox worker. Append-only.';
 comment on schema operational is
