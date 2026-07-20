@@ -70,8 +70,8 @@ imply false precision.
 
 | event_type | payload | grain |
 |---|---|---|
-| `leg_boarded` | `{ trip_id, leg_id, station_id, route_id }` | Once per leg, on boarding. |
-| `leg_alighted` | `{ trip_id, leg_id, station_id }` | Once per leg, on alighting. |
+| `leg_boarded` | `{ trip_id, leg_id, station_id, route_id, sequence }` | Once per leg, on boarding. `sequence` added in `event_version: 2` — needed to reconstruct leg order during rehydration replay, not derivable from timestamps (see "Rehydration-on-sign-in"). |
+| `leg_alighted` | `{ trip_id, leg_id, station_id }` | Once per leg, on alighting. Unchanged, `event_version: 1` — its leg is already identified via `leg_id`. |
 
 **Transfers are not a separate event type.** A transfer is `leg_alighted` → `leg_boarded` at the same
 `station_id`/`trip_id` with no `trip_ended` between — computed downstream (`stg_transfers` dbt
@@ -188,7 +188,6 @@ flowchart LR
 
     subgraph Supabase["Supabase Postgres"]
         RE[raw_events schema]
-        OP[operational schema: trips, legs]
     end
 
     subgraph BQ["BigQuery"]
@@ -201,8 +200,8 @@ flowchart LR
     PBI[Power BI — Publish to Web]
 
     E -->|outbox sync, atomic per trip bundle| RE
-    T -.mirrors.-> OP
-    L -.mirrors.-> OP
+    RE -.rehydration-on-sign-in, replayed into T/L.-> T
+    RE -.rehydration-on-sign-in, replayed into T/L.-> L
     RE -->|Python EL job, GitHub Actions, batch| RAW
     RAW --> STG --> INT --> MART
     MART --> PBI
@@ -215,25 +214,10 @@ a downstream join against the mart, not a schema addition.
 
 ## Supabase RLS design
 
-Every table in `operational` and `raw_events` enforces `auth.uid() = user_id`. The real design
-question was **how `legs` gets checked**, since it only carries `trip_id`, not its own `user_id`.
-
-**Rejected: denormalizing `user_id` onto `legs`.** Would give every table an identical flat policy,
-but it's a second, write-only copy of a fact `trips.user_id` already holds, kept in sync for no
-reason but its own policy's simplicity.
-
-**Decided: derive it via a non-correlated `IN` subquery against `trips`, not a correlated `EXISTS`.**
-The correlated form —
-```sql
-using (exists (select 1 from operational.trips where trips.trip_id = legs.trip_id and trips.user_id = auth.uid()))
-```
-— is a known Postgres/Supabase RLS anti-pattern: re-evaluated per row. The `IN` form Postgres can
-plan once per statement:
-```sql
-using (trip_id in (select trip_id from operational.trips where user_id = (select auth.uid())))
-```
-Same normalized data, no per-row cost. `(select auth.uid())` (not bare `auth.uid()`) is used in every
-policy for the same reason — Supabase's documented performance pattern, cached once per statement.
+`raw_events.events` enforces `auth.uid() = user_id` directly — the table already carries `user_id`
+as a real column, so no derived-ownership logic is needed (an earlier version of this design had a
+harder version of this problem for `operational.legs`, which lacked its own `user_id` — see "Removed:
+operational schema" below for why that problem no longer exists at all).
 
 **`raw_events` needs the same shape on `WITH CHECK`, not just `USING`.** `events.user_id` is
 client-set at insert; without `WITH CHECK (auth.uid() = user_id)`, RLS would only restrict reads —
@@ -242,6 +226,110 @@ this is the one place a policy gap would be a real cross-user data leak, not jus
 **Append-only enforced by omitted grants, not just policy.** No `UPDATE`/`DELETE` grant exists on
 `raw_events.events` for any role — stronger than an RLS policy, since a missing grant rejects the
 operation before any row or policy is even considered.
+
+## Removed: `operational` schema (trips/legs mirror)
+
+An earlier version of this design mirrored the local `trips`/`legs` projection into a Supabase
+`operational` schema. In practice nothing was ever built to read from or write to it — the sync
+worker only ever targeted `raw_events.events` — so it sat live, RLS-enforced, and completely empty.
+That's a real violation of this project's own standing principle: a projection is derived and
+rebuildable, never a second source of truth. An empty, unread mirror is worse than no mirror — it's
+an ambiguous artifact a future reader has to spend time ruling out. Same instinct that already led to
+removing `direction_id`, the retired `trip_auto_closed`/`trip_leg_undone` event types, and old status
+columns. Dropped entirely — schema, tables, RLS policies, grants.
+
+## Rehydration-on-sign-in (replaces `operational` for data continuity)
+
+Deliberately framed broadly, not as "new phone." **Trigger condition:** local `trips` is empty, the
+session is authenticated, and `raw_events` holds real history under that `user_id`. This is agnostic
+to *why* local data is missing — genuine new device, reinstall, cleared app data, or local SQLite
+corruption all produce the same state and get the same fix. Disaster recovery that happens to also
+solve device-continuity, not a narrow "restore on new phone" feature.
+
+**Mechanism:** on sign-in, if the trigger condition holds, fetch every `raw_events.events` row for
+that `user_id`, group by `trip_id`, and replay each trip's events through the exact same
+projection-writing logic `commitTrip` already uses for live commits (`writeProjectionRows`, factored
+out for this reuse) — not a second, parallel implementation. A trip whose event group includes a
+`trip_deleted` is skipped entirely, never materialized locally — matching exactly how a live delete
+behaves. Since every trip's events are self-contained under one `trip_id`, replay processes
+trip-by-trip, independent of any other trip.
+
+**The whole replay is one local transaction, not one-transaction-per-trip.** Caught during
+implementation: `needsRehydration`'s trigger check is "is local `trips` empty" — if replay wrote
+some trips before crashing partway through, the next launch would see `trips` non-empty and skip
+rehydration forever, permanently stranding the un-replayed remainder. Wrapping the entire multi-trip
+replay in one transaction makes it genuinely all-or-nothing: a crash anywhere rolls the whole thing
+back, `trips` stays empty, and the exact same trigger condition correctly re-fires next attempt.
+
+**Required test, not an assumption:** confirm directly that a trip with a `trip_deleted` event never
+materializes during replay — same standard already applied elsewhere in this project (see
+`buildOccurredAt`'s timezone bug, caught by testing an assumption that looked correct on paper and
+wasn't). The pure planning logic lives in `mobile/db/rehydrate-plan.ts` (deliberately zero React
+Native/Expo/Supabase imports — importing `rehydrate.ts` directly for a test pulls in `expo-sqlite`,
+which transitively pulls in Flow-syntax React Native source that a plain Node/tsx run can't parse;
+splitting the pure decision logic out is what makes it testable outside the app runtime at all).
+Required test written as `mobile/db/rehydrate_tests.ts`, same philosophy as `schema_tests.py`.
+
+**Real gap found while implementing this:** leg *order within a trip* is not recoverable from the
+event log as originally specified. `leg_boarded`'s payload (`{ station_id, route_id }`) carries no
+sequence, and every event in one committed trip's bundle shares the same `occurred_at`/`recorded_at`
+(all written in the same local commit) — Postgres's `now()` is stable per-transaction, so
+`received_at` can't break the tie either, since a multi-row bundle insert is one transaction. Nothing
+in the original event shape lets a replay reconstruct which leg came first. **Fixed:** `leg_boarded`
+now carries `sequence` in its payload — a real payload shape change, so `leg_boarded` moves to
+`event_version: 2`. `leg_alighted` doesn't need it — its leg is already identified via `leg_id`,
+matched back to the `leg_boarded` that established it. Pre-this-change test data lacks `sequence` and
+will replay in arrival order if ever rehydrated — acceptable, since it only affects data already
+covered by the existing dev/test launch-date-cutoff decision.
+
+## Data-flow architecture — one projection per consumer, not one shared schema
+
+Two fully independent read paths exist off the same event log, each purpose-built for what actually
+reads it — this is a general principle worth stating explicitly, not just something that fell out of
+removing `operational`:
+
+**In-app (every screen — Map, Station, Line, Profile, Achievements):** reads local SQLite only — the
+`trips`/`legs` projection built from local `events`, joined against bundled static JSON (stations,
+routes, quest definitions — see "Quest-definitions, single source of truth" below). No screen ever
+queries Supabase or BigQuery at request time. Single-user, always fresh, zero network dependency by
+design — matches the offline-first requirement this whole local-first architecture exists for.
+
+**Public dashboard:** `raw_events` (Supabase) → Python EL job → BigQuery raw dataset → dbt staging →
+intermediate → mart → Power BI. Batch, cross-user, privacy-filtered (min-N suppression). Never reads
+from or writes to the local SQLite projection at all — a completely separate consumer with completely
+separate privacy/aggregation requirements from the in-app path.
+
+**Rehydration-on-sign-in is the only bridge between the two, and it's one-directional and one-time per
+trigger** — a disaster-recovery replay *from* `raw_events` *into* local SQLite, never the reverse, and
+never an ongoing sync-back path. It exists to repopulate a projection that's supposed to always be
+locally derivable, not to keep two schemas in permanent agreement.
+
+**This is why `operational` was redundant, stated as a principle rather than just a bug fix:** a third
+schema mirroring the same `trips`/`legs` shape server-side would have been a shared schema serving two
+different consumers with two different requirements (single-user/always-fresh vs. cross-user/batch/
+privacy-filtered) — exactly the setup that made it unclear whether it was safe to treat as a live
+source or notice it was silently unpopulated. Two independent, purpose-built projections — one local,
+one in BigQuery's mart — each derived fresh from the same append-only event log, is the design this
+project actually wants: derived and rebuildable everywhere, never a second source of truth anywhere.
+
+## Quest-definitions, single source of truth
+
+Achievements has two consumers with different requirements: the in-app screen (join quest definitions
+against local trip history, per-device) and the BigQuery mart's "% of users completing each quest"
+stat (`dashboard-spec.md`, cross-user aggregate). **Decided: `network/processed/quests.json` is
+canonical — same pipeline/bundling pattern as `stations.json`/`route_stops.json`/`transfers.json`.**
+The in-app Achievements screen imports it directly, same mechanism `subwayData.ts` already uses for
+the others.
+
+The dbt/BigQuery side does not get an independently-authored copy. dbt seeds are CSV, not JSON, so
+this isn't a direct reuse — but generating one from the other is a fundamentally different
+relationship than authoring two copies by hand, which is the actual failure mode being avoided (see
+"Data-flow architecture" above, and the precedent already set by `direction_id`, the rejected
+denormalized-`user_id`-on-`legs` design, and `operational` itself). A `network/scripts/
+build_quest_seed.py` step (parallel to `build_static_data.py`) reads `quests.json` and writes `dbt/
+seeds/quest_definitions.csv` — a generated build artifact, never hand-edited, same relationship
+`mobile/data/`'s bundled JSON already has to `network/processed/`'s tracked source. Run manually
+whenever quest content changes, same pattern already established for `mobile/scripts/sync-data.js`.
 
 ## Data-layer rigor checklist
 

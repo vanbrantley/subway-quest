@@ -12,7 +12,7 @@ new session, not reconstructed from git history.
 | 1 | Supabase schema live | Insert as one auth user, confirm a second session can't read it | ✅ Done — verified with two impersonated test users |
 | 2 | Auth + local trip logging | Real Sign-in-with-Apple on-device; log a trip, kill/reopen, it persists | ✅ Done — full commit/discard wiring verified on-device via a six-point check: clean multi-leg trip with transfer, correction path (completeness-based `draft_leg_added`/`draft_leg_removed`), discard path, cold launch (no splash/blank flash), and kill/full-relaunch persistence, all cross-checked against raw `events`/`trips`/`legs`/`sync_status` rows via a dev-only `/debug` dump screen rather than eyeballing the UI. |
 | 3 | Sync worker | Log a trip on-device, confirm `raw_events` rows land under the right `auth.uid()` | ✅ Done — verified via a six-point on-device check: backlog sync on mount (24 pre-existing local events flushed in one pass), product + trip domain both land correctly, idempotency (forced re-sync of all 24 rows produced zero duplicates), RLS/`user_id` correctness, offline write → sync failure → automatic recovery on reconnect with no app interaction (NetInfo-driven), and a foreground re-trigger as fallback. |
-| 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ⬜ Not started |
+| 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ✅ Done — manually triggered via `workflow_dispatch`, verified against the real table: schema/column types correct, row count matches Supabase, `payload` genuinely parses as JSON (caught and fixed a double-encoding bug where `json.dumps()` was called on an already-parsed dict), partitioning (`DATE(received_at)`) and clustering (`user_id`) both applied. `operational` schema removed from the data model as part of this milestone's cleanup (see "Rehydration-on-sign-in" section); rehydration-on-sign-in built and verified on-device as its replacement for data continuity. |
 | 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ⬜ Not started |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ⬜ Not started (mechanism decided — see `docs/dashboard-spec.md`) |
 | 7 | Power BI live | Three pages, Publish to Web page-nav works | ⬜ Not started |
@@ -134,7 +134,10 @@ into actual text via `Asset.fromModule()` + `File`.
 - `(auth)/_layout.tsx`, `(auth)/index.tsx` — sign-in screen. Apple button → `signInAsync` (hashed
   nonce to Apple, raw nonce to Supabase) → `signInWithIdToken`. Captures `fullName` into user
   metadata on first authorization only — Apple never sends it again after that.
-- `(tabs)/_layout.tsx` — `<Tabs>` navigator + `<LogTripFAB>` as a sibling, visible from all tabs.
+- `(tabs)/_layout.tsx` — `<Tabs>` navigator + `<LogTripFAB>` as a sibling, visible from all tabs. Now
+  wrapped in `<RehydrationGate>` — runs the rehydration check/replay once per session before any tab
+  content renders, so the FAB can't be tapped (and a trip logged) before local `trips`/`legs` has
+  finished restoring, if it needed to.
 - `(tabs)/map.tsx`, `(tabs)/search.tsx` — stubs.
 - `(tabs)/profile/_layout.tsx`, `index.tsx` — stub + working Sign Out. **Currently also has a
   temporary "Open Debug Dump" button** (→ `/debug`) added for this session's testing — scaffolding,
@@ -155,7 +158,10 @@ into actual text via `Asset.fromModule()` + `File`.
 **`components/`:** `LogTripFAB.tsx`; `trip-logging/types.ts` (`DraftLeg`, `ActiveField`),
 `TripChipStrip.tsx`, `StationPickerStep.tsx` (wraps `@react-native-picker/picker` with an explicit
 "Next" — a wheel's `onValueChange` fires on every resting value while scrolling, not just the final
-pick, so auto-advancing on it would yank the user forward mid-scroll).
+pick, so auto-advancing on it would yank the user forward mid-scroll); `RehydrationGate.tsx` (new this
+session) — wraps the authenticated tab area, runs `needsRehydration`/`rehydrateFromRemote` once per
+mount, brief loading state while it runs, fails open (renders children even if rehydration throws,
+rather than blocking the app on a rehydration bug).
 
 **`contexts/`:** `AuthContext.tsx` — plain context, no fetch logic of its own; `_layout.tsx` remains
 the one place session state is actually checked, this just exposes it (`useAuth()`, `useUserId()` —
@@ -196,9 +202,20 @@ via plain `import` — no runtime fetch, matching the offline-first design.
 **`assets/subway-icons/`:** user-authored SVGs, one per route ID.
 
 **`db/`:** `schema.sql`, `schema_tests.py` — untouched this session. `projection.ts` —
-`commitTrip`/`deleteTrip` untouched (already built/tested prior session);
-`writeProductEvent()`, a thin wrapper around the same `insertEvent` internals for product-domain
-events — used by `log-trip.tsx` for all five draft-session event types.
+`commitTrip`/`deleteTrip` logic unchanged; **new this session:** `writeProjectionRows()` factored out
+of `commitTrip` and exported, shared with `rehydrate.ts`'s replay path — one implementation of "what a
+trip's projection rows look like," not two. `leg_boarded`'s payload gained `sequence`
+(`event_version: 2`) — needed to reconstruct leg order during rehydration, not derivable from
+timestamps alone (every event in one commit bundle shares the same `occurred_at`/`recorded_at`). Also
+new this session: `rehydrate-plan.ts` — pure `planRehydration()` (trip grouping, `trip_deleted`
+exclusion, leg-sequence ordering), deliberately zero React Native/Expo/Supabase imports so it's
+testable via plain `tsx` without a device (importing `rehydrate.ts` directly pulls in `expo-sqlite`,
+which transitively pulls in Flow-syntax RN source a plain Node run can't parse — this split is what
+makes the logic testable at all). `rehydrate.ts` — thin I/O wrapper (`needsRehydration`,
+`rehydrateFromRemote`) that imports the pure logic from `rehydrate-plan.ts`. `rehydrate_tests.ts` —
+the required test (10 checks, all passing): a deleted trip never materializes, a live trip restores
+with correct leg order even from out-of-order remote rows, a mixed batch only restores the live trip,
+an incomplete event set is skipped rather than crashing.
 
 **`scratch/old-map-screen.tsx`:** pre-session map screen, moved out of the router tree (anything
 under `app/`, at any depth, is live-scanned by Router). Kept for the future Map tab, not deleted.
@@ -221,11 +238,53 @@ rendering for overlapping track, `route_shapes.json` polyline precision.
 
 ## Backend
 
-- [x] `raw_events` schema (with `received_at`, server-stamped) + `operational` schema — live, RLS
-      verified
+- [x] `raw_events` schema (with `received_at`, server-stamped) — live, RLS verified. `operational`
+      schema (trips/legs mirror) removed this session — RLS existed but nothing ever populated it;
+      never actually a complete deliverable. See `data-layer.md`'s "Removed: operational schema" and
+      "Rehydration-on-sign-in" for the replacement.
 - [x] Outbox sync worker — flushes local `events` → `raw_events`, idempotent insert, atomic per-trip flush
 - [x] Supabase Auth — Sign in with Apple, native flow
 - [x] RLS policies — written, live, verified with two impersonated test users
+
+## Rehydration-on-sign-in (new, replaces `operational` for data continuity)
+
+- [x] `mobile/db/rehydrate-plan.ts` — pure `planRehydration()` (trip grouping, `trip_deleted`
+      exclusion, leg-sequence ordering), zero RN/Expo/Supabase imports by design — testable via
+      plain `tsx`, no device needed. `mobile/db/rehydrate.ts` is the thin I/O wrapper
+      (`needsRehydration`/`rehydrateFromRemote`) that imports from it.
+- [x] Required test written and passing: `mobile/db/rehydrate_tests.ts` — a deleted trip never
+      materializes; a live trip restores with correct leg order even from out-of-order remote rows; a
+      mixed batch only restores the live trip; an incomplete event set is skipped, not crashed
+- [x] `components/RehydrationGate.tsx` — wraps the authenticated tab area, runs the check/replay once
+      per session, brief loading state while it runs (decided: no live Supabase-side projection needed
+      to avoid this — out of proportion to this project's real scale). **Verified on-device:** deleted
+      and reinstalled the app (Keychain session survives deletion — this exercised the "reinstall"
+      trigger case directly), signed back in, confirmed all 3 previously-synced trips restored
+      correctly to `trips`/`legs`, including correct leg order for a 2-leg trip from out-of-order
+      remote rows. Local `events`/`sync_status` correctly stay empty post-rehydration — `raw_events`
+      in Supabase remains the durable copy; rebuilding the local append-only log too would be
+      redundant, since nothing screen-facing ever reads `events` directly (see `data-layer.md`'s
+      "Data-flow architecture" — every in-app screen reads `trips`/`legs` only).
+- [x] Decided: `leg_boarded` payload gains `sequence` (`event_version: 2`) — required for correct leg
+      ordering during replay, not derivable from timestamps alone (see `data-layer.md`)
+
+**Operational gotcha, hit and resolved during on-device testing:** dropping the `operational` schema
+left a dangling reference in Supabase's **Settings → API → Exposed schemas** list (it had been added
+there when `raw_events`/`operational` were both originally exposed at project setup). PostgREST
+couldn't rebuild its schema cache with a stale reference to a schema that no longer existed —
+producing `PGRST002: Could not query the database for the schema cache`, and breaking **all**
+Data API queries, including ones against `raw_events`, not just the missing schema itself. A plain
+`NOTIFY pgrst, 'reload schema';` alone did not fix this, since PostgREST's rebuild attempt itself was
+failing, not just stale. Fix: remove `operational` from Exposed Schemas, then reload. Worth knowing
+for next time — any future `DROP SCHEMA` needs the same two-step cleanup (drop the schema, *and*
+remove it from Exposed Schemas), or PostgREST can wedge in a way a simple cache-reload command won't
+resolve on its own.
+
+**Milestone 4/rehydration cleanup, fully closed:** `operational` schema removed from both the live
+database and all docs; quest-definitions source decided (`quests.json` canonical, dbt seed generated
+from it, never hand-duplicated); `dashboard-spec.md`'s profile-page data path corrected to reflect
+local-only reads. See `data-layer.md`'s "Data-flow architecture" section for the general principle
+this all falls out of.
 
 ## Python EL job / BigQuery / dbt
 
@@ -255,7 +314,12 @@ in the staging layer that already needs a filter like this.
 ## Achievements / quests
 
 - [ ] Content design — the actual quest list
-- [ ] Static quest-definitions table + join logic (confirmed: no new event types needed)
+- [ ] Static quest-definitions table + join logic (confirmed: no new event types needed). **Source
+      mechanism decided:** `network/processed/quests.json` is canonical (bundled, same pattern as
+      `stations.json`/`route_stops.json`/`transfers.json`); the dbt seed
+      (`dbt/seeds/quest_definitions.csv`) is a generated build artifact from that same file via a
+      new `network/scripts/build_quest_seed.py`, never hand-authored separately — see
+      `data-layer.md`'s "Quest-definitions, single source of truth" for the full reasoning.
 
 ## Release
 

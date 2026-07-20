@@ -37,6 +37,8 @@ export type CommitContext = {
 };
 
 const EVENT_VERSION = 1;
+const LEG_BOARDED_VERSION = 2; // payload gained `sequence` — see data-layer.md's
+// "Rehydration-on-sign-in" section for why
 
 /** Local calendar date ('YYYY-MM-DD') for a given moment. Deliberately NOT
  *  `date.toISOString().slice(0, 10)` — that returns the UTC calendar date,
@@ -76,6 +78,7 @@ async function insertEvent(
     params: {
         eventType: string;
         eventDomain: 'trip' | 'product';
+        eventVersion?: number;
         occurredAt: string;
         recordedAt: string;
         ctx: CommitContext;
@@ -90,7 +93,7 @@ async function insertEvent(
         occurred_at, recorded_at, device_id, user_id, trip_id, leg_id, payload)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-            randomUUID(), params.eventType, params.eventDomain, EVENT_VERSION,
+            randomUUID(), params.eventType, params.eventDomain, params.eventVersion ?? EVENT_VERSION,
             params.occurredAt, params.recordedAt, params.ctx.deviceId, params.ctx.userId,
             params.tripId, params.legId, JSON.stringify(params.payload),
         ]
@@ -132,8 +135,9 @@ export async function commitTrip(
 
             await insertEvent(db, {
                 eventType: 'leg_boarded', eventDomain: 'trip', occurredAt, recordedAt, ctx,
+                eventVersion: LEG_BOARDED_VERSION,
                 tripId, legId,
-                payload: { station_id: leg.entryStationId, route_id: leg.routeId },
+                payload: { station_id: leg.entryStationId, route_id: leg.routeId, sequence: leg.sequence },
             });
 
             await insertEvent(db, {
@@ -149,26 +153,9 @@ export async function commitTrip(
             payload: { destination_station_id: draft.destinationStationId },
         });
 
-        // Projection: one complete row per trip, one complete row per leg —
-        // never a partial insert followed by an update.
-        await db.runAsync(
-            `INSERT INTO trips
-         (trip_id, device_id, user_id, origin_station_id, destination_station_id, started_at, ended_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [tripId, ctx.deviceId, ctx.userId, draft.originStationId, draft.destinationStationId, occurredAt, occurredAt]
-        );
-
-        for (let i = 0; i < draft.legs.length; i++) {
-            const leg = draft.legs[i];
-            const legId = legIds[i];
-            await db.runAsync(
-                `INSERT INTO legs
-           (leg_id, trip_id, sequence, route_id,
-            entry_station_id, exit_station_id, boarded_at, alighted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [legId, tripId, leg.sequence, leg.routeId, leg.entryStationId, leg.exitStationId, occurredAt, occurredAt]
-            );
-        }
+        // Projection write — shared with rehydrate.ts's replay path, one
+        // implementation of "what a trip's projection rows look like."
+        await writeProjectionRows(db, tripId, legIds, draft, ctx, occurredAt);
     });
 
     return tripId;
@@ -213,4 +200,38 @@ export async function writeProductEvent(
     const occurredAt = buildOccurredAt(localDateString());
     const recordedAt = new Date().toISOString();
     await insertEvent(db, { eventType, eventDomain: 'product', occurredAt, recordedAt, ctx, tripId: null, legId: null, payload });
+}
+
+/**
+  * Writes the trips/legs projection rows for a fully-known trip — no event
+  * writes here, just the projection. Shared by commitTrip (live commits) and
+  * rehydrate.ts (replaying remote events — no local event bundle to write,
+  * since raw_events already holds them server-side).
+  * */
+export async function writeProjectionRows(
+    db: SQLite.SQLiteDatabase,
+    tripId: string,
+    legIds: string[],
+    draft: TripDraft,
+    ctx: CommitContext,
+    occurredAt: string
+): Promise<void> {
+    await db.runAsync(
+        `INSERT INTO trips
+        (trip_id, device_id, user_id, origin_station_id, destination_station_id, started_at, ended_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [tripId, ctx.deviceId, ctx.userId, draft.originStationId, draft.destinationStationId, occurredAt, occurredAt]
+    );
+
+    for (let i = 0; i < draft.legs.length; i++) {
+        const leg = draft.legs[i];
+        const legId = legIds[i];
+        await db.runAsync(
+            `INSERT INTO legs
+            (leg_id, trip_id, sequence, route_id,
+             entry_station_id, exit_station_id, boarded_at, alighted_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [legId, tripId, leg.sequence, leg.routeId, leg.entryStationId, leg.exitStationId, occurredAt, occurredAt]
+        );
+    }
 }

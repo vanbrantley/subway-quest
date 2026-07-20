@@ -1,8 +1,8 @@
 name: EL job — Supabase to BigQuery
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'   # every 6 hours — adjust once you have a sense of real event volume
+  # schedule:
+  #   - cron: '0 */6 * * *'   # every 6 hours — adjust once you have a sense of real event volume
   workflow_dispatch: {}      # manual trigger button in the Actions tab, for testing right now
 
 jobs:

@@ -4,18 +4,14 @@
 -- Companion to mobile/db/schema.sql (local) and docs/data-layer/erd.md (RLS design reasoning).
 
 create schema if not exists raw_events;
-create schema if not exists operational;
 
 grant usage on schema raw_events to authenticated;
-grant usage on schema operational to authenticated;
 
 grant usage on schema raw_events to service_role;
 grant select on raw_events.events to service_role;
 
 comment on schema raw_events is
   'Server mirror of the local events log, synced from device via the outbox worker. Append-only.';
-comment on schema operational is
-  'Server mirror of the local trips/legs projection, synced alongside raw_events.';
 
 -- ============================================================
 -- raw_events.events
@@ -101,80 +97,3 @@ create policy "insert own events"
   on raw_events.events for insert
   to authenticated
   with check ((select auth.uid()) = user_id);
-
-
--- ============================================================
--- operational.trips
--- ============================================================
-create table operational.trips (
-    trip_id                  text primary key,
-    device_id                text not null,
-    user_id                  uuid not null references auth.users (id),
-
-    origin_station_id        text not null,
-    destination_station_id   text not null,
-
-    started_at               timestamptz not null,
-    ended_at                  timestamptz not null
-);
-
-create index idx_operational_trips_user_id on operational.trips (user_id);
-
-alter table operational.trips enable row level security;
-
--- No UPDATE grant — same no-edit-mode reasoning as the local schema. A trip is inserted whole (on
--- commit) or removed whole (on delete); nothing in between.
-grant select, insert, delete on operational.trips to authenticated;
-
-create policy "select own trips"
-  on operational.trips for select to authenticated
-  using ((select auth.uid()) = user_id);
-
-create policy "insert own trips"
-  on operational.trips for insert to authenticated
-  with check ((select auth.uid()) = user_id);
-
-create policy "delete own trips"
-  on operational.trips for delete to authenticated
-  using ((select auth.uid()) = user_id);
-
-
--- ============================================================
--- operational.legs
--- ============================================================
-create table operational.legs (
-    leg_id             text primary key,
-    trip_id            text not null references operational.trips (trip_id),
-    sequence           integer not null,
-
-    route_id           text not null,
-    entry_station_id   text not null,
-    exit_station_id    text not null,
-
-    boarded_at          timestamptz not null,
-    alighted_at          timestamptz not null,
-
-    unique (trip_id, sequence),
-    check (sequence >= 1)
-);
-
-create index idx_operational_legs_trip_id on operational.legs (trip_id);
-
-alter table operational.legs enable row level security;
-
-grant select, insert, delete on operational.legs to authenticated;
-
--- No user_id column here, deliberately — see erd.md's "Supabase RLS design" section. Ownership is
--- derived via a non-correlated IN subquery against trips, not a correlated EXISTS (a documented
--- Postgres/Supabase RLS performance anti-pattern) and not a denormalized column.
-create policy "select own legs"
-  on operational.legs for select to authenticated
-  using (trip_id in (select trip_id from operational.trips where user_id = (select auth.uid())));
-
-create policy "insert own legs"
-  on operational.legs for insert to authenticated
-  with check (trip_id in (select trip_id from operational.trips where user_id = (select auth.uid())));
-
-create policy "delete own legs"
-  on operational.legs for delete to authenticated
-  using (trip_id in (select trip_id from operational.trips where user_id = (select auth.uid())));

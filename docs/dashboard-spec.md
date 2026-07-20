@@ -10,15 +10,16 @@ here requires new event types or schema changes, with one exception noted explic
 | | Public dashboard | In-app profile page |
 |---|---|---|
 | Audience | Anyone with the link — no login | The signed-in user, about themselves |
-| Data path | Supabase → EL job → BigQuery → dbt mart → Power BI | Local SQLite / Supabase, live, scoped to one `device_id`/`user_id` |
+| Data path | Supabase → EL job → BigQuery → dbt mart → Power BI | Local SQLite only, scoped to one `user_id` — never queries Supabase directly. Rehydration-on-sign-in (see `data-layer.md`) is the only path anything ever arrives from Supabase, and it's a one-time recovery replay, not an ongoing read path. |
 | Scope | Aggregated across all users | One user's own data only |
 | Privacy posture | Must never expose individually identifiable rows — see below | Naturally single-user, no aggregation-privacy concern |
 
 **These must stay architecturally separate.** The public dashboard's mart is pre-aggregated at the dbt
 layer — no drill-down to an individual `device_id`/`user_id` should ever be queryable from what feeds
 Power BI. The profile page is the opposite: it's *supposed* to show one person their own detail, and
-pulls from a completely different path (not the BigQuery mart) precisely so no aggregation/anonymity
-concern ever applies to it.
+pulls from a completely different path (local SQLite, not the BigQuery mart, not Supabase at request
+time — see `data-layer.md`'s "Data-flow architecture") precisely so no aggregation/anonymity concern
+ever applies to it.
 
 ## Privacy: minimum-N suppression
 
