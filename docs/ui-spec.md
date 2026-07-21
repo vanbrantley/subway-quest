@@ -1,6 +1,6 @@
 # SubwayQuest — UI/UX Spec v1
 
-Companion to `docs/data-layer/` and `docs/dashboard/spec.md`. Written before implementation, same
+Companion to `docs/data-layer.md` and `docs/dashboard-spec.md`. Written before implementation, same
 reasoning as the rest of this project's docs: a real spec beats reconstructing intent from a working
 build later. Model app throughout: **Fotmob** — everything drills into its own dedicated page, easy
 back-navigation, insights surfaced contextually rather than on one static dashboard.
@@ -27,6 +27,11 @@ back-navigation, insights surfaced contextually rather than on one static dashbo
   simplest path, and already what the schema was built for.
 - **Session persists as long as Supabase's default refresh-token behavior allows** — deliberately
   minimizing re-auth friction; signing in repeatedly isn't part of the intended experience.
+- **Rehydration-on-sign-in:** if local data is missing (new device, reinstall, cleared app data, or
+  local corruption) at the moment of a successful sign-in, a brief "Restoring your data…" loading
+  state appears before the tabs render, while trip history replays from Supabase. Well under a second
+  at this project's real scale. See `docs/data-layer.md`'s "Rehydration-on-sign-in" for the full
+  mechanism.
 - **Sign out:** Profile tab → menu → Sign Out button.
 
 ## Tab: Map
@@ -55,7 +60,7 @@ back-navigation, insights surfaced contextually rather than on one static dashbo
 
 ## Tab: Profile
 
-Personal mini-dashboard — mirrors `docs/dashboard/spec.md`'s "In-app profile page" section; **fold
+Personal mini-dashboard — mirrors `docs/dashboard-spec.md`'s "In-app profile page" section; **fold
 this fuller list back into that doc once this spec is locked**, since it's more detailed than what's
 currently written there:
 
@@ -167,7 +172,9 @@ yet (currently just SIR).
 6. **Removing a leg cascades** — removes that leg and every leg after it, never a single leg in
    isolation, avoiding a dangling transfer point (same design as the earlier trip-editing discussion).
 7. **X button** discards the whole draft — no trip is created; a `trip_draft_abandoned` product event
-   fires, per the existing taxonomy.
+   fires unconditionally, regardless of how much progress was made in the draft (see
+   `docs/data-layer.md`'s Draft-session events table and `docs/status.md`'s bug-fix note on the
+   draft-abandonment asymmetry this corrected).
 8. **"Log Trip"** commits the whole trip atomically — `trip_started` + every leg + `trip_ended` written
    together, exactly as `mobile/db/projection.ts`'s `commitTrip` already implements and tests confirm.
 9. **On success →** navigates to the new trip's Trip Detail/Summary page.
@@ -206,10 +213,11 @@ app/
       achievements/
         index.tsx
         [questId].tsx
-  station/[stationId].tsx     # shared canonical page, pushed from any tab
-  line/[lineId].tsx            # shared canonical page, pushed from any tab
-  log-trip.tsx                 # FAB modal
-  trip/[tripId].tsx            # trip detail/summary
+  station/[stationId].tsx     # shared canonical page, pushed from any tab — not yet built
+  line/[lineId].tsx            # shared canonical page, pushed from any tab — not yet built
+  log-trip.tsx                 # FAB modal — built
+  trip.tsx                     # trip detail/summary — built as root-level, useLocalSearchParams,
+                                # not a trip/[tripId] dynamic segment (no deep-linking need)
 ```
 
 Not locked to the same rigor as the data layer — this is a reasonable starting structure for whoever

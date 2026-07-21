@@ -32,10 +32,10 @@ name attached. 10 sits toward the higher end of common small-count suppression c
 segment-level stats only — an overall total (e.g. "total users," a single aggregate number) isn't a
 segment and doesn't need suppression.
 
-**Implementation: BigQuery-native, not generic dbt filtering logic** — see `docs/remaining-scope.md`
-section 4. Chosen deliberately over a database-agnostic approach, since this requirement exists
-regardless of warehouse choice; doing it with BigQuery's own mechanisms is part of what makes BigQuery
-specifically load-bearing to this project, not just a pass-through choice.
+**Implementation: BigQuery-native, not generic dbt filtering logic.** Chosen deliberately over a
+database-agnostic approach, since this requirement exists regardless of warehouse choice; doing it
+with BigQuery's own mechanisms is part of what makes BigQuery specifically load-bearing to this
+project, not just a pass-through choice. Full mechanism below.
 
 **Real practical consequence, not just a policy on paper:** at current/early TestFlight scale, total
 users will likely sit under 10 for a real stretch of time — meaning most segment-level charts (the
@@ -74,14 +74,15 @@ so it's not a capability being given up for anything concrete.
 |---|---|---|
 | Station visit heatmap (map, colored by visit frequency) | Which parts of the system get explored, in aggregate | `leg_boarded`/`leg_alighted` `station_id`s, grouped |
 | % of system explored, distribution across users | How thoroughly do people explore, and how does that vary | Distinct stations visited ÷ 496, per user, then aggregated — subject to min-N suppression |
-| Lines/branches ridden vs. total | Same idea, at route-branch grain | `legs.route_id`, joined against the known branch count |
-| % of users completing each quest | Which quests are well-tuned vs. too hard/easy | Quest-definitions table (static) joined against committed trip history — no new schema |
+Lines ridden vs. total | Same idea, at route grain | int_legs.route_id, distinct count ÷ a static total-lines seed. Exact seed value still open — see docs/dbt-coverage.md.
+| % of users completing each quest | Which quests are well-tuned vs. too hard/easy | Quest-definitions table (static, see `data-layer.md`'s "Quest-definitions, single source of truth") joined against committed trip history — no new schema |
 
 ## Public dashboard — Growth & riding behavior
 
 | Metric | Answers | Derivation |
 |---|---|---|
-| Total users, over time (line graph) | Is this growing | Distinct `device_id`/`user_id` count by signup/first-event date |
+| Total signups, over time (line graph) | Is this growing | Distinct user_id count by first-ever event date (any event type)
+| Total activated users, over time (line graph) | How many signups actually do anything | Distinct user_id count by first |committed-trip date. Deliberately kept as a second line rather than replacing signups outright — the gap between the two is the only "accounts that never activate" signal on the dashboard. |
 | Trips logged per day (line graph) | Overall usage volume over time | `trip_started` count by date |
 | Average trips logged per user | Typical engagement depth | `trips` count ÷ distinct users |
 | Histogram: trips logged per user | Engagement distribution, not just the average | Same, bucketed — subject to min-N suppression |
@@ -98,15 +99,16 @@ instrumentation work." Deliberately kept separate so it's clear who each section
 |---|---|---|
 | % of committed trips that required at least one correction before logging | How much friction exists in the drafting flow | Distinct `draft_id`s with a `draft_leg_removed`, joined via `trip_draft_committed`, ÷ total committed trips |
 | % of drafts abandoned (never committed) | Where people bail before finishing | `trip_draft_abandoned` count ÷ (`trip_draft_abandoned` + `trip_draft_committed`) |
-| % of trips deleted after being logged | How often "log it, then realize it's wrong" happens | `trip_deleted` count ÷ total ever-committed trips |
-| Sync health — median/p95 sync latency, trending over time (plus a supplementary "% synced within 60 min") | Is the outbox pattern actually keeping up in the real world | **Resolved:** not `sync_status` directly (correctly stays local-only, per taxonomy doc). Add one new column, `received_at`, to Supabase's `raw_events` schema — a server-stamped timestamp (`DEFAULT now()`) set the instant a row actually lands. `received_at − recorded_at` (already-synced field) gives real latency per event — reported as a **percentile distribution (p50/p95), not a single fixed threshold**, since a single "% within N minutes" number conflates genuine offline time (expected — underground commuting) with actual sync-worker degradation, and can't distinguish them. A shift in the distribution's shape is a clearer health signal than any one cutoff. No changes to local `schema.sql` or the tested schema. |
+| % of trips deleted after being logged | How often "log it, then realize it's wrong" happens | trip_deleted count ÷ total ever-committed trips (deletion-inclusive — a deleted trip still counts as having been committed once) | 
+| Median time to log a trip, split by leg count (1 leg / 2 legs / 3+ legs) | Is the logging flow actually fast — and does complexity (transfers) slow it down | `trip_draft_committed.recorded_at − trip_draft_started.recorded_at`, joined on `draft_id`; bucketed by count of `leg_boarded` events for that trip (joined via `trip_draft_committed.payload.trip_id`). Median, not mean — a few long-idle drafts (interrupted mid-log) would skew a mean upward; median better reflects typical experience. Subject to min-N suppression per leg-count bucket. **Known limitation:** measures wall-clock time from draft-open to commit, not active engagement — can't distinguish real UI friction from the user simply getting distracted mid-draft. |
+| Sync health — median/p95 sync latency, trending over time (plus a supplementary "% synced within 60 min") | Is the outbox pattern actually keeping up in the real world | **Resolved:** not `sync_status` directly (correctly stays local-only, per taxonomy doc). Added `received_at` to Supabase's `raw_events` schema — a server-stamped timestamp (`DEFAULT now()`, enforced via trigger, never client-set) set the instant a row actually lands. `received_at − recorded_at` (already-synced field) gives real latency per event — reported as a **percentile distribution (p50/p95), not a single fixed threshold**, since a single "% within N minutes" number conflates genuine offline time (expected — underground commuting) with actual sync-worker degradation, and can't distinguish them. A shift in the distribution's shape is a clearer health signal than any one cutoff. No changes to local `schema.sql` or the tested schema. |
 
 ## In-app profile page (personal, not public)
 
 A smaller, personal-scope mirror of the exploration section above — same underlying logic, one user's
 data only, pulled live rather than from the batch/warehouse path.
 
-**Synced from `docs/ui/spec.md`'s Profile tab section — the fuller, authoritative list:**
+**Synced from `docs/ui-spec.md`'s Profile tab section — the fuller, authoritative list:**
 
 - Rides logged, stations visited
 - % of network visited — overall, and split by borough
@@ -118,7 +120,7 @@ data only, pulled live rather than from the batch/warehouse path.
 
 Also, per the UI spec's map design: the same visited/saved distinction used on the map's markers
 (green for visited overrides saved status — "saved" means want-to-visit, which visiting fulfills — see
-`docs/ui/spec.md`) should stay visually consistent if this page shows any mini-map or station-list
+`docs/ui-spec.md`) should stay visually consistent if this page shows any mini-map or station-list
 treatment of its own.
 
 ## Scrapped, with reasoning
@@ -131,15 +133,21 @@ treatment of its own.
 - **"% of trips edited"** — reframed, not cut. Corrected to "% requiring at least one correction before
   logging" (see Product/instrumentation above) — a defensible rate claim about a real behavior, not an
   ambiguous label.
+- Branch-level tracking — considered and cut, same reasoning as "Average ride length": would need route_stops.json in the warehouse for the first time, for detail this metric doesn't actually need. Metric narrowed to line-level (route_id) only.
 
 ## Layout: three Power BI pages, mapped directly to the three sections above
 
 Multi-page reports (tabbed, like Excel sheets) are standard Power BI practice for anything beyond a
-single trivial view, and Publish to Web supports page navigation. The three-way split above already
-exists for a different reason (different audiences), and that split maps directly onto three pages
-rather than one crowded view: **Exploration**, **Growth & Behavior**, **Product/Instrumentation**. Worth
-a quick check against current Power BI docs when actually building this, to confirm no free-tier
-Publish to Web quirks around page navigation — not verified against current documentation this session.
+single trivial view, and Publish to Web supports page navigation — **confirmed against current
+documentation**, including a default-page setting for the published embed; no free-tier limitation on
+multi-page navigation found. The three-way split above already exists for a different reason
+(different audiences), and that split maps directly onto three pages rather than one crowded view:
+**Exploration**, **Growth & Behavior**, **Product/Instrumentation**.
+
+**Authoring environment note:** Power BI Desktop has no native Mac version (confirmed current, no
+native release planned). Resolved for this project — reports are authored on a separate Windows
+machine already owned for Windows-only analysis tools; no VM/Parallels setup needed. See
+`docs/status.md`'s Dashboard section.
 
 ## Open, not yet resolved
 

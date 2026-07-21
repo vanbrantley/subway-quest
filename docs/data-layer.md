@@ -13,6 +13,7 @@ Companion to `mobile/db/schema.sql` (local), `supabase/schema.sql` (server), and
 | `event_version` | integer | Versions the payload shape per `event_type`. Starts at `1`. |
 | `occurred_at` | ISO8601 | User-picked date (see "Date-only backdating") + actual current time-of-day at logging. |
 | `recorded_at` | ISO8601 | Local device write time. |
+| `loaded_at` | ISO8601 | Not part of the original event envelope — added at the BigQuery-landing layer. The EL job's own run timestamp (`sync_to_bigquery.py`'s execution time), distinct from `received_at` (when the row landed in Supabase). Kept separate so EL batch lag and sync-worker lag can be debugged independently. |
 | `device_id` | text | Client-generated, secondary — diagnostic/multi-device use only, not the security boundary. |
 | `user_id` | UUID (text), NOT NULL | Real auth from day one — maps to Supabase `auth.users.id`. Known at write time since sign-in precedes any event. RLS keys on `auth.uid() = user_id` — a verified session identity, not a self-reported value, which is what makes this real row-level security rather than an organizational convention. |
 | `trip_id` | UUID (text), nullable | Real column for `CHECK` enforcement + filtering. `NOT NULL` for trip-domain rows, `NULL` for product. Must be a collision-safe client-generated UUID — many independent users write into the same shared Supabase table. |
@@ -82,16 +83,17 @@ model), not stored, since the two leg events already carry every fact a `transfe
 | event_type | payload | grain |
 |---|---|---|
 | `trip_draft_started` | `{ draft_id }` | Screen opened. |
-| `draft_leg_added` | `{ draft_id, sequence, route_id, entry_station_id }` | Once per leg added. |
-| `draft_leg_removed` | `{ draft_id, sequence }` | Once per leg removed — the undo-count signal. |
+| `draft_leg_added` | `{ draft_id, sequence }` | Fires once per leg, only when that leg reaches completeness (`exitStationId` set) — not on every intermediate field pick. See `status.md`'s "Product-event instrumentation" for the full completeness rule and why. |
+| `draft_leg_removed` | `{ draft_id, sequence }` | Fires once per *previously-complete* leg a cascade truncation discards — a leg still mid-pick (no exit yet) being cut is normal editing, not a correction, and fires nothing. The undo-count signal. |
 | `trip_draft_committed` | `{ draft_id, trip_id }` | Fired alongside the trip-domain bundle at commit — bridges `draft_id` to `trip_id`. |
-| `trip_draft_abandoned` | `{ draft_id }` | User backs out without committing. |
+| `trip_draft_abandoned` | `{ draft_id }` | User backs out without committing. Fires unconditionally on discard, regardless of how much progress was made — see `status.md`'s bug-fix note on the draft-abandonment asymmetry this corrected. |
 
 **Fixing an earlier leg mid-draft:** no in-place edit — tapping back to fix leg N removes every leg
-from N onward (each firing `draft_leg_removed`), then the user re-enters from there. In-place editing
-would need auto-recomputed downstream legs (a later leg's entry is the prior leg's exit) — pop-and-redo
-avoids that cascading-consistency logic entirely. *(This is the same principle later generalized in
-the mobile UI's chip-strip editor — see `docs/status.md`.)*
+from N onward (each firing `draft_leg_removed`, subject to the completeness rule above), then the
+user re-enters from there. In-place editing would need auto-recomputed downstream legs (a later leg's
+entry is the prior leg's exit) — pop-and-redo avoids that cascading-consistency logic entirely.
+*(This is the same principle later generalized in the mobile UI's chip-strip editor — see
+`docs/status.md`.)*
 
 ## Product events (app usage)
 
@@ -212,6 +214,46 @@ flowchart LR
 `sync_status` never appears past the device — pure local outbox bookkeeping. Achievements/quests are
 a downstream join against the mart, not a schema addition.
 
+## Python EL job — Supabase to BigQuery
+
+`el/sync_to_bigquery.py`, scheduled via GitHub Actions (`.github/workflows/el-job.yml` — cron every 6
+hours, plus manual `workflow_dispatch` for on-demand triggering, which is how it was tested this
+session). Batch, not streaming — matches `PROJECT.md`'s stated architecture.
+
+**Incremental via watermark, not full reload.** Every run queries BigQuery for `MAX(received_at)`
+already loaded, then pulls only newer rows from Supabase. No external state file — GitHub Actions
+runners are stateless between runs, so the watermark is derived fresh from BigQuery itself each time,
+not stored anywhere in between.
+
+**Raw BigQuery table allows duplicates; dedup is deferred to dbt staging, not solved here.** A
+`received_at >` watermark has a real edge case at the boundary — two rows sharing the exact same
+`received_at` could mean `>` skips one, or `>=` reloads one twice. Rather than adding careful
+boundary-handling logic to the EL job itself, the standard raw/staging pattern this project's already
+committed to (staging → intermediate → mart) absorbs this: raw is an append-only capture layer
+allowed to have occasional duplicate rows, and `stg_events.sql` (milestone 5) dedupes on `event_id`
+via `QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY received_at DESC) = 1`. This keeps the
+EL job simple and idempotent-by-construction, instead of needing precise boundary logic that would
+duplicate effort staging already has to do anyway.
+
+**Requires elevated Supabase access, deliberately separate from the app's own credentials.** This job
+reads every user's events, not one signed-in user's — RLS would silently filter it down to nothing
+under a normal session. It authenticates using Supabase's `service_role` key ("secret key" in newer
+Supabase UI wording), which bypasses RLS, and is granted read-only access (`select` only) on
+`raw_events.events` — see "Supabase RLS design" below for the exact grant statements and reasoning.
+
+**Secrets required (GitHub Actions repo secrets):** `SUPABASE_URL` (same value as the app's
+`EXPO_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY` (Supabase's `service_role` key — never the
+`anon`/publishable key the app uses, and never placed anywhere client-side), `GCP_PROJECT_ID`,
+`GCP_SA_KEY` (GCP service account JSON, set up prior to this milestone).
+
+**Operational gotcha worth remembering for any future schema change:** dropping a Postgres schema (as
+happened when `operational` was removed) can wedge PostgREST's schema cache if that schema is still
+listed under Supabase's Settings → API → Exposed Schemas — breaking *all* Data API queries, not just
+ones against the dropped schema, with the error `PGRST002: Could not query the database for the
+schema cache`. Fix is two-step: remove the dropped schema from Exposed Schemas, *then* reload
+(`NOTIFY pgrst, 'reload schema';` alone is not sufficient if the cache rebuild attempt itself is
+failing, which it will be while the dangling reference remains).
+
 ## Supabase RLS design
 
 `raw_events.events` enforces `auth.uid() = user_id` directly — the table already carries `user_id`
@@ -226,6 +268,19 @@ this is the one place a policy gap would be a real cross-user data leak, not jus
 **Append-only enforced by omitted grants, not just policy.** No `UPDATE`/`DELETE` grant exists on
 `raw_events.events` for any role — stronger than an RLS policy, since a missing grant rejects the
 operation before any row or policy is even considered.
+
+**`service_role` needs its own explicit grants — RLS bypass and schema/table access are two
+independent permission layers.** The Python EL job (see above) authenticates as `service_role` to
+read across all users, which skips RLS policy checks entirely — but that alone doesn't grant it
+access to the schema or table at all; Postgres rejects the query before RLS is even evaluated without
+an explicit grant, same as any other role. Real statements run:
+```sql
+grant usage on schema raw_events to service_role;
+grant select on raw_events.events to service_role;
+```
+Deliberately `select` only — this job reads from Supabase and writes to BigQuery, never the reverse,
+so `service_role` gets no `insert`/`update`/`delete` here, matching the same least-privilege instinct
+already applied to `authenticated`'s append-only-by-omitted-grants design above.
 
 ## Removed: `operational` schema (trips/legs mirror)
 
@@ -269,6 +324,8 @@ Native/Expo/Supabase imports — importing `rehydrate.ts` directly for a test pu
 which transitively pulls in Flow-syntax React Native source that a plain Node/tsx run can't parse;
 splitting the pure decision logic out is what makes it testable outside the app runtime at all).
 Required test written as `mobile/db/rehydrate_tests.ts`, same philosophy as `schema_tests.py`.
+Verified both as a unit test (10/10 checks passing) and on-device (deleted and reinstalled the app,
+confirmed all previously-synced trips restored correctly, including leg order).
 
 **Real gap found while implementing this:** leg *order within a trip* is not recoverable from the
 event log as originally specified. `leg_boarded`'s payload (`{ station_id, route_id }`) carries no
@@ -281,6 +338,28 @@ now carries `sequence` in its payload — a real payload shape change, so `leg_b
 matched back to the `leg_boarded` that established it. Pre-this-change test data lacks `sequence` and
 will replay in arrival order if ever rehydrated — acceptable, since it only affects data already
 covered by the existing dev/test launch-date-cutoff decision.
+
+## Deleted trips at the dbt layer
+
+Same exclusion problem `rehydrate-plan.ts`'s `planRehydration()` already solves locally — a `trip_deleted`
+event doesn't remove the original trip's events from the append-only log, so anything reconstructing
+trips from raw/staged events must explicitly exclude any `trip_id` whose event group includes a
+`trip_deleted`. **Decided:** this exclusion happens once, in the intermediate layer's trip-reconstruction
+model (`int_trips.sql`), as part of building the trip entity itself — not repeated as a `WHERE` clause
+in every downstream mart query. Every mart model reads `int_trips`, not raw/staged events directly, and
+gets correctness for free — same principle as local screens only ever reading `trips`/`legs`, never
+`events` (see "Data-flow architecture").
+
+**Exception, stated explicitly:** `dashboard-spec.md`'s "% of trips deleted after being logged" metric
+is the one place that specifically *wants* to see `trip_deleted` events — it measures the deletion
+behavior itself, so it reads staged events directly (or a dedicated deletion-tracking intermediate
+model), not `int_trips`. Every other metric — exploration stats, growth counts, station/line
+frequency — should be built on `int_trips` and never see a deleted trip's data at all.
+
+**Required test:** same standard as rehydration's own — confirm directly, in a dbt test, that a trip
+with a `trip_deleted` event never appears in `int_trips`. Don't assume the exclusion logic is correct
+just because it mirrors already-tested local logic; SQL and TypeScript are different enough
+implementations to warrant separately verifying the same invariant holds.
 
 ## Data-flow architecture — one projection per consumer, not one shared schema
 
@@ -312,6 +391,90 @@ source or notice it was silently unpopulated. Two independent, purpose-built pro
 one in BigQuery's mart — each derived fresh from the same append-only event log, is the design this
 project actually wants: derived and rebuildable everywhere, never a second source of truth anywhere.
 
+## dbt transformation layer: staging → intermediate → mart
+
+Even with a single clean source (unlike the NYC Data Job Market Tracker's three heterogeneous
+sources), this project still needs the full staging → intermediate → mart shape — because the raw
+data has a grain problem, not a source-consistency problem. `raw_events.events` is an event log: one
+row per `trip_started`, one per `leg_boarded`, one per `leg_alighted`, scattered many-rows-per-trip,
+with a `payload` shape that depends on `event_type`. Almost nothing `dashboard-spec.md` asks for wants
+to query at that grain — "% of system explored" wants one row per trip or per user; nothing downstream
+wants to reconstruct "what actually happened" from six raw rows on every query. That reconstruction —
+event log → entity — is real transformation work on its own, structurally the same problem the local
+SQLite projection (`trips`/`legs` built from `events`) already solves, just in SQL, across every
+user's history at once instead of one device's.
+
+**Staging (`stg_events.sql`) — tames the raw rows, doesn't change their grain:**
+- Dedups on `event_id` (the EL job deliberately allows duplicates at the `received_at` watermark
+  boundary — this is where that gets resolved, via `QUALIFY ROW_NUMBER()`, per "Python EL job" above)
+- Parses `payload`'s JSON into typed fields
+- Handles `leg_boarded`'s two live payload versions (`sequence` present or not, per `event_version`)
+- Applies the dev/test launch-date cutoff, once picked (see `status.md`'s "Dev/test data exclusion")
+
+**Intermediate — the layer that wouldn't exist if the data were already entity-shaped. Real
+grain change plus real business logic, not cleanup:**
+- `int_trips` — reconstructs trips/legs from scattered `trip_started`/`leg_boarded`/`leg_alighted`/
+  `trip_ended` rows: event-sourcing logic, in SQL, at warehouse scale. Excludes any `trip_id` whose
+  event group includes a `trip_deleted` — see "Deleted trips at the dbt layer" below for the full
+  reasoning and the required test. Every mart model reads `int_trips`, never raw/staged events
+  directly, and gets that exclusion for free.
+- Transfer detection — `leg_alighted` → `leg_boarded`, same `station_id`/`trip_id`, no `trip_ended`
+  between. A derived business rule, never stored, per "Leg-grain events" above.
+- `int_draft_sessions` — one row per `draft_id`, only for drafts with a matching
+  `trip_draft_committed` (an abandoned draft has no such row, so it drops out of this model by the
+  join itself, not a filter). `duration = committed_at − started_at`
+  (`trip_draft_committed.recorded_at − trip_draft_started.recorded_at`). Leg count comes from an
+  **inner join to `int_trips`** on `trip_id` — deliberately, not staged events directly. A trip later
+  deleted almost always means the person was testing the app or logged something they knew wasn't
+  real, not a genuine ride — exactly the kind of noise a "how long does real logging take" metric
+  shouldn't include. So a draft whose committed trip was later deleted produces no row here at all,
+  the same exclusion `int_trips` already gives every other metric, just recognized as correct for
+  this one too rather than assumed. Required test: `unique` on `draft_id` for both
+  `trip_draft_started` and `trip_draft_committed` — catches a double-fire (e.g. a remount bug)
+  loudly rather than silently averaging over it with `MIN(recorded_at)`.
+
+**Exception, stated explicitly so it doesn't get "fixed" later:** `dashboard-spec.md`'s "% of trips
+deleted after being logged" is the one metric that specifically *wants* to see `trip_deleted` events
+— it measures the deletion behavior itself. It reads staged events directly (or a small dedicated
+intermediate model built just for it), never `int_trips`. Every other metric — exploration,
+growth, `int_draft_sessions` included — should never see a deleted trip's data at all.
+
+**Mart** — reshapes `int_trips`/`int_draft_sessions`/transfers into the three page-shaped outputs
+`dashboard-spec.md` defines (Exploration, Growth & Behavior, Product/Instrumentation), with
+`segment_user_count` precomputed on any segment-level metric for the min-N row access policy to key
+off later (see "Privacy: minimum-N suppression" in `dashboard-spec.md`). This layer actually is
+aggregation, not derivation — the real logic already happened one layer up.
+
+**Materialization: staging = view, intermediate = view, mart = table.** Different reasoning than the
+NYC project's Snowflake setup, same three-tier shape. A BigQuery view costs nothing to store — it's
+billed only when queried, unlike Snowflake's storage model. That makes an intermediate *view* cost
+nothing over making it ephemeral, while buying something real: `int_trips`/`int_draft_sessions` stay
+directly queryable and hand-checkable in the console, matching this project's standing practice of
+verifying a real number at every milestone (see the build sequence table in `status.md`) rather than
+trusting a chain of inlined CTEs no object exists to inspect. Mart is a table because that's the one
+tier that should cost storage: Power BI's scheduled refresh should hit precomputed data, not
+recompute the full chain live, and the min-N row access policy needs a real table to attach to.
+
+**Note on why this transformation layer feels heavier than the NYC Data Job Market Tracker's:**
+Worth naming explicitly, since the difference isn't obvious in the moment and is easy to mistake for
+"this project is just more complex" rather than understanding *why*. Three separate, stacking reasons:
+
+1. **Raw grain.** The NYC tracker's sources were already entity-grain — heterogeneous *schemas*
+   needing conforming, but each row was already "one job posting." SubwayQuest's raw data is an
+   event log by design — many rows per trip, many rows per draft session. Getting to "one row per
+   trip" isn't cleaning, it's reconstruction — genuinely more transformation work, independent of
+   the dashboard tool.
+2. **Where aggregation happens.** The NYC tracker's dashboard was Streamlit — live Python,
+   recomputing on every page load, so its mart could stay a thin `select * from int_jobs` and let
+   the dashboard do the real aggregation work at request time. Power BI's free-tier "Publish to
+   Web" is scheduled batch refresh with no live compute layer in between — aggregation has to
+   already be sitting in the table it reads, precomputed, or it doesn't happen at all. Not "dbt is
+   more powerful here" — there's no other place left for that work to live.
+3. **Privacy-forced precomputation, specific to this project.** `segment_user_count` isn't just a
+   nice-to-have aggregate — the min-N row access policy genuinely requires it to exist as a real
+   materialized column to filter on. The NYC tracker had no analogous mechanism forcing aggregation
+   into dbt.
+
 ## Quest-definitions, single source of truth
 
 Achievements has two consumers with different requirements: the in-app screen (join quest definitions
@@ -340,9 +503,11 @@ whenever quest content changes, same pattern already established for `mobile/scr
 | 3 | Documented event schema per type | ✅ this doc |
 | 4 | Real constraints at schema level | ✅ `schema_tests.py` — 29 checks |
 | 5 | Explicitly designed edge cases | ✅ see above |
-| 6 | Sync policy, stated | ✅ idempotent-insert / single-writer |
+| 6 | Sync policy, stated | ✅ idempotent-insert / single-writer, verified on-device |
 | 7 | dbt staging → intermediate → mart, tested | ⬜ not started |
 | 8 | CI on every change | ⬜ not started |
 | 9 | Data dictionary / ERD | ✅ this doc |
 | 10 | Deliberate scope exclusions, stated | ✅ see above |
 | 11 | Real RLS (not just organizational) | ✅ `supabase/schema.sql`, verified with two impersonated test users |
+| 12 | Batch EL job, real data verified in warehouse | ✅ `el/sync_to_bigquery.py`, manually triggered, output verified against BigQuery directly |
+| 13 | Disaster-recovery path for local data loss | ✅ rehydration-on-sign-in, unit-tested and on-device verified |

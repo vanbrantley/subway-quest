@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: >
+      One row per event_id, deduped on the received_at watermark boundary, dev/test rows
+      excluded by launch-date cutoff. Payload left as raw JSON — see model file for why.
+    columns:
+      - name: event_id
+        description: Sync idempotency key. Unique here (unlike the raw source) because of the dedup step.
+        tests:
+          - unique
+          - not_null
+      - name: event_type
+        tests:
+          - not_null
+      - name: event_domain
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['trip', 'product']
+      - name: user_id
+        description: Maps to Supabase auth.users.id. Real auth from day one, so this is never null.
+        tests:
+          - not_null
+      - name: occurred_at
+        tests:
+          - not_null

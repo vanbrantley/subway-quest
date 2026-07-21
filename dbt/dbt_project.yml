@@ -1,0 +1,29 @@
+name: 'subwayquest'
+version: '1.0.0'
+config-version: 2
+
+profile: 'subwayquest'  # Matches the main key in ~/.dbt/profiles.yml
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  subwayquest:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+vars:
+  # Placeholder — a no-op until the real launch date is known (see status.md's
+  # "Dev/test data exclusion"). stg_events filters on date(occurred_at) >= this value.
+  launch_date: '1970-01-01'

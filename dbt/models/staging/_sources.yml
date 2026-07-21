@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ target.project }}"
+    schema: subwayquest_raw
+    tables:
+      - name: events
+        description: >
+          Append-only capture of every event synced from Supabase's raw_events.events via the
+          Python EL job. May contain duplicate rows for a given event_id at the received_at
+          watermark boundary — dedup happens in staging, not here.
+        columns:
+          - name: event_id
+            description: Client-generated UUID, the sync idempotency key. NOT unique at this raw layer.
+          - name: event_type
+            description: e.g. leg_boarded.
+          - name: event_domain
+            description: "'trip' or 'product'."
+          - name: event_version
+            description: Versions the payload shape per event_type. leg_boarded is the one live type with two versions (sequence added in v2).
+          - name: occurred_at
+            description: User-picked date + actual time-of-day at logging. Date-only backdating — see data-layer.md.
+          - name: recorded_at
+            description: Local device write time.
+          - name: received_at
+            description: Server-stamped timestamp, set the instant a row lands in Supabase. Used as the EL job's watermark and the dedup tiebreaker in staging.
+          - name: device_id
+            description: Client-generated, diagnostic/multi-device use only — not the security boundary.
+          - name: user_id
+            description: Maps to Supabase auth.users.id. Never null — real auth from day one.
+          - name: trip_id
+            description: NOT NULL for trip-domain rows, NULL for product.
+          - name: leg_id
+            description: NOT NULL only for leg_boarded/leg_alighted.
+          - name: payload
+            description: Per-event-type fields, genuine BigQuery JSON column. Shape varies enough by event_type that it's left untouched in staging.
+          - name: loaded_at
+            description: The EL job's own run timestamp (when sync_to_bigquery.py executed), not when the row landed in Supabase. Distinct from received_at deliberately — lets EL batch lag and sync-worker lag be debugged separately. Not used in staging's dedup logic; received_at remains the tiebreaker.

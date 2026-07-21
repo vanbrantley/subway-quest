@@ -26,13 +26,15 @@ Tapping a station, a route, a past trip, or a stat should each drill into its ow
 
 ```
 Expo app (client)
-  └── local SQLite: operational trip/leg state (mutable) + immutable event log
+  └── local SQLite: trips/legs projection (mutable, built from local events) + immutable event log
         │
         │  outbox sync, client-generated idempotency keys (UUIDs per event)
         ▼
-Supabase Postgres (operational layer)
-  ├── operational schema   — trips, legs (mutable; powers the app directly)
-  └── raw_events schema    — append-only, immutable event log (source of truth for analytics)
+Supabase Postgres
+  └── raw_events schema    — append-only, immutable event log (source of truth for analytics AND
+                              for rehydration-on-sign-in — the only path data ever flows back to a
+                              device, a one-time recovery replay, never an ongoing sync-back path;
+                              see docs/data-layer.md)
         │
         │  Python EL job, scheduled via GitHub Actions (batch, not streaming)
         ▼
@@ -55,7 +57,7 @@ Power BI  →  Publish to Web (free, public link)
 - **EL job:** Python, scheduled via GitHub Actions — same pattern proven on the NYC Data Job Market Tracker project. Batch, not streaming
 - **Analytics warehouse:** BigQuery — one of the few connectors Power BI can auto-refresh on its free tier without an on-premises gateway (Azure SQL, Snowflake, BigQuery; generic Postgres including Supabase is not). Free tier comfortably covers this project's scale indefinitely. Also deliberately different from NYC Tracker's Snowflake, avoiding a repeated tool across portfolio projects
 - **Transformation:** dbt, staging → intermediate → mart, inside BigQuery
-- **BI / dashboard:** Power BI, "Publish to Web" — chosen over repeating Tableau (used on the NHL project) partly for tool-breadth, decisively because BigQuery's native connector enables genuine free live auto-refresh; Tableau Public is extract-only at every tier without Tableau Bridge
+- **BI / dashboard:** Power BI, "Publish to Web" — chosen over repeating Tableau (used on the NHL project) partly for tool-breadth, decisively because BigQuery's native connector enables genuine free live auto-refresh; Tableau Public is extract-only at every tier without Tableau Bridge. Power BI Desktop has no native Mac version — authoring happens on a separate Windows machine already owned for this purpose; app/EL development continues on Mac (see `docs/status.md`'s Dashboard section)
 
 **Why a separate warehouse instead of querying Supabase directly:** a direct revision of an earlier, more elaborate architecture (S3 Parquet lake + a second parallel RDS instance) rejected as disproportionate to this project's real data volume. Adding BigQuery is a different kind of decision — driven by one concrete, checkable requirement (Power BI's free-tier connector list), not a general instinct toward more infrastructure.
 
@@ -69,6 +71,7 @@ root/
     notebooks/
     scripts/
       build_static_data.py
+      build_quest_seed.py   # generates dbt/seeds/quest_definitions.csv from quests.json
   docs/
     data-layer.md
     ui-spec.md
@@ -77,6 +80,12 @@ root/
   mobile/          # Expo app — see docs/status.md for the current file-by-file map
   supabase/
     schema.sql
+  el/              # Python EL job (Supabase → BigQuery) — see docs/data-layer.md
+    sync_to_bigquery.py
+    requirements.txt
+  .github/
+    workflows/
+      el-job.yml
   PROJECT.md
   .gitignore
 ```

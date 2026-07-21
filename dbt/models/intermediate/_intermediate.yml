@@ -1,0 +1,105 @@
+version: 2
+
+models:
+
+  - name: int_committed_trips
+    description: >
+      One row per trip_id, for every trip ever committed — deletion-inclusive. Owns the
+      trip_started/trip_ended join logic; int_trips filters this rather than re-deriving it.
+    columns:
+      - name: trip_id
+        tests:
+          - unique
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+      - name: occurred_at
+        tests:
+          - not_null
+      - name: origin_station_id
+        tests:
+          - not_null
+      - name: destination_station_id
+        tests:
+          - not_null
+
+  - name: int_trips
+    description: >
+      One row per trip_id — reconstructed from trip_started/trip_ended, with any trip whose event
+      group includes a trip_deleted excluded. Every downstream model reads this, never raw/staged
+      trip events directly, except the trip-deletion-rate metric (see data-layer.md).
+    columns:
+      - name: trip_id
+        tests:
+          - unique
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+      - name: occurred_at
+        tests:
+          - not_null
+      - name: origin_station_id
+        tests:
+          - not_null
+      - name: destination_station_id
+        tests:
+          - not_null
+
+  - name: int_legs
+    description: >
+      One row per leg_id — reconstructed from leg_boarded/leg_alighted, inner-joined to int_trips
+      so legs belonging to a deleted trip are excluded automatically. sequence is NULL for
+      pre-event_version-2 rows — a known, accepted gap, not tested as not_null.
+    columns:
+      - name: leg_id
+        tests:
+          - unique
+          - not_null
+      - name: trip_id
+        tests:
+          - not_null
+      - name: route_id
+        tests:
+          - not_null
+      - name: entry_station_id
+        tests:
+          - not_null
+      - name: exit_station_id
+        tests:
+          - not_null
+
+  - name: int_draft_sessions
+    description: >
+      One row per draft_id, every outcome represented — committed, abandoned, or neither yet.
+      committed_at/abandoned_at/leg_count are nullable by design (leg_count only populates for a
+      committed draft whose trip wasn't later deleted). Serves the timing metric (filter on
+      committed_at not null) as well as correction-rate and abandonment-rate (read unfiltered).
+    columns:
+      - name: draft_id
+        tests:
+          - unique
+          - not_null
+      - name: started_at
+        tests:
+          - not_null
+  
+  - name: int_transfers
+    description: >
+      One row per detected transfer (a leg_alighted -> leg_boarded pair at the same station,
+      within one trip). Built on int_legs — deleted-trip exclusion inherited, not re-derived.
+      Ordering relies on sequence; pre-event_version-2 legs (NULL sequence) are a known,
+      accepted gap in transfer ordering, not tested as a hard failure.
+    columns:
+      - name: to_leg_id
+        description: Each leg can only be the destination of one transfer (it has exactly one immediate predecessor), so this is unique.
+        tests:
+          - unique
+          - not_null
+      - name: from_leg_id
+        tests:
+          - not_null
+      - name: station_id
+        tests:
+          - not_null
