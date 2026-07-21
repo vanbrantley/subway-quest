@@ -216,9 +216,14 @@ a downstream join against the mart, not a schema addition.
 
 ## Python EL job — Supabase to BigQuery
 
-`el/sync_to_bigquery.py`, scheduled via GitHub Actions (`.github/workflows/el-job.yml` — cron every 6
+`el/sync_to_bigquery.py`, scheduled via GitHub Actions (`.github/workflows/pipeline.yml` — cron every 6
 hours, plus manual `workflow_dispatch` for on-demand triggering, which is how it was tested this
-session). Batch, not streaming — matches `PROJECT.md`'s stated architecture.
+session). Batch, not streaming — matches `PROJECT.md`'s stated architecture. **Same workflow file also
+runs the dbt layer** (`dbt seed` → `dbt run` → `dbt test`) immediately after the EL job completes,
+using the same GCP service-account credentials — one pipeline, EL and transform back to back, rather
+than two separately-scheduled jobs that could drift out of sync with each other. A `dbt test` failure
+fails the whole workflow run (no `continue-on-error`) — deliberate, matching this project's standing
+preference for a loud, visible failure over data quietly reaching Power BI unverified.
 
 **Incremental via watermark, not full reload.** Every run queries BigQuery for `MAX(received_at)`
 already loaded, then pulls only newer rows from Supabase. No external state file — GitHub Actions

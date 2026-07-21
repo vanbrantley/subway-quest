@@ -251,11 +251,38 @@ under `app/`, at any depth, is live-scanned by Router). Kept for the future Map 
 
 **Outside `mobile/`:** `supabase/schema.sql` — run manually via the SQL Editor, not part of the app
 build. **`el/`** (new): `sync_to_bigquery.py`, `requirements.txt` — the Python EL job, see
-`data-layer.md`'s "Python EL job" section for the full design. **`.github/workflows/el-job.yml`**
-(new) — the GitHub Actions workflow running that job, cron + `workflow_dispatch`.
+`data-layer.md`'s "Python EL job" section for the full design. **`.github/workflows/pipeline.yml`** — runs the full
+pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron + `workflow_dispatch`.
+`dbt test` failing fails the whole run.
 
 ## Mobile UI — remaining
 
+- [ ] **Shuttle grouping (S) — three real, separately countable routes under one shared icon.**
+      Currently a real bug, not just a gap: `S` in `LINE_ICONS`/`LINE_COLORS` matches no real GTFS
+      route_id (only `FS`/`GS`/`H` — Franklin Ave, 42nd St, and Rockaway Park shuttles — actually
+      exist), so no shuttle is currently selectable anywhere in the trip-logging flow.
+      **Design, decided:**
+      - Tapping the `S` icon shows a combined stop list across all three shuttles for the initial
+        entry pick; once a real entry station is chosen, resolve which of the three routes it
+        belongs to, then exit/transfer logic operates on that real route_id — same pattern
+        `branchesForRoute()`/`getValidExitStations()` already use for branch filtering within one
+        route, applied here across three routes sharing one icon.
+      - Store the real `route_id` (`FS`/`GS`/`H`) in every event, never a normalized `'S'` —
+        matches this project's standing "never destroy non-derivable information" principle (same
+        reasoning behind `leg_boarded` gaining `sequence`). `S` stays a pure display grouping,
+        applied downstream, never written to data.
+      - **Deliberate:** counting the three shuttles as three separately-completable lines (not one
+        merged "S" credit) is the right incentive for encouraging exploration of all three — someone
+        riding just the easiest one shouldn't get full credit for "the S line." Ties in well with a
+        future quest once milestone 8 exists — e.g. "Shuttle Completionist: ride all three" — worth
+        adding to `docs/quests-parking.md` when quest content actually gets designed.
+      - **Open, not decided:** does the dashboard's "Top lines" chart show all three shuttles as
+        three individual bars, or offer a combined "S ridership" view (sum of the three) alongside
+        the individual breakdown? Mart-level display choice, separate from the storage decision
+        above — settle when this ships, not now.
+      - **Possibly related, not scoped yet:** the canonical Line page (`ui-spec.md`) may need
+        its own thinking for a route with 3 fully independent branches/routes under one icon —
+        worth a look once this work starts, not a separate open item until then.
 - [ ] Station tap → station info drill-down
 - [ ] **Profile page mini-dashboard** — personal-scope stats, `docs/dashboard-spec.md`'s "In-app
       profile page" section
@@ -315,11 +342,8 @@ this all falls out of.
 ## Python EL job / BigQuery / dbt
 
 - [x] Batch load `raw_events` → BigQuery raw dataset, GitHub Actions scheduled (`el/sync_to_bigquery.py`,
-      `.github/workflows/el-job.yml` — cron every 6h + manual `workflow_dispatch`). Verified: triggered
-      manually, confirmed real rows landed with correct schema/types, `payload` genuinely parsing as
-      JSON (caught and fixed a double-encoding bug — see build sequence table). See `data-layer.md`'s
-      "Python EL job — Supabase to BigQuery" for the full design: watermark-based incremental sync,
-      dedup deliberately deferred to dbt staging, required secrets.
+`.github/workflows/pipeline.yml` — cron every 6h + manual `workflow_dispatch`). Same workflow now also
+runs dbt (seed/run/test) immediately after — see data-layer.md.
 - [x] GCP project + `subwayquest_raw` dataset created, service account + `GCP_SA_KEY` secret set
 - [x] dbt staging → intermediate → mart, with tests
 - [x] Partitioning (`received_at`) + clustering (`user_id`) — both applied on table creation,

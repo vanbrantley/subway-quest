@@ -40,12 +40,24 @@ this tracks in-progress status, not settled design. Update as models get built.
 | Sync health (p50/p95 latency) | `stg_events` directly | No intermediate model needed — decided, straight to mart |
 
 **Open decisions, not yet made:**
-1. **`route_totals` seed value** — raw GTFS gives 29 distinct `route_id`s; the app's `LINE_ICONS`
-   set has 23. Gap is express variants (`6X`, `7X`, `FX`) and individual shuttles (`FS`, `GS`, `H`,
-   `SI`) that may not be independently selectable in the logging flow. Need to confirm what
-   `int_legs.route_id` can actually contain (check `subwayData.ts`'s line-selection logic) before
-   picking the seed value — and whether "Top lines" needs the same normalization if shuttle
-   variants can appear as distinct stored values despite sharing one icon.
+1. **`route_totals` seed value — resolved and current.**
+
+**Today's real, verified value: 23.** Confirmed directly against `route_stops.json` and the actual
+`LINE_ICONS`/`LINE_COLORS` keys, not hand-counted (hand-counting got this wrong twice earlier the
+same session — worth trusting the verification script over arithmetic if this ever needs
+re-checking).
+
+History, kept for context: the number originally assumed here was "23," but that was wrong at the
+time — it silently assumed `S` matched a real route, when neither `S` nor the (also-broken) `SIR`
+key ever matched anything in the real GTFS data. True working count before any fixes was 22. The
+SIR fix (session of [today's build]) corrected `SIR` → `SI`, bringing the real total to today's 23.
+
+**Next expected change: 23 → 26**, once shuttle grouping ships (see `status.md`'s "Mobile UI —
+remaining"). `FS`/`GS`/`H` will each become independently selectable and stored as real, distinct
+route_ids — three genuine additions to the count, even though they'll continue sharing one `S` icon
+in the UI. **Don't forget to bump this seed in the same session shuttle grouping ships** — it will
+not update itself, and every mart model reading `route_totals` (`mart_global_summary`,
+`mart_line_stats`) will silently understate the denominator until it's bumped.
 2. **Achievements/quests** — genuinely milestone 8, not milestone 5. Flagged, not solved here — see
    `docs/quests-parking.md`.
 

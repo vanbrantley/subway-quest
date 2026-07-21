@@ -85,7 +85,7 @@ root/
     requirements.txt
   .github/
     workflows/
-      el-job.yml
+      pipeline.yml
   PROJECT.md
   .gitignore
 ```

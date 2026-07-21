@@ -1,0 +1,65 @@
+name: SubwayQuest — Data Pipeline
+
+on:
+  # schedule:
+  #   - cron: '0 */6 * * *'   # every 6 hours — adjust once you have a sense of real event volume
+  workflow_dispatch: {}      # manual trigger button in the Actions tab, for testing right now
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install EL job dependencies
+        run: pip install -r el/requirements.txt
+
+      - name: Authenticate to GCP
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Run EL job
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: python3 el/sync_to_bigquery.py
+
+      - name: Install dbt
+        run: pip install "dbt-bigquery==1.11.3"
+
+      - name: Create dbt profiles.yml
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          subwayquest:
+            target: prod
+            outputs:
+              prod:
+                type: bigquery
+                method: service-account
+                project: ${GCP_PROJECT_ID}
+                dataset: subwayquest_dbt
+                keyfile: /tmp/gcp-key.json
+                threads: 4
+                location: US
+          EOF
+
+      - name: dbt seed
+        working-directory: dbt
+        run: dbt seed
+
+      - name: dbt run
+        working-directory: dbt
+        run: dbt run
+
+      - name: dbt test
+        working-directory: dbt
+        run: dbt test
