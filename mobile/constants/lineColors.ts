@@ -27,7 +27,7 @@ export const LINE_COLORS: Record<string, { bg: string; text: string }> = {
     R: { bg: '#FCCC0A', text: '#000' },
     W: { bg: '#FCCC0A', text: '#000' },
     S: { bg: '#808183', text: '#fff' },
-    SIR: { bg: '#0039A6', text: '#fff' },
+    SI: { bg: '#0039A6', text: '#fff' },
 };
 
 // Standard MTA display order: numbers first, then shuttles, then letters.
@@ -35,7 +35,7 @@ export function sortRouteIds(routeIds: string[]): string[] {
     const order = (id: string) => {
         if (/^\d+$/.test(id)) return [0, Number(id)] as const;
         if (id === 'S') return [1, 0] as const;
-        if (id === 'SIR') return [1, 1] as const;
+        if (id === 'SI') return [1, 1] as const;
         return [2, id.charCodeAt(0)] as const;
     };
     return [...routeIds].sort((a, b) => {

@@ -20,6 +20,7 @@ import RouteN from '../assets/subway-icons/N.svg';
 import RouteQ from '../assets/subway-icons/Q.svg';
 import RouteR from '../assets/subway-icons/R.svg';
 import RouteS from '../assets/subway-icons/S.svg';
+import RouteSI from '../assets/subway-icons/SI.svg';
 import RouteW from '../assets/subway-icons/W.svg';
 import RouteZ from '../assets/subway-icons/Z.svg';
 
@@ -28,5 +29,5 @@ export const LINE_ICONS: Record<string, React.FC<{ width?: number; height?: numb
     '6': Route6, '7': Route7,
     A: RouteA, B: RouteB, C: RouteC, D: RouteD, E: RouteE, F: RouteF,
     G: RouteG, J: RouteJ, L: RouteL, M: RouteM, N: RouteN, Q: RouteQ,
-    R: RouteR, S: RouteS, W: RouteW, Z: RouteZ,
+    R: RouteR, S: RouteS, SI: RouteSI, W: RouteW, Z: RouteZ,
 };
