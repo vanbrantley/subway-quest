@@ -13,7 +13,7 @@ new session, not reconstructed from git history.
 | 2 | Auth + local trip logging | Real Sign-in-with-Apple on-device; log a trip, kill/reopen, it persists | ✅ Done — full commit/discard wiring verified on-device via a six-point check: clean multi-leg trip with transfer, correction path (completeness-based `draft_leg_added`/`draft_leg_removed`), discard path, cold launch (no splash/blank flash), and kill/full-relaunch persistence, all cross-checked against raw `events`/`trips`/`legs`/`sync_status` rows via a dev-only `/debug` dump screen rather than eyeballing the UI. |
 | 3 | Sync worker | Log a trip on-device, confirm `raw_events` rows land under the right `auth.uid()` | ✅ Done — verified via a six-point on-device check: backlog sync on mount (24 pre-existing local events flushed in one pass), product + trip domain both land correctly, idempotency (forced re-sync of all 24 rows produced zero duplicates), RLS/`user_id` correctness, offline write → sync failure → automatic recovery on reconnect with no app interaction (NetInfo-driven), and a foreground re-trigger as fallback. |
 | 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ✅ Done — manually triggered via `workflow_dispatch`, verified against the real table: schema/column types correct, row count matches Supabase, `payload` genuinely parses as JSON (caught and fixed a double-encoding bug where `json.dumps()` was called on an already-parsed dict), partitioning (`received_at`) and clustering (`user_id`) both applied. `operational` schema removed from the data model as part of this milestone's cleanup (see `data-layer.md`'s "Removed: operational schema"); rehydration-on-sign-in built and verified on-device as its replacement for data continuity. |
-| 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ⬜ Not started |
+| 5 | dbt mart | dbt run/dbt test green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. One open thread carried forward, not blocking: confirming subwayData.ts's stored route_id always matches the 23-value LINE_ICONS set (see dbt-coverage.md). |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ⬜ Not started (mechanism decided — see `docs/dashboard-spec.md`) |
 | 7 | Power BI live | Three pages, Publish to Web page-nav works | ⬜ Not started (Publish to Web's multi-page navigation confirmed as a genuinely supported feature via current documentation, resolving the doc's earlier "unverified" flag; the actual pages/report aren't built yet) |
 | 8 | Achievements | Content designed, join logic working | ⬜ Not started (source-of-truth mechanism for quest content is decided — see `data-layer.md`'s "Quest-definitions, single source of truth" — content itself not written) |
@@ -78,7 +78,7 @@ Three React contexts sit above the whole app, in `app/_layout.tsx`:
   SVGs are, not `require()`'d — needed a `declare module '*.sql'` block in `svg.d.ts` alongside the
   existing `*.svg` one) and exposes the handle via `useDb()`, instead of each screen managing its own
   connection. Splash-hiding now waits on **both** session load and DB-open (`sessionLoaded && dbLoaded`)
-  — a real gap caught during this session: gating splash on session alone left a brief blank-screen
+  — a real gap caught: gating splash on session alone left a brief blank-screen
   window while SQLite was still opening underneath.
 - **`SyncContext`** — see "Sync worker" below.
 
@@ -120,7 +120,7 @@ corrections. Actual rule:
 Verified on-device: a single line-chip correction after a leg was already complete produced exactly
 2× `draft_leg_added` / 1× `draft_leg_removed` for that leg — not one event per intermediate write.
 
-**Bug caught this session: draft abandonment asymmetry.** `discardDraft()` originally only fired
+**Bug caught: draft abandonment asymmetry.** `discardDraft()` originally only fired
 `trip_draft_abandoned` if `legs.length > 0` — leftover logic from before `trip_draft_started` fired
 unconditionally on mount. Once `started` became unconditional, that guard created orphaned drafts:
 opening the FAB and exiting before picking a line fired `started` with no matching `abandoned` ever
@@ -185,7 +185,7 @@ into actual text via `Asset.fromModule()` + `File`.
   finished restoring, if it needed to.
 - `(tabs)/map.tsx`, `(tabs)/search.tsx` — stubs.
 - `(tabs)/profile/_layout.tsx`, `index.tsx` — stub + working Sign Out. **Currently also has a
-  temporary "Open Debug Dump" button** (→ `/debug`) added for this session's testing — scaffolding,
+  temporary "Open Debug Dump" button** (→ `/debug`) added for testing — scaffolding,
   needs to come out before release.
 - `log-trip.tsx` — the trip-logging modal (see above). Fully wired: `finishTrip` calls `commitTrip`
   and navigates to `/trip`; discard calls `writeProductEvent('trip_draft_abandoned')`.
@@ -274,7 +274,7 @@ rendering for overlapping track, `route_shapes.json` polyline precision.
 ## Backend
 
 - [x] `raw_events` schema (with `received_at`, server-stamped) — live, RLS verified. `operational`
-      schema (trips/legs mirror) removed this session — RLS existed but nothing ever populated it;
+      schema (trips/legs mirror) removed — RLS existed but nothing ever populated it;
       never actually a complete deliverable. See `data-layer.md`'s "Removed: operational schema" and
       "Rehydration-on-sign-in" for the replacement.
 - [x] Outbox sync worker — flushes local `events` → `raw_events`, idempotent insert, atomic per-trip
@@ -321,7 +321,7 @@ this all falls out of.
       "Python EL job — Supabase to BigQuery" for the full design: watermark-based incremental sync,
       dedup deliberately deferred to dbt staging, required secrets.
 - [x] GCP project + `subwayquest_raw` dataset created, service account + `GCP_SA_KEY` secret set
-- [ ] dbt staging → intermediate → mart, with tests
+- [x] dbt staging → intermediate → mart, with tests
 - [x] Partitioning (`received_at`) + clustering (`user_id`) — both applied on table creation,
       confirmed via BigQuery's `INFORMATION_SCHEMA.TABLES` DDL output
 - [ ] Min-N (=10) suppression — row access policies on a dbt-computed `segment_user_count` column,
@@ -413,4 +413,4 @@ first if this resurfaces — the error message gives no hint of the real cause.
   "fresh install" state includes a cleared session — it doesn't, only local data is actually cleared.
 - **Dropping a Postgres schema in Supabase needs a two-step cleanup**, not just the `DROP SCHEMA`
   itself — see `data-layer.md`'s EL job section for the full PostgREST schema-cache gotcha
-  encountered and resolved this session.
+  encountered and resolved.

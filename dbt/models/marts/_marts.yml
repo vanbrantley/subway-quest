@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: mart_global_summary
+    columns:
+      - name: avg_trips_per_user
+        tests: [not_null]
+      - name: lines_ridden_count
+        tests: [not_null]
+      - name: lines_total
+        tests: [not_null]
+
+  - name: mart_growth_daily
+    columns:
+      - name: date
+        tests: [unique, not_null]
+      - name: new_signups
+        tests: [not_null]
+      - name: new_activations
+        tests: [not_null]
+      - name: trips_started
+        tests: [not_null]
+
+  - name: mart_station_stats
+    columns:
+      - name: station_id
+        tests: [unique, not_null]
+      - name: visit_count
+        tests: [not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_line_stats
+    columns:
+      - name: route_id
+        tests: [unique, not_null]
+      - name: ride_count
+        tests: [not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_station_pairs
+    columns:
+      - name: entry_station_id
+        tests: [not_null]
+      - name: exit_station_id
+        tests: [not_null]
+      - name: ride_count
+        tests: [not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_pct_explored_histogram
+    columns:
+      - name: bucket
+        tests: [unique, not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_trips_per_user_histogram
+    columns:
+      - name: bucket
+        tests: [unique, not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_time_to_log
+    columns:
+      - name: leg_count_bucket
+        tests: [unique, not_null]
+      - name: median_seconds
+        tests: [not_null]
+      - name: segment_user_count
+        tests: [not_null]
+
+  - name: mart_sync_health
+    columns:
+      - name: date
+        tests: [unique, not_null]
+      - name: p50_latency_seconds
+        tests: [not_null]
+      - name: total_events
+        tests: [not_null]

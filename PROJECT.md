@@ -118,7 +118,7 @@ train correctly forks near Rockaway Blvd into its 3 real branches.
 One scrollable, correctly-ordered stop list per line — trunk first, branch tails grouped/labeled
 further down — not a radio button or upfront branch choice. Most riders never touch a branch and
 shouldn't have to think about it. Also serves the exploration mission — scrolling past an unfamiliar
-branch is a moment of discovery, not friction. **Not yet built** — the trip-logging flow currently
+branch is a moment of discovery, not friction. The trip-logging flow currently
 uses a simpler flat list; this remains the plan for the canonical Line page (see `docs/status.md`).
 
 ## Data pipeline (built and verified)

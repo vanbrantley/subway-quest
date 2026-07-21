@@ -66,6 +66,7 @@ leg_counts as (
 
 select
     draft_started.draft_id,
+    draft_committed.trip_id,
     draft_started.started_at,
     draft_committed.committed_at,
     draft_abandoned.abandoned_at,
