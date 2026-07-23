@@ -6,3 +6,5 @@ from {{ ref('mart_global_summary') }}
 where pct_drafts_corrected not between 0 and 1
     or pct_drafts_abandoned not between 0 and 1
     or pct_trips_deleted not between 0 and 1
+    or pct_system_explored_collective not between 0 and 1
+

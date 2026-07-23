@@ -19,21 +19,3 @@ union all
 select 'mart_station_pairs', concat(entry_station_id, ' -> ', exit_station_id), segment_user_count
 from {{ ref('mart_station_pairs') }}
 where segment_user_count < 1
-
-union all
-
-select 'mart_pct_explored_histogram', cast(bucket as string), segment_user_count
-from {{ ref('mart_pct_explored_histogram') }}
-where segment_user_count < 1
-
-union all
-
-select 'mart_trips_per_user_histogram', cast(bucket as string), segment_user_count
-from {{ ref('mart_trips_per_user_histogram') }}
-where segment_user_count < 1
-
-union all
-
-select 'mart_time_to_log', leg_count_bucket, segment_user_count
-from {{ ref('mart_time_to_log') }}
-where segment_user_count < 1

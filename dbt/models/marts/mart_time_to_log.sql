@@ -1,5 +1,5 @@
 -- mart_time_to_log.sql
--- One row per leg-count bucket. Needs segment_user_count (explicit in spec) — counted by distinct
+-- One row per leg-count bucket. counted by distinct
 -- user, not distinct draft, via the trip_id -> int_trips join.
 
 with committed as (
@@ -15,7 +15,6 @@ with committed as (
 select
     leg_count_bucket,
     approx_quantiles(duration_seconds, 100)[offset(50)] as median_seconds,
-    approx_quantiles(duration_seconds, 100)[offset(95)] as p95_seconds,
-    count(distinct user_id) as segment_user_count
+    approx_quantiles(duration_seconds, 100)[offset(95)] as p95_seconds
 from committed
 group by leg_count_bucket

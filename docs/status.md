@@ -13,8 +13,8 @@ new session, not reconstructed from git history.
 | 2 | Auth + local trip logging | Real Sign-in-with-Apple on-device; log a trip, kill/reopen, it persists | ✅ Done — full commit/discard wiring verified on-device via a six-point check: clean multi-leg trip with transfer, correction path (completeness-based `draft_leg_added`/`draft_leg_removed`), discard path, cold launch (no splash/blank flash), and kill/full-relaunch persistence, all cross-checked against raw `events`/`trips`/`legs`/`sync_status` rows via a dev-only `/debug` dump screen rather than eyeballing the UI. |
 | 3 | Sync worker | Log a trip on-device, confirm `raw_events` rows land under the right `auth.uid()` | ✅ Done — verified via a six-point on-device check: backlog sync on mount (24 pre-existing local events flushed in one pass), product + trip domain both land correctly, idempotency (forced re-sync of all 24 rows produced zero duplicates), RLS/`user_id` correctness, offline write → sync failure → automatic recovery on reconnect with no app interaction (NetInfo-driven), and a foreground re-trigger as fallback. |
 | 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ✅ Done — manually triggered via `workflow_dispatch`, verified against the real table: schema/column types correct, row count matches Supabase, `payload` genuinely parses as JSON (caught and fixed a double-encoding bug where `json.dumps()` was called on an already-parsed dict), partitioning (`received_at`) and clustering (`user_id`) both applied. `operational` schema removed from the data model as part of this milestone's cleanup (see `data-layer.md`'s "Removed: operational schema"); rehydration-on-sign-in built and verified on-device as its replacement for data continuity. |
-| 5 | dbt mart | dbt run/dbt test green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. One open thread carried forward, not blocking: confirming subwayData.ts's stored route_id always matches the 23-value LINE_ICONS set (see dbt-coverage.md). |
-| 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ⬜ Not started (mechanism decided — see `docs/dashboard-spec.md`) |
+| 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. Pipeline's dbt step verified end-to-end in CI via pipeline.yml. One open thread carried forward, not blocking: shuttle grouping (S/FS/GS/H) — see "Mobile UI — remaining". |
+| 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ✅ Done — N=5, scoped to `mart_station_stats`, `mart_station_pairs`, `mart_line_stats` (the three marts that name actual stations/routes at small-group grain; reasoning in `docs/dashboard-spec.md`, full setup/testing runbook in `docs/bigquery-min-n.md`). Dedicated `powerbi-reader` GCP service account created, read-only, scoped to the `subwayquest_dbt_mart` dataset only. Verified via impersonated `bq` queries against synthetic seed data at N=3/4/5/9/20 — below-threshold segments absent, at/above-threshold unmodified, boundary correct at `>=5`, enforcement confirmed independent of client (direct `bq` calls, not through Power BI). |
 | 7 | Power BI live | Three pages, Publish to Web page-nav works | ⬜ Not started (Publish to Web's multi-page navigation confirmed as a genuinely supported feature via current documentation, resolving the doc's earlier "unverified" flag; the actual pages/report aren't built yet) |
 | 8 | Achievements | Content designed, join logic working | ⬜ Not started (source-of-truth mechanism for quest content is decided — see `data-layer.md`'s "Quest-definitions, single source of truth" — content itself not written) |
 | 9 | Remaining mobile UI | Station drill-down, branch-aware picker, profile dashboard | ⬜ Not started |
@@ -276,10 +276,10 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron + `wor
         riding just the easiest one shouldn't get full credit for "the S line." Ties in well with a
         future quest once milestone 8 exists — e.g. "Shuttle Completionist: ride all three" — worth
         adding to `docs/quests-parking.md` when quest content actually gets designed.
-      - **Open, not decided:** does the dashboard's "Top lines" chart show all three shuttles as
-        three individual bars, or offer a combined "S ridership" view (sum of the three) alongside
-        the individual breakdown? Mart-level display choice, separate from the storage decision
-        above — settle when this ships, not now.
+      - **Resolved:** the dashboard's "Top lines" chart shows all three shuttles as individual bars —
+        `mart_line_stats` is one row per real `route_id`, no combined "S ridership" rollup added. Also
+        now the same reasoning applies here as the min-N decision below: a shuttle row at low N is a
+        real disclosure risk, one grain coarser than a station — see milestone 6.
       - **Possibly related, not scoped yet:** the canonical Line page (`ui-spec.md`) may need
         its own thinking for a route with 3 fully independent branches/routes under one icon —
         worth a look once this work starts, not a separate open item until then.
@@ -348,8 +348,16 @@ runs dbt (seed/run/test) immediately after — see data-layer.md.
 - [x] dbt staging → intermediate → mart, with tests
 - [x] Partitioning (`received_at`) + clustering (`user_id`) — both applied on table creation,
       confirmed via BigQuery's `INFORMATION_SCHEMA.TABLES` DDL output
-- [ ] Min-N (=10) suppression — row access policies on a dbt-computed `segment_user_count` column,
-      dbt computes/exposes only, BigQuery enforces the cutoff (see `docs/dashboard-spec.md`)
+- [x] Pipeline's dbt step (seed/run/test, appended to `pipeline.yml`) — verified end-to-end via a
+      manual `workflow_dispatch` run in GitHub Actions; EL job + full dbt chain all ran clean in CI.
+- [x] **Min-N (=5) suppression — done.** Row access policies live on `mart_station_stats`,
+      `mart_station_pairs`, and `mart_line_stats` in `subwayquest_dbt_mart`, `FILTER USING
+      (segment_user_count >= 5)`, granted to a dedicated `powerbi-reader` service account. Scope
+      narrowed from an initial broader draft (originally N=10, every bucketed stat) down to only the
+      metrics that disclose actual places at small-group grain — reasoning in `docs/dashboard-spec.md`;
+      GCP setup, the mart split into its own dataset (`subwayquest_dbt_mart`, via a `+schema: mart`
+      dbt config), and the full verification runbook (impersonated `bq` queries against seeded
+      boundary data) in `docs/bigquery-min-n.md`.
 
 **Dev/test data exclusion (decided, not yet implemented):** Dev/testing happens signed in with the
 same Apple ID that'll be used for real post-launch — so `user_id` can't separate test rows from real
@@ -373,6 +381,10 @@ a filter like this.
   not a legacy gap). Resolved for this project — author on the Windows Dell already owned for
   Windows-only analysis tools; develop/EL job work continues on Mac as before. No VM/Parallels setup
   needed.
+- **Note on data source:** Power BI's BigQuery connector authenticates with the `powerbi-reader`
+  service account key from milestone 6 (`docs/bigquery-min-n.md`), pointed at `subwayquest_dbt_mart`
+  — not `subwayquest_dbt`, which also holds staging/intermediate models and should never be exposed
+  to Power BI.
 
 ## Achievements / quests
 
@@ -383,6 +395,10 @@ a filter like this.
       (`dbt/seeds/quest_definitions.csv`) is a generated build artifact from that same file via a
       new `network/scripts/build_quest_seed.py`, never hand-authored separately — see
       `data-layer.md`'s "Quest-definitions, single source of truth" for the full reasoning.
+- **Note for when this ships:** `mart_quest_completion` will need the same min-N treatment as
+  `mart_station_stats`/`mart_station_pairs`/`mart_line_stats` — a quest is a named set of stations, so
+  low-N completion discloses which stations a specific person visited. See `docs/bigquery-min-n.md`'s
+  coverage table — this is already flagged there as planned, not yet built.
 
 ## Release
 
@@ -406,6 +422,10 @@ a filter like this.
   payoff relative to the product/instrumentation metrics.
 - **Denormalizing `user_id` onto `legs`** — see `docs/data-layer.md`'s RLS section.
 - **Authorized views for min-N suppression** — see `docs/dashboard-spec.md`.
+- **A blanket "suppress every bucketed stat" min-N policy at N=10** — considered and narrowed during
+  milestone 6; re-identification risk in mobility data comes from space+time together, this app never
+  stores time-of-day, so the policy only applies where a metric names actual places at small-group
+  grain. See `docs/dashboard-spec.md` and `docs/bigquery-min-n.md`.
 - **A live Supabase-side projection to avoid a rehydration loading spinner** — considered and
   rejected when building rehydration-on-sign-in; disproportionate to this project's real scale (brief
   local replay is well under a second), same category of over-infrastructure mistake as the original
@@ -438,3 +458,14 @@ first if this resurfaces — the error message gives no hint of the real cause.
 - **Dropping a Postgres schema in Supabase needs a two-step cleanup**, not just the `DROP SCHEMA`
   itself — see `data-layer.md`'s EL job section for the full PostgREST schema-cache gotcha
   encountered and resolved.
+- **A dbt model's `+schema` config suffixes the target dataset, it doesn't relocate existing tables**
+  — switching `marts` to `+schema: mart` mid-project (milestone 6) left the old mart tables orphaned
+  in the original `subwayquest_dbt` dataset; `dbt run` created the new ones in `subwayquest_dbt_mart`
+  without cleaning up the old location. Had to `DROP TABLE` the nine stale tables by hand. Worth
+  checking for orphaned tables in the old location after any future dataset/schema reconfig.
+- **BigQuery row access policies restrict every principal by default, including the resource owner**
+  — there's no automatic exemption for the project owner once any policy exists on a table (also
+  disables table preview entirely: "Table preview is not supported for tables using row-level
+  security"). Testing as yourself needs a second, temporary, permissive policy unioned onto the same
+  table (see `docs/bigquery-min-n.md`'s `owner_test_access` pattern) — don't assume owner access is
+  implicit when debugging a suppressed mart.

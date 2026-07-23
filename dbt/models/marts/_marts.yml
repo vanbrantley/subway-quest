@@ -9,6 +9,8 @@ models:
         tests: [not_null]
       - name: lines_total
         tests: [not_null]
+      - name: pct_system_explored_collective
+        tests: [not_null]
 
   - name: mart_growth_daily
     columns:
@@ -50,27 +52,21 @@ models:
       - name: segment_user_count
         tests: [not_null]
 
-  - name: mart_pct_explored_histogram
-    columns:
-      - name: bucket
-        tests: [unique, not_null]
-      - name: segment_user_count
-        tests: [not_null]
-
   - name: mart_trips_per_user_histogram
     columns:
       - name: bucket
         tests: [unique, not_null]
-      - name: segment_user_count
-        tests: [not_null]
+
+  - name: mart_lines_ridden_histogram
+    columns:
+      - name: bucket
+        tests: [unique, not_null]
 
   - name: mart_time_to_log
     columns:
       - name: leg_count_bucket
         tests: [unique, not_null]
       - name: median_seconds
-        tests: [not_null]
-      - name: segment_user_count
         tests: [not_null]
 
   - name: mart_sync_health
