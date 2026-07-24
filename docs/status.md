@@ -469,3 +469,11 @@ first if this resurfaces — the error message gives no hint of the real cause.
   security"). Testing as yourself needs a second, temporary, permissive policy unioned onto the same
   table (see `docs/bigquery-min-n.md`'s `owner_test_access` pattern) — don't assume owner access is
   implicit when debugging a suppressed mart.
+  - **Station visit map (Exploration page) uses the classic Power BI Map visual, not Azure Maps** —
+  deliberate: Azure Maps (the newer replacement Microsoft is actively steering users toward) does
+  not support Publish to Web as of this writing, confirmed via multiple current reports of it
+  breaking published dashboards. The classic Map visual does support Publish to Web. If Microsoft
+  ever fully retires the classic visual, **fallback plan already validated:** a Scatter Chart with
+  `lon` on X and `lat` on Y, sized by `visit_count` — confirmed during this same build session as a
+  zero-dependency, guaranteed-compatible alternative that still reads as a recognizable NYC station
+  layout. Don't accept any in-app "upgrade to Azure Maps" prompt on this visual.

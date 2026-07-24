@@ -28,3 +28,6 @@ vars:
   # Placeholder — a no-op until the real launch date is known (see status.md's
   # "Dev/test data exclusion"). stg_events filters on date(occurred_at) >= this value.
   launch_date: '1970-01-01'
+
+on-run-end:
+  - "{{ reapply_min_n_suppression() }}"

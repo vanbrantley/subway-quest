@@ -20,6 +20,8 @@ layer" section — not duplicated here.
 | Seed | Shape | Description |
 |---|---|---|
 | `route_totals` | single value | Total real, displayable subway lines. **Currently 23** — verified against `route_stops.json` ∩ `LINE_ICONS`/`LINE_COLORS`, not hand-counted. Expected to become 26 once shuttle grouping (`FS`/`GS`/`H`) ships — see status.md's "Mobile UI — remaining." Must be bumped manually in the same session that ships; does not update itself. |
+| `station_totals` | single value | Total real stations — **496**, per `PROJECT.md`'s verified pipeline output. Feeds `mart_global_summary`'s collective %-explored calculation (distinct stations visited ÷ this total) as well as the original per-user % explored logic. Static, matching `route_totals`' pattern — bump manually if the underlying station count ever changes (e.g. a real-world station closure/addition), does not update itself. |
+| `station_coordinates` | one row per `station_id` | Generated from `network/processed/stations.json` via `network/scripts/build_station_coords_seed.py` — `station_id` (GTFS stop_id, e.g. `R01` — confirmed as the same key `int_legs.entry_station_id`/`exit_station_id` actually store), `lat`, `lon`, `name`, `routes` (comma-joined `daytime_routes`). Same never-hand-duplicated pattern as `quest_definitions.csv`. |
 
 ## Intermediate
 
@@ -35,12 +37,12 @@ layer" section — not duplicated here.
 
 | Model | Grain | Description |
 |---|---|---|
-| `mart_global_summary` | single row | Avg trips/user, lines ridden ÷ `route_totals`, draft correction/abandonment rates, trip deletion rate, **collective %-system-explored ÷ `station_totals`** (added milestone 7). No suppression — global aggregates, not segments. |
+| `mart_global_summary` | single row | Avg trips/user, lines ridden ÷ `route_totals`, draft correction/abandonment rates, trip deletion rate, **collective % of system explored** (`pct_system_explored_collective` — distinct stations visited by anyone ÷ total, exempt from suppression). No suppression — global aggregates, not segments. |
 | `mart_growth_daily` | one row per date | New signups, new activations, trips started per day. No suppression — time series of totals, not per-user segments. |
-| `mart_station_stats` | one row per `station_id` | Visit count. Feeds the Exploration heatmap and Growth's "Top stations." Suppressed (N=5). |
+| `mart_station_stats` | one row per `station_id` | Visit count, plus `lat`/`lon`/`station_name`/`station_routes` joined in from the `station_coordinates` seed (inner join — a station missing coordinates fails loudly via a singular test, rather than silently dropping off the heatmap). Feeds the Exploration heatmap and Growth's "Top stations." Suppressed (N=5). |
 | `mart_line_stats` | one row per `route_id` | Ride count. Feeds "Top lines." Suppressed (N=5) — shuttle rows especially, since low ridership on `FS`/`GS`/`H` individually is more disclosure-risky than a numbered line. |
 | `mart_station_pairs` | one row per `(entry_station_id, exit_station_id)` | Ride count per station-to-station hop. Feeds the station-pair network graph. Suppressed (N=5). Composite grain — checked via a singular test, not dbt's built-in `unique` (which only covers single columns). |
-| `mart_lines_ridden_histogram` | one row per whole-number bucket of per-user distinct lines ridden | Built milestone 7. Whole-number buckets (0-23, soon 0-26), not percentage deciles — deliberately different bucketing scheme than the removed stations histogram, since 23 is too small a scale for percentage buckets to read well. No suppression — magnitude-only, same reasoning as the other unsuppressed histograms. |
+| `mart_lines_ridden_histogram` | one row per lines-ridden bucket | Per-user distinct lines ridden ÷ total lines, bucketed. Same shape as the removed stations histogram, at route grain. Exempt — magnitude only, no location content. |
 | `mart_trips_per_user_histogram` | one row per trip-count bucket | Same reasoning as above. |
 | `mart_time_to_log` | one row per leg-count bucket | Median/p95 seconds to log, by leg count. Same reasoning as above. |
 | `mart_sync_health` | one row per date | p50/p95 sync latency (`received_at − recorded_at`), % synced within 60 min. No suppression — event-level aggregate, not per-user. |
