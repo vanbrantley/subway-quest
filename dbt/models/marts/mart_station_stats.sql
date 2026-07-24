@@ -18,7 +18,9 @@ select
     visit_counts.visit_count,
     visit_counts.segment_user_count,
     coords.lat,
-    coords.lon
+    coords.lon,
+    coords.name as station_name,
+    coords.routes as station_routes
 from visit_counts
 inner join {{ ref('station_coordinates') }} as coords
     on visit_counts.station_id = coords.station_id
