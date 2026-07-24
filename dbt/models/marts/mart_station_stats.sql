@@ -20,6 +20,5 @@ select
     coords.lat,
     coords.lon
 from visit_counts
-from visit_counts
 inner join {{ ref('station_coordinates') }} as coords
     on visit_counts.station_id = coords.station_id
