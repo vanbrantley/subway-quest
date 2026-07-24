@@ -1,0 +1,20 @@
+# network/scripts/build_station_coords_seed.py
+import json
+import csv
+from pathlib import Path
+
+STATIONS_JSON = Path(__file__).parent.parent / "processed" / "stations.json"
+OUTPUT_CSV = Path(__file__).parent.parent.parent / "dbt" / "seeds" / "station_coordinates.csv"
+
+def main():
+    with open(STATIONS_JSON) as f:
+        stations = json.load(f)
+
+    with open(OUTPUT_CSV, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["station_id", "lat", "lon"])
+        for stop_id, station in stations.items():
+            writer.writerow([stop_id, station["lat"], station["lon"]])
+
+if __name__ == "__main__":
+    main()
