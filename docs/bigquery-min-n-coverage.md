@@ -111,6 +111,21 @@ it might sound at first, but it's the more defensible version of the mechanism f
 scenario this project cares about — nobody sees suppressed rows by default, visibility is opt-in per
 identity, not opt-out.
 
+## Bug found and fixed: policies wiped on every pipeline run
+
+Discovered after this milestone's initial verification: BigQuery row access policies do **not**
+survive `CREATE OR REPLACE TABLE`, which is exactly what dbt's `table` materialization runs on
+every `dbt run`. Since the policies were applied manually via the SQL editor (outside dbt entirely),
+every automated pipeline run since milestone 6 was silently rebuilding all three suppressed tables
+and wiping their policies with them — no error, no warning, suppression just silently stopped
+working after the first scheduled run.
+
+**Fix:** `dbt/macros/reapply_min_n_suppression.sql`, called via an `on-run-end` hook in
+`dbt_project.yml` — reapplies all three policies (via `CREATE OR REPLACE ROW ACCESS POLICY`,
+idempotent) after every single run, so suppression survives the table rebuild instead of being
+undone by it. Verified via `INFORMATION_SCHEMA.ROW_ACCESS_POLICIES` after a real pipeline run —
+policies present on all three tables post-rebuild.
+
 ## Testing: seeding, `owner_test_access`, and impersonation
 
 **Why a second temporary policy is needed to test as yourself:** since the real policy only grants
