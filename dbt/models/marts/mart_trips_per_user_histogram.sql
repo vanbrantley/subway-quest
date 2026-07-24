@@ -6,7 +6,9 @@ with per_user as (
     from {{ ref('int_trips') }}
     group by user_id
 )
-select trip_count as bucket
+select
+    trip_count as bucket,
+    count(distinct user_id) as user_count
 from per_user
 group by bucket
 order by bucket
