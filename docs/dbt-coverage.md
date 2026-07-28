@@ -78,3 +78,4 @@ run — see `docs/bigquery-min-n.md` for exact commands.
 2. **"Top lines" normalization** — open until shuttle grouping resolves whether stored `route_id`
    values ever diverge from the 23-line set.
 3. **Achievements/quests** — milestone 8. See `docs/quests-parking.md`.
+4. Once built, `mart_quest_completion` must be added to `reapply_min_n_suppression's` table list — policies don't survive table rebuilds, confirmed this session.

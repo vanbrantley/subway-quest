@@ -1,13 +1,13 @@
 // mobile/db/rehydrate.ts
 //
-// I/O wrapper around rehydrate-plan.ts's pure logic — device/network-facing,
-// not directly unit-testable outside the app runtime (see rehydrate-plan.ts
+// I/O wrapper around rehydrate_logic.ts's pure logic — device/network-facing,
+// not directly unit-testable outside the app runtime (see rehydrate_logic.ts
 // for why the planning logic itself lives in a separate, pure file).
 
 import type * as SQLite from 'expo-sqlite';
 import { supabase } from '../lib/supabase';
 import { writeProjectionRows, type CommitContext } from './projection';
-import { planRehydration, type RemoteEventRow } from './rehydrate-plan';
+import { planRehydration, type RemoteEventRow } from './rehydrate_logic';
 
 export async function needsRehydration(db: SQLite.SQLiteDatabase): Promise<boolean> {
     const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM trips');

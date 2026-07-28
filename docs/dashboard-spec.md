@@ -50,8 +50,7 @@ places at small-group grain:
 
 - Station visit heatmap
 - Station-pair network graph (the transfer graph)
-- % of users completing each quest (a quest is a named set of stations; completing a rare one at
-  low N discloses that a specific person visited those specific stations)
+| Number of users who've completed each quest (raw count, not %) | Which quests are well-tuned vs. too hard/easy — raw count chosen over percentage: with a small real user base, "60% completed this quest" reads as inflated significance when the denominator is 5 people. Revisit as the user base grows. |
 
 **Top lines was reconsidered and added to this list too, after initial scoping missed it.** A ranked
 top-N chart is safe by construction — but "Top lines" and the underlying per-route mart aren't the

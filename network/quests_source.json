@@ -1,0 +1,266 @@
+{
+    "roosevelt_island": {
+        "title": "Island Hopper",
+        "description": "Visit Roosevelt Island.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_stations",
+            "stations": [
+                222
+            ]
+        }
+    },
+    "the_middle": {
+        "title": "The Middle",
+        "description": "Visit Middle Village-Metropolitan Av.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_stations",
+            "stations": [
+                108
+            ]
+        }
+    },
+    "park_fence": {
+        "title": "Park Fence",
+        "description": "Visit every station bordering Central Park.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_stations",
+            "stations": [
+                8,
+                156,
+                157,
+                158,
+                159,
+                160
+            ]
+        },
+        "_note": "Central Park NTA group, verified against complex_to_neighborhood.json. Ready as-is."
+    },
+    "beachy": {
+        "title": "Beachy",
+        "description": "Visit at least {count} beach stations.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "min_count_stations",
+            "stations": [
+                58,
+                57,
+                55,
+                200,
+                201,
+                202,
+                203,
+                204,
+                205,
+                206,
+                207,
+                208
+            ],
+            "count": 6
+        },
+        "_note": "12 candidate stations (Coney Island-Stillwell Av, W 8 St-NY Aquarium, Brighton Beach, and all 9 Beach-numbered Rockaway stops). count=6 is a guess (half) -- adjust freely."
+    },
+    "same_name_explorer": {
+        "title": "D\u00e9j\u00e0 Vu",
+        "description": "Visit stations at {count} different same-name station pairs/clusters.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "min_count_groups",
+            "group_ref": "same_name_station_clusters",
+            "exclude_names": [
+                "34 St-Penn Station",
+                "Chambers St"
+            ],
+            "count": 5
+        },
+        "_note": "54 real clusters system-wide after excluding the 2 listed above (arguably one place split across complexes, not a fun 'twin' discovery -- see exclude_names, now real data the resolver can read instead of a prose note). count=5 is a guess out of 54 -- very achievable, adjust freely. group_ref still needs the resolver to implement the actual clustering: group stations by exact name, drop anything in exclude_names, keep groups with 2+ remaining."
+    },
+    "borough_completionist": {
+        "title": "Five Boroughs",
+        "description": "Visit at least one station in every borough.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_groups",
+            "group_ref": "boroughs"
+        },
+        "_note": "Auto-derivable directly from each station's existing borough field -- no hand list needed."
+    },
+    "manhattan_neighborhoods": {
+        "title": "Neighborhood Native",
+        "description": "Visit a station in every Manhattan neighborhood.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_groups",
+            "group_ref": "manhattan_neighborhoods"
+        },
+        "_note": "BLOCKED -- group_ref resolves from final_neighborhoods.json, which isn't final yet. Structurally ready; just needs that file to exist."
+    },
+    "crossroads": {
+        "title": "Crossroads of the World",
+        "description": "Board or alight from every line at Times Sq-42 St.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_station_route_pairs",
+            "pairs": [
+                {
+                    "station": 611,
+                    "route": "N"
+                },
+                {
+                    "station": 611,
+                    "route": "Q"
+                },
+                {
+                    "station": 611,
+                    "route": "R"
+                },
+                {
+                    "station": 611,
+                    "route": "W"
+                },
+                {
+                    "station": 611,
+                    "route": "A"
+                },
+                {
+                    "station": 611,
+                    "route": "C"
+                },
+                {
+                    "station": 611,
+                    "route": "E"
+                },
+                {
+                    "station": 611,
+                    "route": "1"
+                },
+                {
+                    "station": 611,
+                    "route": "2"
+                },
+                {
+                    "station": 611,
+                    "route": "3"
+                },
+                {
+                    "station": 611,
+                    "route": "7"
+                },
+                {
+                    "station": 611,
+                    "route": "GS"
+                }
+            ]
+        },
+        "_note": "11 distinct lines converge at Times Sq (complex 611) -- verified against the stations data. Ready as-is."
+    },
+    "all_lines_rider": {
+        "title": "Every Line",
+        "description": "Ride every subway line at least once.",
+        "mechanism": "lifetime_set",
+        "criteria": {
+            "type": "all_routes"
+        },
+        "_note": "Route-grain, not station-grain -- auto-resolves against the real distinct route list, same source route_totals already uses. Ready as-is."
+    },
+    "s_tier": {
+        "title": "S Tier",
+        "description": "Ride all three shuttles.",
+        "mechanism": "lifetime_set",
+        "blocked": true,
+        "criteria": {
+            "type": "all_routes",
+            "routes": [
+                "FS",
+                "GS",
+                "H"
+            ]
+        },
+        "_note": "BLOCKED, but not for the reason I originally wrote -- FS/GS/H already exist as real routes in route_stops.json (confirmed by validate_quests.py NOT flagging them as missing). The real blocker is that the trip-logging UI can't select/log any individual shuttle yet (status.md: 'no shuttle is currently selectable anywhere in the trip-logging flow'). Since the resolver has no way to detect an app-UI fact from data, this needs an explicit blocked flag rather than relying on route-validity checking, which would otherwise let this resolve and ship an unwinnable quest. Flip blocked to false once shuttle selection ships."
+    },
+    "n_legger": {
+        "title": "5-Legger",
+        "description": "Log a single trip with at least {count} legs.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "leg_count_min",
+            "count": 5
+        },
+        "_note": "count=5 is a guess -- adjust freely. Could also ship as a tiered family (3/5/7) instead of one quest."
+    },
+    "im_not_leaving": {
+        "title": "I'm Not Leaving!!",
+        "description": "Ride one subway line from end to end in a single trip.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "full_line_ride",
+            "route": "any"
+        },
+        "_note": "Route-agnostic -- any single line ridden fully end-to-end within one trip's legs qualifies."
+    },
+    "wordsmith": {
+        "title": "Wordsmith",
+        "description": "Log a trip whose ridden line letters spell J-A-M, in order.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "route_letters_spell_word",
+            "word": "JAM"
+        },
+        "_note": "Picked JAM since J/A/M are all real single-letter/valid route IDs and it's short enough to be achievable. Totally your call to swap for a different word -- just needs to only use letters that are real route IDs (no H/I/K/O/P/T/U/V/X/Y exist as subway line letters)."
+    },
+    "top_to_bottom": {
+        "title": "Top to Bottom",
+        "description": "Ride from Manhattan's northern tip to its southern tip in one trip.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "geographic_endpoints",
+            "start": 297,
+            "end": 635
+        },
+        "_note": "start=215 St (1 train, northernmost mainline Manhattan complex), end=Whitehall St-South Ferry. Deliberately avoided Marble Hill as the start given its borough ambiguity. Adjust freely."
+    },
+    "bottom_to_top": {
+        "title": "Bottom to Top",
+        "description": "Ride from Manhattan's southern tip to its northern tip in one trip.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "geographic_endpoints",
+            "start": 635,
+            "end": 297
+        }
+    },
+    "side_to_side": {
+        "title": "Side to Side",
+        "description": "Ride across Manhattan at 125th St, west side to east side, in one trip.",
+        "mechanism": "per_trip",
+        "criteria": {
+            "type": "geographic_endpoints",
+            "start": 306,
+            "end": 392
+        },
+        "_note": "start=125 St (Broadway 1 train, west), end=125 St (Lexington Av 4/5/6, east) -- same street, opposite edges of the island. Adjust freely if a different crosstown pair reads better."
+    },
+    "line_loyalist": {
+        "title": "Line Loyalist",
+        "description": "Ride the same line at least {count} times.",
+        "mechanism": "counting",
+        "criteria": {
+            "type": "ride_count_route",
+            "route": "any",
+            "count": 10
+        },
+        "_note": "count=10, route-agnostic (any single line hit 10 times qualifies). Adjust freely."
+    },
+    "transfer_master": {
+        "title": "Transfer Master",
+        "description": "Make at least {count} transfers, lifetime.",
+        "mechanism": "counting",
+        "criteria": {
+            "type": "transfer_count",
+            "count": 20
+        },
+        "_note": "count=20 is a guess -- adjust freely."
+    }
+}

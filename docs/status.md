@@ -15,9 +15,9 @@ new session, not reconstructed from git history.
 | 4 | EL job → BigQuery | Trigger the workflow, confirm real data lands in BigQuery | ✅ Done — manually triggered via `workflow_dispatch`, verified against the real table: schema/column types correct, row count matches Supabase, `payload` genuinely parses as JSON (caught and fixed a double-encoding bug where `json.dumps()` was called on an already-parsed dict), partitioning (`received_at`) and clustering (`user_id`) both applied. `operational` schema removed from the data model as part of this milestone's cleanup (see `data-layer.md`'s "Removed: operational schema"); rehydration-on-sign-in built and verified on-device as its replacement for data continuity. |
 | 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. Pipeline's dbt step verified end-to-end in CI via pipeline.yml. One open thread carried forward, not blocking: shuttle grouping (S/FS/GS/H) — see "Mobile UI — remaining". |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ✅ Done — N=5, scoped to `mart_station_stats`, `mart_station_pairs`, `mart_line_stats` (the three marts that name actual stations/routes at small-group grain; reasoning in `docs/dashboard-spec.md`, full setup/testing runbook in `docs/bigquery-min-n.md`). Dedicated `powerbi-reader` GCP service account created, read-only, scoped to the `subwayquest_dbt_mart` dataset only. Verified via impersonated `bq` queries against synthetic seed data at N=3/4/5/9/20 — below-threshold segments absent, at/above-threshold unmodified, boundary correct at `>=5`, enforcement confirmed independent of client (direct `bq` calls, not through Power BI). |
-| 7 | Power BI live | Three pages, Publish to Web page-nav works | ⬜ Not started (Publish to Web's multi-page navigation confirmed as a genuinely supported feature via current documentation, resolving the doc's earlier "unverified" flag; the actual pages/report aren't built yet) |
-| 8 | Achievements | Content designed, join logic working | ⬜ Not started (source-of-truth mechanism for quest content is decided — see `data-layer.md`'s "Quest-definitions, single source of truth" — content itself not written) |
-| 9 | Remaining mobile UI | Station drill-down, branch-aware picker, profile dashboard | ⬜ Not started |
+| 7 | Power BI live | Three pages, Publish to Web page-nav works | ✅ Done — all 3 pages built (Growth & Engagement, Product/Instrumentation, Exploration & Usage), connected to `subwayquest_dbt_mart` via `powerbi-reader`, scheduled refresh live (4x/day, offset 30 min after each pipeline cron run), published and confirmed live on the public Publish to Web link. Quest completion stub deliberately deferred — blocked on milestone 8 content, layout position reserved on Exploration page. Remaining polish (axis titles, tooltips, layout, cross-filter behavior, suppression explainer) tracked separately, not blocking. |
+| 8 | Achievements — full app integration | Quest content resolved, progress logic wired into all 4 touchpoints (trip-complete delta, station page, profile page, challenge-detail page), dashboard mart built and suppressed | ⬜ Not started — scope: unordered lifetime station-set quests only for v1 |
+| 9 | Remaining plain UI pages | Station drill-down, branch-aware picker, profile dashboard (now scoped down — quest UI is milestone 8's job, not this one) | ⬜ Not started |
 | 10 | Release readiness | App Store Connect, privacy policy, testers | Apple Developer membership ✅; rest ⬜ |
 | 11 | Portfolio narrative | README, case study | ⬜ Not started |
 
@@ -236,12 +236,12 @@ via plain `import` — no runtime fetch, matching the offline-first design.
 and exported, shared with `rehydrate.ts`'s replay path — one implementation of "what a trip's
 projection rows look like," not two. `leg_boarded`'s payload gained `sequence` (`event_version: 2`)
 — needed to reconstruct leg order during rehydration, not derivable from timestamps alone.
-`rehydrate-plan.ts` — pure `planRehydration()` (trip grouping, `trip_deleted` exclusion,
+`rehydrate_logic.ts` — pure `planRehydration()` (trip grouping, `trip_deleted` exclusion,
 leg-sequence ordering), deliberately zero React Native/Expo/Supabase imports so it's testable via
 plain `tsx` without a device (importing `rehydrate.ts` directly pulls in `expo-sqlite`, which
 transitively pulls in Flow-syntax RN source a plain Node run can't parse — this split is what makes
 the logic testable at all). `rehydrate.ts` — thin I/O wrapper (`needsRehydration`,
-`rehydrateFromRemote`) that imports the pure logic from `rehydrate-plan.ts`. `rehydrate_tests.ts` —
+`rehydrateFromRemote`) that imports the pure logic from `rehydrate_logic.ts`. `rehydrate_tests.ts` —
 the required test (10 checks, all passing): a deleted trip never materializes, a live trip restores
 with correct leg order even from out-of-order remote rows, a mixed batch only restores the live trip,
 an incomplete event set is skipped rather than crashing.
@@ -313,7 +313,7 @@ rendering for overlapping track, `route_shapes.json` polyline precision.
 
 ## Rehydration-on-sign-in (replaces `operational` for data continuity)
 
-- [x] `mobile/db/rehydrate-plan.ts` — pure `planRehydration()` (trip grouping, `trip_deleted`
+- [x] `mobile/db/rehydrate_logic.ts` — pure `planRehydration()` (trip grouping, `trip_deleted`
       exclusion, leg-sequence ordering), zero RN/Expo/Supabase imports by design — testable via
       plain `tsx`, no device needed. `mobile/db/rehydrate.ts` is the thin I/O wrapper
       (`needsRehydration`/`rehydrateFromRemote`) that imports from it.

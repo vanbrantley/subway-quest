@@ -1,4 +1,4 @@
-// mobile/db/rehydrate-plan.ts
+// mobile/db/rehydrate_logic.ts
 //
 // Pure planning logic for rehydration — deliberately zero imports of
 // expo-sqlite, supabase, or anything React Native touches, so this file can

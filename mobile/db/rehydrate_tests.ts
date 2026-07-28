@@ -1,6 +1,6 @@
 // mobile/db/rehydrate_tests.ts
 // Run: npx ts-node db/rehydrate_tests.ts
-import { planRehydration, type RemoteEventRow } from './rehydrate-plan';
+import { planRehydration, type RemoteEventRow } from './rehydrate_logic';
 
 let failures = 0;
 function check(desc: string, cond: boolean) {

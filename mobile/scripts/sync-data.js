@@ -14,7 +14,7 @@ const path = require("path");
 const SOURCE_DIR = path.join(__dirname, "..", "..", "network", "processed");
 const DEST_DIR = path.join(__dirname, "..", "data");
 
-const FILES = ["stations.json", "route_stops.json", "route_shapes.json", "transfers.json"];
+const FILES = ["stations.json", "route_stops.json", "route_shapes.json", "transfers.json", "quests.json"];
 
 fs.mkdirSync(DEST_DIR, { recursive: true });
 

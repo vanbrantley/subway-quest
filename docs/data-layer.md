@@ -324,7 +324,7 @@ back, `trips` stays empty, and the exact same trigger condition correctly re-fir
 **Required test, not an assumption:** confirm directly that a trip with a `trip_deleted` event never
 materializes during replay — same standard already applied elsewhere in this project (see
 `buildOccurredAt`'s timezone bug, caught by testing an assumption that looked correct on paper and
-wasn't). The pure planning logic lives in `mobile/db/rehydrate-plan.ts` (deliberately zero React
+wasn't). The pure planning logic lives in `mobile/db/rehydrate_logic.ts` (deliberately zero React
 Native/Expo/Supabase imports — importing `rehydrate.ts` directly for a test pulls in `expo-sqlite`,
 which transitively pulls in Flow-syntax React Native source that a plain Node/tsx run can't parse;
 splitting the pure decision logic out is what makes it testable outside the app runtime at all).
@@ -346,7 +346,7 @@ covered by the existing dev/test launch-date-cutoff decision.
 
 ## Deleted trips at the dbt layer
 
-Same exclusion problem `rehydrate-plan.ts`'s `planRehydration()` already solves locally — a `trip_deleted`
+Same exclusion problem `rehydrate_logic.ts`'s `planRehydration()` already solves locally — a `trip_deleted`
 event doesn't remove the original trip's events from the append-only log, so anything reconstructing
 trips from raw/staged events must explicitly exclude any `trip_id` whose event group includes a
 `trip_deleted`. **Decided:** this exclusion happens once, in the intermediate layer's trip-reconstruction
@@ -480,24 +480,48 @@ Worth naming explicitly, since the difference isn't obvious in the moment and is
    materialized column to filter on. The NYC tracker had no analogous mechanism forcing aggregation
    into dbt.
 
-## Quest-definitions, single source of truth
+## Quest-definitions, single source of truth (updated)
 
-Achievements has two consumers with different requirements: the in-app screen (join quest definitions
-against local trip history, per-device) and the BigQuery mart's "% of users completing each quest"
-stat (`dashboard-spec.md`, cross-user aggregate). **Decided: `network/processed/quests.json` is
-canonical — same pipeline/bundling pattern as `stations.json`/`route_stops.json`/`transfers.json`.**
-The in-app Achievements screen imports it directly, same mechanism `subwayData.ts` already uses for
-the others.
+Two-stage pipeline, not one file:
 
-The dbt/BigQuery side does not get an independently-authored copy. dbt seeds are CSV, not JSON, so
-this isn't a direct reuse — but generating one from the other is a fundamentally different
-relationship than authoring two copies by hand, which is the actual failure mode being avoided (see
-"Data-flow architecture" above, and the precedent already set by `direction_id`, the rejected
-denormalized-`user_id`-on-`legs` design, and `operational` itself). A `network/scripts/
-build_quest_seed.py` step (parallel to `build_static_data.py`) reads `quests.json` and writes `dbt/
-seeds/quest_definitions.csv` — a generated build artifact, never hand-edited, same relationship
-`mobile/data/`'s bundled JSON already has to `network/processed/`'s tracked source. Run manually
-whenever quest content changes, same pattern already established for `mobile/scripts/sync-data.js`.
+- `network/quests_source.json` (hand-authored) — the actual creative content: quest id, title,
+  description, and criteria in whatever compact form is easiest to author. Two criteria shapes:
+  an explicit station list (hand-picked quests), or a shorthand like
+  `{"type": "line_completion", "route_id": "N"}` for the auto-generated "ride every stop on this
+  line" category.
+- A build script (TBD name, same family as `build_static_data.py`) expands this into
+  `network/processed/quests.json` — every quest resolved down to a flat, explicit list of required
+  `station_id`s. `line_completion` quests are expanded here using `route_stops.json`'s existing
+  per-route station lists, guaranteeing one such quest exists for every real, displayable line
+  (23 today, 26 post-shuttle-grouping) with zero hand-authoring and zero drift risk if a line's
+  stops ever change.
+
+Both downstream consumers read the resolved output, never the source file directly — they only
+ever disagree on *how progress against a quest is computed*, never on *what a quest requires*:
+- `build_quest_seed.py` turns resolved `quests.json` into `dbt/seeds/quest_definitions.csv`
+- The mobile app bundles resolved `quests.json` directly — same pattern as `stations.json`/
+  `route_stops.json`/`transfers.json`, plain import, no runtime fetch
+
+**Scope, v1: unordered lifetime station-set quests only.** A quest is satisfied by having visited
+every required station at some point, in any trip, in any order. Sequence/ordered-visit quests
+("ride these stations in this order, in one sitting") considered and cut for v1 — real added
+complexity (sequence-matching against trip legs, re-implemented identically in dbt and the app) with
+no concrete quest currently needing it. Revisit only if a specific quest idea genuinely requires it.
+
+## Quest progress computation
+
+One shared module, `mobile/db/quests.ts` (alongside `projection.ts`, `rehydrate.ts` — same category,
+a query layer over local SQLite), used by every screen that shows quest progress (trip-complete
+delta, station page, profile page, challenge-detail page) — one implementation, not four.
+
+**Live query, no cached progress table.** Set-intersection against a local, small trips/legs table
+is cheap enough to compute on each screen visit — avoids inventing a second derived-data-store that
+can drift from source of truth, same discipline behind removing the `operational` schema.
+
+**Exception: the trip-complete "what's new" screen needs a before/after diff**, not just current
+progress — which stations *this specific trip* newly contributed, vs. what was already visited
+before it. Computed inside the same commit transaction as `commitTrip`/`writeProjectionRows`, since
+the new trip's legs are already in hand at that moment — not reconstructed later from scratch.
 
 ## Data-layer rigor checklist
 
