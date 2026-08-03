@@ -100,6 +100,40 @@ def test_domain_grain_check():
             occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
             device_id="dev1", payload=json.dumps({"draft_id": "draft1"}))
 
+    for save_type in ["station_saved", "station_unsaved"]:
+        insert_event(cur, True, f"{save_type}: valid product event",
+            event_id=f"s-{save_type}", event_type=save_type, event_domain="product", event_version=1,
+            occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
+            device_id="dev1", payload=json.dumps({"station_id": "L08"}))
+
+    insert_event(cur, False, "station_saved with trip_id set: rejected",
+        event_id="s-bad", event_type="station_saved", event_domain="product", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
+        device_id="dev1", trip_id="trip1", payload=json.dumps({"station_id": "L08"}))
+
+    conn.close()
+
+
+def test_saved_stations_table():
+    """saved_stations is a projection off station_saved/station_unsaved events,
+    same relationship as trips/legs — grain is station_id (GTFS stop_id),
+    deliberately not complex_id. See schema.sql's comment on this table."""
+    conn = fresh_db()
+    cur = conn.cursor()
+
+    cur.execute("INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)",
+                ("L08", "2026-07-10T09:00:00Z"))
+    cur.execute("SELECT COUNT(*) FROM saved_stations")
+    check("saved_stations: accepts a row", cur.fetchone()[0] == 1)
+
+    try:
+        cur.execute("INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)",
+                    ("L08", "2026-07-11T09:00:00Z"))
+        ok = True
+    except sqlite3.IntegrityError:
+        ok = False
+    check("saved_stations: duplicate station_id rejected (PRIMARY KEY)", ok is False)
+
     conn.close()
 
 
@@ -222,6 +256,7 @@ if __name__ == "__main__":
     test_user_id_required()
     test_sync_status_trigger()
     test_full_trip_lifecycle()
+    test_saved_stations_table()
 
     print()
     if failures:

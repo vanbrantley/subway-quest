@@ -16,8 +16,8 @@ new session, not reconstructed from git history.
 | 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. Pipeline's dbt step verified end-to-end in CI via pipeline.yml. One open thread carried forward, not blocking: shuttle grouping (S/FS/GS/H) — see "Mobile UI — remaining". |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ✅ Done — N=5, scoped to `mart_station_stats`, `mart_station_pairs`, `mart_line_stats` (the three marts that name actual stations/routes at small-group grain; reasoning in `docs/dashboard-spec.md`, full setup/testing runbook in `docs/bigquery-min-n.md`). Dedicated `powerbi-reader` GCP service account created, read-only, scoped to the `subwayquest_dbt_mart` dataset only. Verified via impersonated `bq` queries against synthetic seed data at N=3/4/5/9/20 — below-threshold segments absent, at/above-threshold unmodified, boundary correct at `>=5`, enforcement confirmed independent of client (direct `bq` calls, not through Power BI). |
 | 7 | Power BI live | Three pages, Publish to Web page-nav works | ✅ Done — all 3 original pages built (Growth & Engagement, Product/Instrumentation, Exploration & Usage), connected to `subwayquest_dbt_mart` via `powerbi-reader`, scheduled refresh live (4x/day, offset 30 min after each pipeline cron run), published and confirmed live on the public Publish to Web link. A 4th page (Achievements) was added during milestone 8, once quest content existed — see milestone 8's row below. Remaining polish on the original 3 pages (axis titles, tooltips, layout, cross-filter behavior, suppression explainer) tracked separately, not blocking. |
-| 8 | Achievements — full app integration | Quest content resolved, progress logic wired into all 4 touchpoints (trip-complete delta, station page, profile page, challenge-detail page), dashboard mart built and suppressed | ✅ **Functionally complete.** Full detail, reasoning, and bug-fix history in `docs/milestone-8-achievements.md` (the primary reference for this milestone) and `docs/dbt-coverage.md` (schema reference). Content (18 hand-authored quests + auto-generated line-completion/branching-out families, 52 total), resolver + validator, mobile logic (`quests_logic.ts`, 32 tests) + full mobile UI, warehouse layer (4 new seeds, one intermediate model per mechanism, 2 marts, suppression verified via impersonated `bq`), and docs handoff (`quests-integration.md`, `data-layer.md`'s cut-list) — all done and verified. Two items intentionally left open, not forgotten: per_trip/counting mechanism on-device verification (only lifetime_set was explicitly confirmed), and Power BI achievements page visual polish (foundations built and working, styling deliberately deferred — Van prioritizing milestone 9 mobile work first). `StationQuestsList`/`ProfileQuestsSummary` components are built and tested but **not yet mounted** — that's milestone 9's job; exact insertion points in `docs/quests-integration.md`. |
-| 9 | Remaining plain UI pages | Station drill-down, branch-aware picker, profile dashboard (now scoped down — quest UI is milestone 8's job, not this one) | ⬜ Not started — **note:** the Station and Profile pages built here also need to mount `StationQuestsList`/`ProfileQuestsSummary` respectively as part of this work, per `docs/quests-integration.md` |
+| 8 | Achievements — full app integration | Quest content resolved, progress logic wired into all 4 touchpoints (trip-complete delta, station page, profile page, challenge-detail page), dashboard mart built and suppressed | ✅ **Functionally complete.** Full detail, reasoning, and bug-fix history in `docs/milestone-8-achievements.md` (the primary reference for this milestone) and `docs/dbt-coverage.md` (schema reference). Content (18 hand-authored quests + auto-generated line-completion/branching-out families, 52 total), resolver + validator, mobile logic (`quests_logic.ts`, 32 tests) + full mobile UI, warehouse layer (4 new seeds, one intermediate model per mechanism, 2 marts, suppression verified via impersonated `bq`), and docs handoff (`mobile-quests-integration.md`, `data-layer.md`'s cut-list) — all done and verified. Two items intentionally left open, not forgotten: per_trip/counting mechanism on-device verification (only lifetime_set was explicitly confirmed), and Power BI achievements page visual polish (foundations built and working, styling deliberately deferred — Van prioritizing milestone 9 mobile work first). `StationQuestsList`/`ProfileQuestsSummary` components are built and tested but **not yet mounted** — that's milestone 9's job; exact insertion points in `docs/mobile-quests-integration.md`. |
+| 9 | Remaining plain UI pages | Station drill-down, branch-aware picker, profile dashboard (now scoped down — quest UI is milestone 8's job, not this one) | 🔄 **Code complete, on-device verification still needed.** Map tab, canonical Station page, canonical Line page (branch-aware), and Profile mini-dashboard all built; `StationQuestsList`/`ProfileQuestsSummary` mounted per `docs/mobile-quests-integration.md`; saved-stations feature (new event types, `saved_stations` table, versioned local migration, rehydration folding) built end-to-end. Verified so far: full pure-logic test suites (`schema-tests.py`, `rehydrate_tests.ts` incl. 4 new saved-station-folding checks, new `stations_logic_tests.ts`, `quests_logic_tests.ts` regression), clean `tsc --noEmit`, clean project-wide lint, and a real Metro production-mode bundle for iOS built successfully end-to-end (confirms zero unresolved-import/syntax errors across the whole dependency graph, including `react-native-maps` and the new schema/migration code). **Not yet done, needs Van on a real device:** the actual on-screen walkthrough (map markers/colors, save/unsave, trip-log → marker-turns-green, branch-aware list rendering correctly) — auth (Sign in with Apple) and NetInfo (no Expo Go support) both require a real dev-client build, neither of which this session could complete unattended. **Update:** the Supabase `ALTER TABLE` migration ran successfully (confirmed live via `pg_get_constraintdef`). First real on-device test (Save on a station) then surfaced the local migration bug described above — fixed same-day as migration 3, verified via `migration_v3_tests.py`, awaiting Van's re-test on-device to confirm the fix actually resolves it live, not just under simulation. |
 | 10 | Release readiness | App Store Connect, privacy policy, testers | Apple Developer membership ✅; rest ⬜ |
 | 11 | Portfolio narrative | README, case study | ⬜ Not started |
 
@@ -140,11 +140,12 @@ to come out before this ever ships. Also shows live sync status (`isSyncing`/`la
 All** (flips every locally-`synced` row back to `pending` and re-triggers — the only practical way to
 exercise idempotency without a second device).
 
-**`app/debug-quest-components.tsx`** (milestone 8, also temporary) — same category, mounts
-`StationQuestsList`/`ProfileQuestsSummary` against real data for verification before milestone 9's
-real Station/Profile pages exist. Reached via a second temporary Profile button ("Open Debug Quest
-Components"). Both temporary buttons and this whole file should come out once milestone 9 mounts the
-two components for real — see `docs/quests-integration.md`'s cleanup checklist.
+~~**`app/debug-quest-components.tsx`** (milestone 8, also temporary)~~ — **deleted, milestone 9**, per
+`docs/mobile-quests-integration.md`'s cleanup checklist: its whole purpose was pre-verifying
+`StationQuestsList`/`ProfileQuestsSummary` before the real Station/Profile pages existed to host them.
+The "Open Debug Quest Components" and "Open Achievements (temp)" Profile buttons are gone too; the
+"Open Debug Dump" button is also gone, but `app/debug.tsx` itself stays (per the same checklist) —
+just unreached from any button now.
 
 ## Mobile app — file-by-file
 
@@ -203,12 +204,18 @@ into actual text via `Asset.fromModule()` + `File`.
   wrapped in `<RehydrationGate>` — runs the rehydration check/replay once per session before any tab
   content renders, so the FAB can't be tapped (and a trip logged) before local `trips`/`legs` has
   finished restoring, if it needed to.
-- `(tabs)/map.tsx`, `(tabs)/search.tsx` — stubs.
-- `(tabs)/profile/_layout.tsx`, `index.tsx` — stub + working Sign Out. **Currently also has two
-  temporary buttons** — "Open Debug Dump" (→ `/debug`) and "Open Debug Quest Components" (→
-  `/debug-quest-components`, milestone 8) — both scaffolding, need to come out before release (the
-  quest-components one specifically comes out once milestone 9 mounts the real components, per
-  `docs/quests-integration.md`).
+- `(tabs)/map.tsx` — **(Milestone 9)** real Map tab. `MapView`/`Marker`/`Polyline` (`PROVIDER_DEFAULT`),
+  polylines from `route_shapes.json` (unused until now), stations as small colored circle markers
+  (gray/darker-gray/green — see `ui-spec.md`'s marker-priority rule), refetched via
+  `getAllStationStatuses()` on every focus (not just mount), each `Marker` keyed on its own status so
+  a flip forces a clean remount rather than a stale bitmap under `tracksViewChanges={false}`. Tapping
+  a marker opens `components/map/StationPreviewModal.tsx`.
+- `(tabs)/search.tsx` — still a stub, out of this milestone's scope.
+- `(tabs)/profile/_layout.tsx`, `index.tsx` — **(Milestone 9)** real Profile mini-dashboard, replacing
+  the stub + three temporary debug buttons. Rides logged, stations visited, % of network overall + by
+  borough, favorite station/line, least-travelled line(s), trip history, Saved Stations list, mounts
+  `ProfileQuestsSummary`, Sign Out. Refetches on focus, same reasoning as the Map tab. See "Dev-only
+  debug tooling" above for what happened to the three temporary buttons.
 - `log-trip.tsx` — the trip-logging modal (see above). Fully wired: `finishTrip` calls `commitTrip`
   and navigates to `/trip`; discard calls `writeProductEvent('trip_draft_abandoned')`.
 - `trip.tsx` — Trip Detail/Summary screen. Root-level, not a `trip/[tripId]` folder — reached only
@@ -223,11 +230,20 @@ into actual text via `Asset.fromModule()` + `File`.
   which specific stations/groups/pairs/routes are done vs. remaining, with which trip(s) and dates.
 - `(tabs)/profile/achievements/index.tsx` — **(Milestone 8)** the achievements list, completed/ongoing
   sections. Stayed nested under `profile/` since it currently has only one entry point.
+- `line/[lineId].tsx` — **(Milestone 9)** root-level canonical Line page. Progress header ("X of Y
+  visited"), trunk-first/tails-grouped station list via `getLineStationLayout()`, lightweight transfer
+  icons per row (`getOtherComplexRoutes()`), tap a station → Station page. Fires `route_detail_opened`
+  on mount (a pre-existing, previously-unused event type).
+- `station/[stationId].tsx` — **(Milestone 9)** root-level canonical Station page. "This platform"
+  (own `daytime_routes`, visited badge + save/unsave attached here specifically) and "Transfer here"
+  (`getOtherComplexRoutes()`, purely navigational, no visited state of its own) shown as two separate
+  groups — a display-only choice, see `ui-spec.md`. Visit history, mounts `StationQuestsList`. Fires
+  `station_detail_opened` on mount (same pre-existing-but-unused-until-now category).
 - `debug.tsx` — dev-only (`__DEV__`-gated), dumps `events`/`trips`/`legs`/`sync_status` as JSON, both
-  on-screen and to console. Not linked from any tab; reached via the temporary Profile button. Includes
+  on-screen and to console. Not linked from any tab (its Profile button was removed in milestone 9 —
+  see "Dev-only debug tooling" above); still reachable by direct navigation during dev. Includes
   a back button (`router.back()`), live sync status, and **Trigger Sync**/**Force Re-sync All**
   buttons.
-- `debug-quest-components.tsx` — **(Milestone 8)**, see "Dev-only debug tooling" above.
 
 **`components/`:** `LogTripFAB.tsx`; `trip-logging/types.ts` (`DraftLeg`, `ActiveField`),
 `TripChipStrip.tsx`, `StationPickerStep.tsx` (wraps `@react-native-picker/picker` with an explicit
@@ -240,16 +256,35 @@ blocking the app on a rehydration bug).
 **`components/quests/`** (milestone 8): `StationQuestsList.tsx` — "quests this station contributes
 to," self-contained (fetches its own data given just a `complexId` prop), renders nothing if the
 station isn't part of any quest. `ProfileQuestsSummary.tsx` — completed/ongoing counts + link into
-the full achievements list, self-contained, no props. Both fully built and tested, **not yet
-mounted** — no Station or Profile dashboard page exists yet to host them (that's milestone 9). Exact
-insertion points in `docs/quests-integration.md`.
+the full achievements list, self-contained, no props. Both built in milestone 8, **mounted for real in
+milestone 9** — `StationQuestsList` on `station/[stationId].tsx`, `ProfileQuestsSummary` on
+`(tabs)/profile/index.tsx` — per `docs/mobile-quests-integration.md`'s (now-executed) insertion points.
+
+**`components/map/`** (milestone 9): `StationPreviewModal.tsx` — the Map tab's marker-tap preview, a
+centered modal card with a dimmed backdrop (RN's own `<Modal>`, no new native dependency — deviates
+from `ui-spec.md`'s original "bottom sheet" wording, documented there). Station name/borough, line
+icons (tap → Line page), visited/saved status, Save/Unsave, "View station" (→ Station page).
 
 **`contexts/`:** `AuthContext.tsx` — plain context, no fetch logic of its own; `_layout.tsx` remains
 the one place session state is actually checked, this just exposes it (`useAuth()`, `useUserId()` —
 the latter throws outside an authed session, which should never happen given `Stack.Protected`).
-`DatabaseContext.tsx` — opens SQLite once via `SQLite.openDatabaseAsync`, runs `schema.sql` on first
-launch (keyed off `PRAGMA user_version`), exposes the handle via `useDb()` instead of each screen
-managing its own connection. `SyncContext.tsx` — see "Sync worker" above.
+`DatabaseContext.tsx` — opens SQLite once via `SQLite.openDatabaseAsync`. **(Milestone 9)** schema
+init is now a real versioned mechanism, not "runs once ever": a `SCHEMA_VERSION` constant + ordered
+`MIGRATIONS` list (`{ toVersion, run }`) — a fresh install runs the current `schema.sql` once and
+lands directly on `SCHEMA_VERSION`; an existing device below that version runs every migration it's
+owed, in order, inside one transaction. Added because editing `schema.sql` alone does nothing for a
+device that already ran it (see `data-layer.md`'s "Local schema versioning"). **Caught live, on
+Van's own phone, right after this shipped:** migration 2 (`saved_stations`) never widened `events`'
+grain CHECK, so any device that had already run it hit a raw SQLite `CHECK constraint failed` the
+moment `saveStation()` tried to insert — SQLite has no `ALTER TABLE` for an existing CHECK constraint,
+and a migration a device already completed can't be silently redefined. Fixed via migration 3
+(`SCHEMA_VERSION` → 3), SQLite's own rename/recreate/copy recipe for changing a CHECK — which itself
+had a second bug on the first attempt (renaming `events` aside silently rewrote `sync_status`'s FK
+text to the scratch name, breaking every future insert once that scratch table was dropped; fixed by
+only ever renaming *into* `events`, never away from it). Both caught and fixed same-day; full
+reasoning and the required regression test (`mobile/db/migration_v3_tests.py`) in `data-layer.md`'s
+"Local schema versioning." Exposes the handle via `useDb()` instead of each screen managing its own
+connection. `SyncContext.tsx` — see "Sync worker" above.
 
 **`lib/`:** `supabase.ts` (chunked SecureStore adapter — a full session routinely exceeds
 SecureStore's ~2048-byte per-item ceiling; `AppState`-driven auto-refresh); `subwayData.ts` (all
@@ -257,36 +292,75 @@ logic over the bundled GTFS data — station lookups, per-route station lists, v
 logic, transfer routes + correct transfer-platform lookup; confirmed directly against the data that
 both directions of a route share the same stop set per branch, just reversed; `getComplexId()` is
 also the shared stop_id → complex_id lookup milestone 8's quest system reuses rather than
-re-implementing — see `db/quests.ts` below); `device.ts` — client-generated `device_id`, generated
-once per install and persisted via `SecureStore`, cached in-memory after first read; `sync.ts` — see
-"Sync worker" above.
+re-implementing — see `db/quests.ts` below). **(Milestone 9)** widened `Station` type to the real
+bundled shape (`lat`/`lon`/`borough`/`structure`/`ada`, not just the three fields the trip-logging
+flow needed); added `getStation()`, `getBoroughName()`, `isNavigableRoute()`/`normalizeRouteIdForIcon()`
+(handles the pre-existing `SIR`→`SI` display-label mismatch and bare-`S`-has-no-route-data gracefully,
+without touching the separately-tracked shuttle-grouping bug), `getOtherComplexRoutes()` (refactored
+`getTransferRoutes()` to share a new private `routesAtComplex()` helper rather than duplicate the
+`transfers.json` lookup), and `getLineStationLayout()` (the branch-aware trunk/tail split — see
+"Mobile UI — remaining" above for the two real edge cases it handles). `device.ts` — client-generated
+`device_id`, generated once per install and persisted via `SecureStore`, cached in-memory after first
+read; `sync.ts` — see "Sync worker" above.
 
 **`constants/`:** `lineColors.ts` (official MTA colors + display ordering — the SIR icon fallback,
-and the intended future source for Map tab polylines); `lineIcons.tsx` (custom SVG icons, one static
-import per route — Metro requires statically analyzable import paths, no dynamic `require`).
+and, as of milestone 9, the actual source for Map tab polyline colors via `route_shapes.json`);
+`lineIcons.tsx` (custom SVG icons, one static import per route — Metro requires statically analyzable
+import paths, no dynamic `require`).
 
-**`data/`:** `stations.json`, `route_stops.json`, `transfers.json`, `quests.json` (milestone 8)
-bundled and actively used; `route_shapes.json` bundled but unused so far (reserved for the Map tab).
-All five genuinely bundled via plain `import` — no runtime fetch, matching the offline-first design.
+**`data/`:** `stations.json`, `route_stops.json`, `transfers.json`, `quests.json` (milestone 8),
+`route_shapes.json` — all five bundled and actively used as of milestone 9 (`route_shapes.json` was
+bundled but unused until the real Map tab landed). All genuinely bundled via plain `import` — no
+runtime fetch, matching the offline-first design.
 
 **`assets/subway-icons/`:** user-authored SVGs, one per route ID.
 
-**`db/`:** `schema.sql`, `schema_tests.py` — untouched since original build. `projection.ts` —
-`commitTrip`/`deleteTrip` logic core unchanged; `writeProjectionRows()` factored out of `commitTrip`
-and exported, shared with `rehydrate.ts`'s replay path — one implementation of "what a trip's
-projection rows look like," not two. `leg_boarded`'s payload gained `sequence` (`event_version: 2`)
-— needed to reconstruct leg order during rehydration, not derivable from timestamps alone.
+**`db/`:** `schema.sql` — untouched from milestone 1 through 8; **(milestone 9)** gained the
+`saved_stations` table and `station_saved`/`station_unsaved` in the grain CHECK. `schema_tests.py` —
+**(milestone 9)** gained checks for both. **`migration_v3_tests.py`** (milestone 9, new) — the
+required regression test for `DatabaseContext.tsx`'s version-3 migration specifically (the events-table
+rebuild), run the same way as `schema_tests.py` (plain Python `sqlite3` against the exact SQL the TS
+migration runs) since `DatabaseContext.tsx` itself needs `expo-sqlite`'s native binding and can't be
+exercised via plain `tsx`/`node` the way the rest of this project's pure logic is. Simulates a device
+already stuck at `user_version = 2` (the real state this test exists because of) and asserts data
+survives, the new event types are accepted, and `sync_status`'s FK still resolves correctly — see
+`data-layer.md`'s "Local schema versioning" for the two real bugs this caught. `projection.ts` —
+`commitTrip`/`deleteTrip` logic core
+unchanged; `writeProjectionRows()` factored out of `commitTrip` and exported, shared with
+`rehydrate.ts`'s replay path — one implementation of "what a trip's projection rows look like," not
+two. `leg_boarded`'s payload gained `sequence` (`event_version: 2`) — needed to reconstruct leg order
+during rehydration, not derivable from timestamps alone. **(Milestone 9)** gained `saveStation()`/
+`unsaveStation()`, parallel to `deleteTrip` — each wraps an event write + the `saved_stations`
+projection write in one transaction.
 `rehydrate_logic.ts` — pure `planRehydration()` (trip grouping, `trip_deleted` exclusion,
 leg-sequence ordering), deliberately zero React Native/Expo/Supabase imports so it's testable via
 plain `tsx` without a device (importing `rehydrate.ts` directly pulls in `expo-sqlite`, which
 transitively pulls in Flow-syntax RN source a plain Node run can't parse — this split is what makes
 the logic testable at all; renamed from `rehydrate-plan.ts` during milestone 8 — "plan" wrongly
 implied staging/proposal code rather than the actual running logic, same rename applied to quests
-below). `rehydrate.ts` — thin I/O wrapper (`needsRehydration`, `rehydrateFromRemote`) that imports
-the pure logic from `rehydrate_logic.ts`. `rehydrate_tests.ts` — the required test (10 checks, all
-passing): a deleted trip never materializes, a live trip restores with correct leg order even from
-out-of-order remote rows, a mixed batch only restores the live trip, an incomplete event set is
-skipped rather than crashing.
+below). **(Milestone 9)** gained `planSavedStations()` — same "replay the event log into a final
+projection" shape, folding `station_saved`/`station_unsaved` into a last-write-wins saved-set
+(ordered by `recorded_at`). `rehydrate.ts` — thin I/O wrapper (`needsRehydration`, `rehydrateFromRemote`)
+that imports the pure logic from `rehydrate_logic.ts`. **(Milestone 9)** `rehydrateFromRemote` now
+also fetches `station_saved`/`station_unsaved` events and writes `planSavedStations()`'s result into
+`saved_stations` inside the **same** transaction that replays trips — one all-or-nothing replay
+covering both concerns, same single trigger (`needsRehydration`). `rehydrate_tests.ts` — the required
+test (10 trip-rehydration checks + 4 new saved-station-folding checks, all passing): a deleted trip
+never materializes, a live trip restores with correct leg order even from out-of-order remote rows, a
+mixed batch only restores the live trip, an incomplete event set is skipped rather than crashing;
+saved-station folding is last-write-wins by `recorded_at` regardless of array order, and ignores
+unrelated event types.
+
+**`db/stations.ts`/`stations_logic.ts`** (milestone 9) — same pure-logic/I-O-wrapper split as
+`quests.ts`/`quests_logic.ts`, and for the identical reason (`stations_logic.ts` has zero RN imports,
+testable via plain `tsx`; `stations.ts` queries SQLite + bundled `stations.json`). `stations.ts`
+exposes `getStationStatus`/`getAllStationStatuses` (visited+saved, the latter batched — one query for
+all 496 stations' visited set, one for saved, merged in JS, for the Map tab), `getStationVisitHistory`,
+`getSavedStations`, `getProfileStats`. Reuses `quests.ts`'s `loadRiderHistory` (now exported) rather
+than a second trips/legs query. `stations_logic_tests.ts` — 15 checks, all passing, run via
+`npx tsx db/stations_logic_tests.ts`: visited-set computation, rides/stations/% overall, favorite
+station/line (with tie handling), least-travelled line (never an unridden line, only among lines
+actually ridden), % by borough, and an empty-history case that doesn't crash.
 
 **`db/quests_logic.ts`** (milestone 8) — pure quest-evaluation logic, same zero-RN-imports split as
 `rehydrate_logic.ts` and for the identical reason (importing `subwayData.ts` directly would pull in
@@ -302,7 +376,10 @@ pure results with title/description/station names for display, and exposes `getA
 `getQuestDetail`, `computeTripQuestProgress`, `getQuestsForStation`.
 
 **`scratch/old-map-screen.tsx`:** pre-session map screen, moved out of the router tree (anything
-under `app/`, at any depth, is live-scanned by Router). Kept for the future Map tab, not deleted.
+under `app/`, at any depth, is live-scanned by Router). Its `MapView`/`Marker`/`Polyline` shape was
+reused for the real milestone 9 Map tab — its import of the now-dead `utils/subwayData.ts` was not
+(the real `(tabs)/map.tsx` imports `lib/subwayData.ts` and the bundled JSON directly, matching every
+other screen). Left in place, still out of the router tree, not deleted.
 
 **Outside `mobile/`:** `supabase/schema.sql` — run manually via the SQL Editor, not part of the app
 build. **`el/`** (new): `sync_to_bigquery.py`, `requirements.txt` — the Python EL job, see
@@ -336,16 +413,32 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
         `mart_line_stats` is one row per real `route_id`, no combined "S ridership" rollup added. Also
         now the same reasoning applies here as the min-N decision below: a shuttle row at low N is a
         real disclosure risk, one grain coarser than a station — see milestone 6.
-      - **Possibly related, not scoped yet:** the canonical Line page (`ui-spec.md`) may need
-        its own thinking for a route with 3 fully independent branches/routes under one icon —
-        worth a look once this work starts, not a separate open item until then.
-- [ ] Station tap → station info drill-down — **also needs to mount `StationQuestsList`** as part of
-      this work, per `docs/quests-integration.md`
-- [ ] **Profile page mini-dashboard** — personal-scope stats, `docs/dashboard-spec.md`'s "In-app
-      profile page" section — **also needs to mount `ProfileQuestsSummary`** as part of this work,
-      per `docs/quests-integration.md`, and needs to remove the two temporary debug buttons currently
-      standing in for it
-- [ ] Branch-aware station picker (trunk + grouped branch tails) — Line page
+      - **Resolved, milestone 9:** the canonical Line page doesn't need its own special-case thinking
+        for this after all — `isNavigableRoute()` (`routeId in ROUTE_STOPS`) already keeps a bare `S`
+        icon from being wired up as tappable anywhere (Map preview, Station page), since `route_stops.json`
+        has no `'S'` key at all (only `FS`/`GS`/`H`, which have no icon/color entries yet either — this
+        item's actual scope, unchanged). Nothing new needed here; the Line page itself is simply
+        unreachable for `S` until this item ships, exactly as intended.
+- [x] Station tap → station info drill-down — `app/station/[stationId].tsx`, milestone 9. Mounts
+      `StationQuestsList` per `docs/mobile-quests-integration.md`. Shows lines as two groups
+      ("This platform" / "Transfer here" — see `ui-spec.md`'s Canonical Station page section), visit
+      history, save/unsave.
+- [x] **Profile page mini-dashboard** — `app/(tabs)/profile/index.tsx`, milestone 9. Rides logged,
+      stations visited, % of network overall + by borough, favorite station/line, least-travelled
+      line(s), trip history, Saved Stations list, mounts `ProfileQuestsSummary` per
+      `docs/mobile-quests-integration.md`. All three temporary debug buttons removed;
+      `app/debug-quest-components.tsx` deleted entirely; `app/debug.tsx` itself kept (per the existing
+      cleanup checklist) but no longer reachable from any button.
+- [x] Branch-aware station picker (trunk + grouped branch tails) — `app/line/[lineId].tsx`, milestone 9.
+      `getLineStationLayout()` in `subwayData.ts` — common-prefix/suffix split of `route_stops.json`'s
+      branches, with two real edge cases found and handled: route `F` (both ends shared, differs only
+      in a middle stopping-pattern variant — a data-pipeline nuance, not a real fork, resolved by
+      showing the shared trailing segment once instead of duplicated per tail) and route `5` (a genuine
+      fork at both ends, no shared segment at all — falls back to one top-level tail per branch,
+      labeled by both termini). Also found, not fixed (same "don't fix pipeline data in the app"
+      posture as F): route `N` direction 0 has two tails whose real termini happen to share the same
+      station name ("Astoria-Ditmars Blvd"), a cosmetic quirk from the underlying branch-dedup
+      pipeline, not a bug in the splitting algorithm itself.
 - [x] ~~Achievements/quests UI~~ — done, milestone 8 (see build sequence table above)
 - [ ] Compact date picker requires tapping outside to confirm — no Done button, no auto-close on
       selection. Confirmed real iOS/library limitation (two open, unresolved upstream issues), not
@@ -477,14 +570,14 @@ and `docs/dbt-coverage.md` (schema reference for every new seed/model). Summary:
 - [x] Mobile UI: `trip.tsx`'s quest-progress display, achievements list/detail pages — all live and
       on-device verified
 - [x] `StationQuestsList`/`ProfileQuestsSummary` components — built, tested, **not yet mounted**;
-      exact insertion points for milestone 9 in `docs/quests-integration.md`
+      exact insertion points for milestone 9 in `docs/mobile-quests-integration.md`
 - [x] Warehouse: `quest_definitions`/`route_definitions`/`route_stations` seeds (plus `complex_id`
       added to the existing `station_coordinates` seed), `int_user_visited_complexes` + one
       `int_quest_completion_*` model per mechanism, `mart_quest_completion` (suppressed, N=5) +
       `mart_quest_completion_histogram` (exempt) + 3 new `mart_global_summary` columns (exempt)
 - [x] Power BI achievements page — chart foundations built and working; visual polish deliberately
       deferred (see "Dashboard" section above)
-- [x] Docs handoff: `docs/quests-integration.md` (milestone 9 insertion points),
+- [x] Docs handoff: `docs/mobile-quests-integration.md` (milestone 9 insertion points),
       `data-layer.md`'s cut-list (Conquistador and "first user to visit a station," both considered
       and cut, reasoning documented)
 - [ ] **Genuinely still open, not just unchecked bureaucratically:** on-device verification of

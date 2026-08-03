@@ -189,6 +189,49 @@ export async function deleteTrip(
     });
 }
 
+/**
+ * Saves/unsaves a station: writes the station_saved/station_unsaved event and
+ * the saved_stations projection row in one transaction — same reasoning as
+ * commitTrip wrapping writeProjectionRows, and deleteTrip wrapping its own
+ * event write + projection delete. Grain is station_id (GTFS stop_id), not
+ * complex_id — see schema.sql's comment on saved_stations for why.
+ */
+export async function saveStation(
+    db: SQLite.SQLiteDatabase,
+    stationId: string,
+    ctx: CommitContext
+): Promise<void> {
+    const occurredAt = buildOccurredAt(localDateString());
+    const recordedAt = new Date().toISOString();
+    await db.withTransactionAsync(async () => {
+        await insertEvent(db, {
+            eventType: 'station_saved', eventDomain: 'product', occurredAt, recordedAt, ctx,
+            tripId: null, legId: null, payload: { station_id: stationId },
+        });
+        await db.runAsync(
+            `INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)
+             ON CONFLICT(station_id) DO UPDATE SET saved_at = excluded.saved_at`,
+            [stationId, occurredAt]
+        );
+    });
+}
+
+export async function unsaveStation(
+    db: SQLite.SQLiteDatabase,
+    stationId: string,
+    ctx: CommitContext
+): Promise<void> {
+    const occurredAt = buildOccurredAt(localDateString());
+    const recordedAt = new Date().toISOString();
+    await db.withTransactionAsync(async () => {
+        await insertEvent(db, {
+            eventType: 'station_unsaved', eventDomain: 'product', occurredAt, recordedAt, ctx,
+            tripId: null, legId: null, payload: { station_id: stationId },
+        });
+        await db.runAsync(`DELETE FROM saved_stations WHERE station_id = ?`, [stationId]);
+    });
+}
+
 export async function writeProductEvent(
     db: SQLite.SQLiteDatabase,
     eventType: 'screen_viewed' | 'station_detail_opened' | 'route_detail_opened' | 'feature_used'

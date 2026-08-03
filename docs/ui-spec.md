@@ -43,11 +43,18 @@ back-navigation, insights surfaced contextually rather than on one static dashbo
   - Green = visited — **overrides saved status.** "Saved" represents a want-to-visit intent; once
     that's fulfilled, showing it as visited is more meaningful than a neutral "still on the list"
     gray. Green wins for any station that's been visited, saved or not.
-- **Tap a marker** → bottom sheet preview: line icon(s), station name, borough, visited status, a save
-  button.
-- **Tap the sheet** (or an explicit "view station" affordance on it) → pushes the canonical Station
-  page. Tapping a line icon *within* the sheet → pushes the canonical Line page directly — no separate
-  "mini line view," per the one-canonical-page rule above.
+- **Tap a marker** → preview card: line icon(s), station name, borough, visited status, a save button.
+- **Tap "View station"** on the card → pushes the canonical Station page. Tapping a line icon *within*
+  the card → pushes the canonical Line page directly — no separate "mini line view," per the
+  one-canonical-page rule above.
+
+**Preview UI, deviation from this doc's original wording (milestone 9):** built as a **centered modal
+card with a dimmed backdrop**, not the bottom sheet described above when this section was first
+written — same kind of deviation already documented for the trip-logging flow's full-screen→page-sheet
+change (see "Trip-logging flow" below). Built with RN's own `<Modal>` (transparent + a custom backdrop
+`Pressable` to dismiss), deliberately not `@gorhom/bottom-sheet` or any other native dependency — kept
+simple/swappable; revisit only if the centered-card feel doesn't hold up in practice once used for
+real. `components/map/StationPreviewModal.tsx`.
 
 ## Tab: Search
 
@@ -84,21 +91,42 @@ currently written there:
 
 ## Canonical Station page
 
-Reached from: the map's preview sheet, search results, or a line page's station list — always the same
+Reached from: the map's preview card, search results, or a line page's station list — always the same
 page regardless of entry point.
 
-- Station name, the line(s) it belongs to, borough, visited status, a save/unsave button
+- Station name, borough, visited status, a save/unsave button
+- **Lines shown as two visually separated groups (milestone 9 decision), not merged into one row:**
+  - **"This platform"** — this stop_id's own lines (its `daytime_routes`). Visited status and the
+    save/unsave button are attached to this group specifically — they describe *this* platform, not
+    the wider complex.
+  - **"Transfer here"** — every other line reachable at the same transfer complex (via the same
+    `complexes.csv`-derived transfer data the trip-logging flow's transfer step already computes; see
+    `data-layer.md`). Purely navigational — tapping a line icon here pushes that line's page exactly
+    like "This platform" does, but this group never has its own visited/saved state. Renders nothing
+    if there's no transfer at this station.
+  - Tapping any icon in either group pushes the canonical Line page for that route.
+  - **This split is a display-only choice**, reversible later (e.g. merging both groups into one row)
+    without touching `stations.ts`/`stations_logic.ts` or any schema — both groups are built from data
+    that already exists (a stop's own `daytime_routes`, plus `getOtherComplexRoutes()` over the
+    existing transfer lookup). Save/visited stays scoped to the tapped stop_id regardless of this
+    display choice — see `data-layer.md`'s grain note.
 - Visit history (dates ridden through this station, if any)
 - Achievements/quests this station contributes to
 
 ## Canonical Line page
 
-Reached from: the Search tab's line grid, or tapping a line icon anywhere else (map sheet, station
+Reached from: the Search tab's line grid, or tapping a line icon anywhere else (map preview, station
 page).
 
 - Line info, the user's progress through it (X of Y stations visited)
 - Full ordered station list — trunk first, branch tails grouped below, per the branch-aware design
   already in PROJECT.md — each station showing a checkmark if visited
+- **Transfer points get a lightweight indicator (milestone 9), not the Station page's full two-group
+  split** — one or two small, visually muted secondary route icons next to any row that's a real
+  transfer point (same `getOtherComplexRoutes()` data as the Station page), distinct from the line
+  currently being browsed. A dense scrolling list has no room for labeled sections per row, so this is
+  deliberately lighter-weight than the Station page's treatment — same underlying data, different
+  display, same reversibility note as above.
 - Tapping a station in the list → canonical Station page
 
 ## Trip-logging flow (FAB → modal)

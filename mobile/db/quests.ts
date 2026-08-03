@@ -78,7 +78,9 @@ function formatDescription(quest: Quest): string {
         : quest.description;
 }
 
-async function loadRiderHistory(
+// Exported for reuse by stations.ts (getProfileStats etc.) -- same tiny
+// trips/legs query either module needs, one implementation rather than two.
+export async function loadRiderHistory(
     db: SQLite.SQLiteDatabase,
     userId: string
 ): Promise<{ history: RiderHistory; tripDates: Record<string, string> }> {

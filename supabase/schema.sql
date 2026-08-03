@@ -39,6 +39,15 @@ create table raw_events.events (
     check (event_version >= 1),
     check (occurred_at::date <= recorded_at::date),
 
+    -- NOTE (milestone 9): this table is already live in production (see
+    -- docs/status.md, milestone 1). Editing this file alone does NOT change
+    -- the deployed constraint — running this file only applies to a fresh
+    -- database. Adding station_saved/station_unsaved here required a real
+    -- manual `ALTER TABLE ... DROP CONSTRAINT ... ADD CONSTRAINT ...` against
+    -- the live table via the Supabase SQL Editor, done once alongside this
+    -- edit. See docs/data-layer.md's "Supabase RLS design" section context
+    -- for the reasoning on why this table needs hand-applied migrations
+    -- rather than a migration framework at this project's scale.
     check (
         (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
                                    and trip_id is not null and leg_id is null)
@@ -50,7 +59,8 @@ create table raw_events.events (
                                                        'route_detail_opened', 'feature_used',
                                                        'trip_draft_started', 'draft_leg_added',
                                                        'draft_leg_removed', 'trip_draft_committed',
-                                                       'trip_draft_abandoned')
+                                                       'trip_draft_abandoned', 'station_saved',
+                                                       'station_unsaved')
                                    and trip_id is null and leg_id is null)
     )
 );

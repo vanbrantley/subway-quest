@@ -64,7 +64,8 @@ CREATE TABLE events (
                                                        'route_detail_opened', 'feature_used',
                                                        'trip_draft_started', 'draft_leg_added',
                                                        'draft_leg_removed', 'trip_draft_committed',
-                                                       'trip_draft_abandoned')
+                                                       'trip_draft_abandoned', 'station_saved',
+                                                       'station_unsaved')
                                    AND trip_id IS NULL AND leg_id IS NULL)
                                    -- trip_id/leg_id stay NULL here even for trip_draft_committed,
                                    -- whose payload does reference a real trip_id — kept as JSON, not
@@ -176,3 +177,26 @@ CREATE TABLE legs (
 
 -- "Get this trip's legs in order" — runs whenever a trip's detail view renders.
 CREATE INDEX idx_legs_trip_id ON legs (trip_id);
+
+
+-- =============================================================================
+-- saved_stations — a projection off the event log (station_saved/
+-- station_unsaved), same relationship to events as trips/legs: derived and
+-- rebuildable, never a second source of truth. No user_id column — this
+-- local database only ever holds one device's/account's own rows, same
+-- reasoning already applied to not indexing events.device_id locally.
+--
+-- Grain is station_id (GTFS stop_id, same field as leg_boarded's payload /
+-- legs.entry_station_id/exit_station_id) — DELIBERATELY NOT complex_id.
+-- See docs/data-layer.md's grain note: a complex bundles physically
+-- separate platforms (e.g. Union Sq's 4/5/6, N/Q/R/W, and L platforms are
+-- one complex but three distinct physical places), so complex-grain would
+-- make saving one marker light up unrelated markers sharing that complex.
+-- Quest completion stays complex-grain on purpose (a quest is about the
+-- place, not the platform) — two intentionally different grains for two
+-- different concerns, not an inconsistency.
+-- =============================================================================
+CREATE TABLE saved_stations (
+    station_id   TEXT PRIMARY KEY,
+    saved_at     TEXT NOT NULL
+);

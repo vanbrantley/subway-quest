@@ -1,6 +1,6 @@
 // mobile/db/rehydrate_tests.ts
 // Run: npx ts-node db/rehydrate_tests.ts
-import { planRehydration, type RemoteEventRow } from './rehydrate_logic';
+import { planRehydration, planSavedStations, type RemoteEventRow } from './rehydrate_logic';
 
 let failures = 0;
 function check(desc: string, cond: boolean) {
@@ -86,6 +86,49 @@ function ev(overrides: Partial<RemoteEventRow>): RemoteEventRow {
     const plan = planRehydration(events);
     check('incomplete trip skipped, not restored', plan.restore.length === 0);
     check('incomplete trip flagged', plan.skippedIncomplete.includes('tripE'));
+}
+
+function savedEv(overrides: Partial<RemoteEventRow>): RemoteEventRow {
+    return ev({ event_domain: 'product', trip_id: null, leg_id: null, ...overrides });
+}
+
+// --- planSavedStations: a station saved, never unsaved, is restored ---
+{
+    const events = [
+        savedEv({ event_type: 'station_saved', recorded_at: '2026-07-10T09:00:00Z', occurred_at: '2026-07-10T09:00:00Z', payload: { station_id: 'L08' } }),
+    ];
+    const plan = planSavedStations(events);
+    check('a saved-only station is restored', plan.some((s) => s.stationId === 'L08'));
+}
+
+// --- planSavedStations: last-write-wins — saved then unsaved is excluded ---
+{
+    const events = [
+        savedEv({ event_type: 'station_saved', recorded_at: '2026-07-10T09:00:00Z', payload: { station_id: 'A32' } }),
+        savedEv({ event_type: 'station_unsaved', recorded_at: '2026-07-11T09:00:00Z', payload: { station_id: 'A32' } }),
+    ];
+    const plan = planSavedStations(events);
+    check('a later station_unsaved excludes the station, regardless of arrival order', !plan.some((s) => s.stationId === 'A32'));
+}
+
+// --- planSavedStations: last-write-wins is by recorded_at, not array order ---
+{
+    const events = [
+        savedEv({ event_type: 'station_unsaved', recorded_at: '2026-07-10T09:00:00Z', payload: { station_id: 'F26' } }),
+        savedEv({ event_type: 'station_saved', recorded_at: '2026-07-11T09:00:00Z', payload: { station_id: 'F26' } }),
+    ];
+    const plan = planSavedStations(events);
+    check('later station_saved (by recorded_at) wins even when it arrives first in the array', plan.some((s) => s.stationId === 'F26'));
+}
+
+// --- planSavedStations: unrelated event types are ignored ---
+{
+    const events = [
+        ev({ event_type: 'trip_started', trip_id: 'tripF', payload: { origin_station_id: 'Z1' } }),
+        savedEv({ event_type: 'station_saved', payload: { station_id: 'Z1' } }),
+    ];
+    const plan = planSavedStations(events);
+    check('only station_saved/station_unsaved events are folded', plan.length === 1 && plan[0].stationId === 'Z1');
 }
 
 console.log();

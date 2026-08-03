@@ -95,6 +95,48 @@ entry is the prior leg's exit) — pop-and-redo avoids that cascading-consistenc
 *(This is the same principle later generalized in the mobile UI's chip-strip editor — see
 `docs/status.md`.)*
 
+## Station-save events (product domain, milestone 9)
+
+| event_type | payload | grain |
+|---|---|---|
+| `station_saved` | `{ station_id }` | User taps Save on a station (Map preview or Station page). |
+| `station_unsaved` | `{ station_id }` | User taps Unsave. No auto-unsave anywhere — visiting a saved station does not remove it from the saved list (see `ui-spec.md`'s Profile tab spec); only this explicit action does. |
+
+**Grain is `station_id` — the GTFS stop_id already used in `leg_boarded`'s payload and
+`legs.entry_station_id`/`exit_station_id` — deliberately NOT `complex_id`.** A complex bundles
+physically separate platforms (e.g. Union Sq's 4/5/6, N/Q/R/W, and L platforms are one complex but
+three distinct physical places) — complex-grain would make saving one marker light up unrelated
+markers sharing that complex. Quest completion stays complex-grain on purpose (a quest like "visit
+Union Square" is about the place, not the platform). Two intentionally different grains for two
+different concerns, not an inconsistency: "visited" status (map markers, Profile stats) is also
+stop_id-grain, for free, since it's derived directly from `legs.entry_station_id`/`exit_station_id` —
+so saved-grain and visited-grain already agree, and only quest-grain deliberately differs.
+
+*(Separately, whether a Station/Line page's UI shows a stop's own lines only, or also lines reachable
+via transfer at the same complex, is a **display-only** choice layered on top of this grain decision,
+not a data-layer concern — see `ui-spec.md`'s Canonical Station/Line page sections. Changing that
+display choice later never requires touching this grain or `stations.ts`/`stations_logic.ts`.)*
+
+**Local projection:** `saved_stations (station_id TEXT PRIMARY KEY, saved_at TEXT)` — a projection off
+this event pair, same relationship to `events` as `trips`/`legs`: derived and rebuildable, never a
+second source of truth (see the ERD below). No `user_id` column — same reasoning as not indexing
+`events.device_id` locally: this local database only ever holds one account's own rows.
+
+**Rehydration covers this too, inside the same transaction as trip replay** — `mobile/db/rehydrate_logic.ts`'s
+`planSavedStations()` folds a user's `station_saved`/`station_unsaved` history into a final saved-set
+(last-write-wins per `station_id`, ordered by `recorded_at`), and `rehydrate.ts` writes the result into
+`saved_stations` inside the same `withTransactionAsync` block that already replays trips — preserving
+the existing all-or-nothing crash guarantee for both concerns at once. Same single trigger
+(`needsRehydration`: local `trips` empty) covers both; no second trigger was added for a
+corrupted-saved-stations-only edge case.
+
+**No EL/dbt changes needed** — the EL job pulls all of `raw_events.events` regardless of type, so these
+land in BigQuery's raw dataset for free; nothing downstream reads them yet.
+
+**Supabase's live `raw_events.events` CHECK constraint needed a manual migration**, not just a
+`schema.sql` source edit — the table already exists in production (see status.md, milestone 1). See
+`supabase/schema.sql`'s comment on this for the exact statements run.
+
 ## Product events (app usage)
 
 Deliberately minimal — extend as real usage questions come up, not ahead of the UI that would need them.
@@ -166,16 +208,61 @@ erDiagram
         string boarded_at
         string alighted_at
     }
+    SAVED_STATIONS {
+        string station_id PK
+        string saved_at
+    }
 
     EVENTS ||--|| SYNC_STATUS : "1:1, real FK — trigger-created on every insert"
     TRIPS ||--o{ LEGS : "1:N, real FK"
     TRIPS ||..o{ EVENTS : "trip_id references (dotted: NOT a real FK — see note)"
+    SAVED_STATIONS ||..o{ EVENTS : "station_id references (dotted: NOT a real FK — see note)"
 ```
 
 **Why `EVENTS`↔`TRIPS` is dotted, not solid:** `trips` is a projection *built from* `events`, not the
 reverse — a `trip_started` event creates the concept of a trip; there's no `trips` row to reference at
 the moment it's written. `trip_id` is `NOT NULL`/constrained, just not a formal FK. Same reasoning
-applies to the omitted `EVENTS`↔`LEGS` line.
+applies to the omitted `EVENTS`↔`LEGS` line, and to `SAVED_STATIONS`↔`EVENTS` (milestone 9):
+`saved_stations` is a projection built from `station_saved`/`station_unsaved` events, not the reverse.
+
+**Local schema versioning (milestone 9):** `mobile/contexts/DatabaseContext.tsx` originally only ran
+`schema.sql` once, on a device's very first launch (`PRAGMA user_version` gated) — there was no path
+for an already-initialized device to pick up a later schema change at all. Adding `saved_stations`
+needed one, since editing `schema.sql` alone does nothing for a device that already ran it (including
+whatever's already on a live phone). Replaced with a versioned mechanism: a `SCHEMA_VERSION` constant
+and an ordered `MIGRATIONS` list (`{ toVersion, run }`). A fresh install (`user_version = 0`) runs the
+current `schema.sql` once and lands directly on `SCHEMA_VERSION`; an existing device below that version
+runs every migration it's owed, in order, inside one transaction (so a crash mid-migration leaves
+`user_version` untouched and the next launch retries cleanly). A future schema change is one more
+`MIGRATIONS` entry plus the equivalent DDL added to `schema.sql` for fresh installs — no other logic
+change needed.
+
+**Two real bugs caught on-device, not just theorized, both instructive:**
+
+1. **The first version of migration 2 only added `saved_stations` — it never widened `events`' grain
+   CHECK to accept `station_saved`/`station_unsaved`.** SQLite has no `ALTER TABLE` for modifying a
+   CHECK constraint on an existing table; the fresh-install path (a brand-new `schema.sql` run once)
+   masked this completely, since it never exercises the delta-migration path at all. The gap only
+   surfaced the moment a real, already-initialized device tried to save a station and hit a raw SQLite
+   `CHECK constraint failed` error. **Once a migration has shipped and a device has already completed
+   it, its version number can't be silently redefined** — that device is permanently past that
+   checkpoint. The fix had to ship as migration 3 (`SCHEMA_VERSION` bumped to 3), using SQLite's own
+   documented recipe for changing a CHECK constraint (build the new table under a temporary name, copy
+   every row across, drop the old table, rename the new one into place, rebuild indexes/triggers) —
+   not a retroactive edit to migration 2.
+2. **The first attempt at that recipe used the more obvious ordering — rename `events` aside, build
+   the new table as `events`, copy, drop the old one — and it broke `sync_status` in a way a naive
+   review wouldn't catch.** Confirmed directly: `ALTER TABLE events RENAME TO events_old` silently
+   rewrites *every other object's stored reference* to `events`, including `sync_status`'s
+   `REFERENCES events (event_id)` foreign key, to `REFERENCES "events_old" (event_id)`. Once
+   `events_old` was later dropped, `sync_status`'s FK pointed at nothing, and every future insert
+   through the `trg_events_create_sync_status` trigger failed. Fixed by never renaming *away* from
+   `events` — the new table is built under a temporary name (`events_v3_new`) and renamed *into*
+   `events` only at the very end, since renaming *into* a name something else already references
+   triggers no such rewrite. Caught before shipping by `mobile/db/migration_v3_tests.py`, a required
+   test (same rigor standard as `schema_tests.py`) that runs the exact migration SQL against a
+   simulated already-migrated-to-version-2 device and asserts data survives, the new event types are
+   accepted, and — specifically — that `sync_status`'s FK text still resolves to `events`.
 
 ## Full pipeline (local → warehouse → dashboard)
 
@@ -328,7 +415,7 @@ wasn't). The pure planning logic lives in `mobile/db/rehydrate-plan.ts` (deliber
 Native/Expo/Supabase imports — importing `rehydrate.ts` directly for a test pulls in `expo-sqlite`,
 which transitively pulls in Flow-syntax React Native source that a plain Node/tsx run can't parse;
 splitting the pure decision logic out is what makes it testable outside the app runtime at all).
-Required test written as `mobile/db/rehydrate_tests.ts`, same philosophy as `schema_tests.py`.
+Required test written as `mobile/db/rehydrate_tests.ts`, same philosophy as `schema-tests.py`.
 Verified both as a unit test (10/10 checks passing) and on-device (deleted and reinstalled the app,
 confirmed all previously-synced trips restored correctly, including leg order).
 
@@ -591,7 +678,7 @@ derived fresh each time — not reconstructed from a running total kept anywhere
 | 1 | Immutable, append-only event log | ✅ `events` |
 | 2 | Client-generated idempotency keys | ✅ `event_id`, collision-safe UUIDs |
 | 3 | Documented event schema per type | ✅ this doc |
-| 4 | Real constraints at schema level | ✅ `schema_tests.py` — 29 checks |
+| 4 | Real constraints at schema level | ✅ `schema-tests.py` — 29 checks |
 | 5 | Explicitly designed edge cases | ✅ see above |
 | 6 | Sync policy, stated | ✅ idempotent-insert / single-writer, verified on-device |
 | 7 | dbt staging → intermediate → mart, tested | ✅ complete through milestone 8, verified against real BigQuery |

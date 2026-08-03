@@ -110,3 +110,35 @@ export function planRehydration(events: RemoteEventRow[]): RehydrationPlan {
 
     return { restore, skippedDeleted, skippedIncomplete };
 }
+
+export type RehydratedSavedStation = { stationId: string; savedAt: string };
+
+/** Pure — folds a user's station_saved/station_unsaved event history into a
+ *  final saved-set. Last-write-wins per station_id, ordered by recorded_at
+ *  (real device write time — more reliable than occurred_at, which is never
+ *  backdated for these events anyway). Only stations whose most recent
+ *  event is station_saved survive in the result. Same "replay the event log
+ *  into a final projection" shape as planRehydration, just a simpler
+ *  binary-toggle fold instead of trip reconstruction. */
+export function planSavedStations(events: RemoteEventRow[]): RehydratedSavedStation[] {
+    const latest = new Map<string, { action: 'saved' | 'unsaved'; recordedAt: string; occurredAt: string }>();
+
+    for (const row of events) {
+        if (row.event_type !== 'station_saved' && row.event_type !== 'station_unsaved') continue;
+        const stationId = row.payload.station_id as string;
+        const existing = latest.get(stationId);
+        if (!existing || row.recorded_at > existing.recordedAt) {
+            latest.set(stationId, {
+                action: row.event_type === 'station_saved' ? 'saved' : 'unsaved',
+                recordedAt: row.recorded_at,
+                occurredAt: row.occurred_at,
+            });
+        }
+    }
+
+    const result: RehydratedSavedStation[] = [];
+    for (const [stationId, v] of latest) {
+        if (v.action === 'saved') result.push({ stationId, savedAt: v.occurredAt });
+    }
+    return result;
+}
