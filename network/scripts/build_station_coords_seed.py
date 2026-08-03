@@ -12,10 +12,10 @@ def main():
 
     with open(OUTPUT_CSV, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["station_id", "lat", "lon", "name", "routes"])
+        writer.writerow(["station_id", "complex_id", "lat", "lon", "name", "routes"])
         for stop_id, station in stations.items():
             routes_str = ", ".join(station["daytime_routes"])
-            writer.writerow([stop_id, station["lat"], station["lon"], station["name"], routes_str])
+            writer.writerow([stop_id, station["complex_id"], station["lat"], station["lon"], station["name"], routes_str])
 
 if __name__ == "__main__":
     main()

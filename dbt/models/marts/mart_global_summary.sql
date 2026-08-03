@@ -36,6 +36,28 @@ collective_exploration as (
 ),
 station_totals_cte as (
     select total_stations from {{ ref('station_totals') }}
+),
+-- Quest completion, global (milestone 8) — same exemption reasoning as
+-- collective_exploration above: magnitudes/headcounts, never which quest,
+-- station, or user. total_quest_completions and users_with_any_quest_completion
+-- are plain counts; lines_fully_completed is a bare count ("6 of 23"), never
+-- WHICH 6 lines — that's what the suppressed mart_line_stats already covers,
+-- separately. Reads the same int_quest_completion_* models mart_quest_completion
+-- and mart_quest_completion_histogram both do — see data-layer.md's "Reusable
+-- pattern: one intermediate model, many mart-layer views."
+quest_completion_summary as (
+    select
+        count(*) as total_quest_completions,
+        count(distinct user_id) as users_with_any_quest_completion,
+        count(distinct case when quest_id like 'line_completion_%' then quest_id end) as lines_fully_completed
+    from (
+        select quest_id, user_id, completed from {{ ref('int_quest_completion_lifetime_set') }}
+        union all
+        select quest_id, user_id, completed from {{ ref('int_quest_completion_per_trip') }}
+        union all
+        select quest_id, user_id, completed from {{ ref('int_quest_completion_counting') }}
+    )
+    where completed
 )
 select
     avg_trips.avg_trips_per_user,
@@ -44,7 +66,10 @@ select
     draft_rates.pct_drafts_corrected,
     draft_rates.pct_drafts_abandoned,
     deletion_rate.pct_trips_deleted,
-    safe_divide(collective_exploration.stations_visited_collective, station_totals_cte.total_stations) as pct_system_explored_collective
+    safe_divide(collective_exploration.stations_visited_collective, station_totals_cte.total_stations) as pct_system_explored_collective,
+    quest_completion_summary.total_quest_completions,
+    quest_completion_summary.users_with_any_quest_completion,
+    quest_completion_summary.lines_fully_completed
 from avg_trips
 cross join lines_ridden
 cross join lines_total
@@ -52,3 +77,4 @@ cross join draft_rates
 cross join deletion_rate
 cross join collective_exploration
 cross join station_totals_cte
+cross join quest_completion_summary

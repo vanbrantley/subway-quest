@@ -12,6 +12,37 @@ Secondary goal: this is also a data portfolio piece. The app is framed as a firs
 
 **Current status, file map, and what's left:** see `docs/status.md` — kept separate from this doc and updated continuously, so this doc can stay a stable reference instead of going stale.
 
+## Documentation organization — three kinds of doc, three lifecycles
+
+Worth stating explicitly once this stopped being a couple of files and became a real docs folder,
+so it doesn't quietly turn into either duplication or an unmaintained pile:
+
+1. **Domain reference docs** (`data-layer.md`, `ui-spec.md`, `dashboard-spec.md`, `dbt-coverage.md`,
+   `bigquery-min-n-coverage.md`) — one per domain, living forever, never archived. Edited by
+   whichever milestone happens to touch that domain next. `dbt-coverage.md` and
+   `bigquery-min-n-coverage.md` in particular are *not* "the milestone 5/6 docs" despite being born
+   during those milestones — they're the dbt schema reference and the suppression runbook
+   respectively, and both get extended by every later milestone that touches dbt or adds a
+   suppressed mart (milestone 8 did both).
+2. **The top-level index** (`status.md`) — always current, thin on detail, thick on pointers to
+   where the real detail lives. The one doc to read first when resuming work.
+3. **Milestone chronicles** (`milestone-8-achievements.md`, and one per milestone going forward,
+   e.g. `milestone-9-ui.md`) — the story of one bounded unit of work: scope, decisions, bugs found,
+   completion status. Genuinely fine to keep accumulating one per milestone, since each becomes a
+   closed chapter once its milestone ships — nobody needs to re-read milestone 8's chronicle during
+   milestone 10.
+
+**The discipline that keeps #3 from turning into duplication:** when a milestone closes, do a
+port-out pass. Anything reusable (a cut decision, a schema addition, a design pattern, current
+status) moves into the category-1/2 docs; what's left in the milestone doc is pure narrative —
+useful for portfolio write-up material later, not something a later milestone needs to consult.
+Treat this the same as any other milestone-closing step, not an optional cleanup.
+
+**Checklists and scratch docs** (e.g. the old `powerbi-polish-checklist.md`/
+`powerbi-layout-final.md`) don't fit any of the three categories above and don't need to persist
+once executed — fold anything durable into `status.md`, then delete the source file. A fully
+checked-off TODO list sitting in the repo is just noise.
+
 ## UI/UX design philosophy
 
 **Model app: Fotmob** (soccer stats app):
@@ -68,15 +99,26 @@ root/
   network/
     raw/          # gitignored — see network/raw/README.md to regenerate
     processed/    # generated JSON output, tracked in git, consumed by the app
-    notebooks/
+    notebooks/    # neighborhood_explorer.ipynb — tweaks the NTA-derived neighborhood mapping
     scripts/
       build_static_data.py
-      build_quest_seed.py   # generates dbt/seeds/quest_definitions.csv from quests.json
+      build_quest_seed.py          # quests.json -> dbt/seeds/quest_definitions.csv
+      build_quests.py              # quests_source.json -> processed/quests.json (the resolver)
+      build_neighborhood_mapping.py
+      build_route_seed.py          # route_stops.json -> dbt/seeds/route_definitions.csv
+      build_route_stations_seed.py # route_stops.json -> dbt/seeds/route_stations.csv
+      build_station_coords_seed.py # stations.json -> dbt/seeds/station_coordinates.csv
+      validate_quests.py           # structural/regression checks on processed/quests.json
+    quests_source.json    # hand-authored quest content, single source of truth
   docs/
     data-layer.md
     ui-spec.md
     dashboard-spec.md
     status.md
+    dbt-coverage.md
+    bigquery-min-n-coverage.md
+    quests-integration.md          # milestone 8 -> 9 handoff: exact component insertion points
+    milestone-8-achievements.md    # milestone chronicle — see "Documentation organization" above
   mobile/          # Expo app — see docs/status.md for the current file-by-file map
   supabase/
     schema.sql
@@ -136,6 +178,6 @@ for a simplification pass, not yet done), `transfers.json`.
 Verified output: 496 stations, 445 transfer complexes, 83 real route branches across 29 routes.
 Spot-checked against known geography — all correct.
 
-`mobile/scripts/sync-data.js` copies the 4 processed files into `mobile/data/` for bundling. Run
-manually any time the pipeline re-runs with fresh source data. `mobile/data/` copies are gitignored —
-`network/processed/` is the tracked source of truth.
+`mobile/scripts/sync-data.js` copies the processed files into `mobile/data/` for bundling — now 5
+files (added `quests.json`, milestone 8). Run manually any time the pipeline re-runs with fresh source
+data. `mobile/data/` copies are gitignored — `network/processed/` is the tracked source of truth.

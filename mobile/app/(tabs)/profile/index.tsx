@@ -12,6 +12,14 @@ export default function ProfileScreen() {
                 <Text style={styles.buttonText}>Open Debug Dump</Text>
             </Pressable>
 
+            <Pressable style={styles.button} onPress={() => router.push('/debug-quest-components')}>
+                <Text style={styles.buttonText}>Open Debug Quest Components</Text>
+            </Pressable>
+
+            <Pressable style={styles.button} onPress={() => router.push('/profile/achievements')}>
+                <Text style={styles.buttonText}>Open Achievements (temp)</Text>
+            </Pressable>
+
             <Pressable style={styles.button} onPress={() => supabase.auth.signOut()}>
                 <Text style={styles.buttonText}>Sign Out</Text>
             </Pressable>

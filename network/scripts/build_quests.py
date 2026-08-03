@@ -40,6 +40,15 @@ station_coordinates seed). Both the mobile quests.ts evaluator and the dbt
 mart MUST translate a leg's stop_id -> complex_id (via the bundled
 stations.json) before checking any quest's station-set membership, or nothing
 will ever match.
+
+Every quest in the output also carries a "source" field
+("hand_authored" or "auto_generated") -- stamped here, at the exact point
+each quest is created, not re-inferred later from its quest_id's naming
+pattern (build_quest_seed.py used to guess this from a prefix match, which
+was fragile; now it just reads what this script already knows for certain).
+Used by the achievements dashboard to show hand-authored quests individually
+while collapsing the ~35 auto-generated line_completion_*/branching_out_*
+quests into a single count instead.
 """
 
 import json
@@ -92,7 +101,20 @@ def resolve_line_completion_quests(route_stops, stations):
     direction and branch (confirmed against mobile/lib/subwayData.ts, same
     shape resolve_route_branches() reads). A route's 'every station' set is
     the union of every branch's stations via branches_for_route(), deduped
-    and translated to complex_id -- not a direct pass-through of stop_ids."""
+    and translated to complex_id -- not a direct pass-through of stop_ids.
+
+    REAL BUG FIXED (found via on-device testing): this used to emit
+    'all_stations' criteria (bare station-visited, route-agnostic). A shared
+    transfer complex like Atlantic Av-Barclays Ctr (complex 617, served by
+    B/D/N/Q/2/3/4/5 all at once) was giving credit toward EVERY line sharing
+    that platform just from visiting it via any one of them -- 'all_stations'
+    only checks whether the physical place was ever visited, with zero
+    awareness of which route actually got you there. Line completion is
+    inherently route-specific by definition. Fixed by pairing each required
+    station with the specific route being completed via
+    'all_station_route_pairs' -- the exact mechanism 'crossroads' (the Times
+    Sq hub quest) already uses correctly; no new evaluator logic needed,
+    just the right existing criteria type."""
     stop_to_complex = {stop_id: int(s["complex_id"]) for stop_id, s in stations.items()}
     quests = {}
     for route_id in route_stops:
@@ -107,7 +129,11 @@ def resolve_line_completion_quests(route_stops, stations):
             "title": f"{route_id} Completionist",
             "description": f"Visit every station on the {route_id} line.",
             "mechanism": "lifetime_set",
-            "criteria": {"type": "all_stations", "stations": complexes},
+            "source": "auto_generated",
+            "criteria": {
+                "type": "all_station_route_pairs",
+                "pairs": [{"station": cid, "route": route_id} for cid in complexes],
+            },
         }
     return quests
 
@@ -232,6 +258,7 @@ def resolve_branching_out_quests(route_stops, stations):
             "title": f"{route_id} Branching Out",
             "description": f"Visit a station on every branch of the {route_id} line.",
             "mechanism": "lifetime_set",
+            "source": "auto_generated",
             "criteria": {"type": "all_groups", "groups": groups},
         }
     return quests
@@ -312,6 +339,9 @@ def main():
         if result is None:
             skipped.append(quest_id)
             continue
+        result["source"] = "hand_authored"  # every quest reaching here came from
+        # quests_source.json -- stamped once, centrally, rather than touching every
+        # return branch inside resolve_quest() individually
         resolved[quest_id] = result
 
     # Auto-generate line_completion and branching_out quests -- never

@@ -35,8 +35,7 @@
                 159,
                 160
             ]
-        },
-        "_note": "Central Park NTA group, verified against complex_to_neighborhood.json. Ready as-is."
+        }
     },
     "beachy": {
         "title": "Beachy",
@@ -59,23 +58,22 @@
                 208
             ],
             "count": 6
-        },
-        "_note": "12 candidate stations (Coney Island-Stillwell Av, W 8 St-NY Aquarium, Brighton Beach, and all 9 Beach-numbered Rockaway stops). count=6 is a guess (half) -- adjust freely."
+        }
     },
     "same_name_explorer": {
         "title": "D\u00e9j\u00e0 Vu",
-        "description": "Visit stations at {count} different same-name station pairs/clusters.",
+        "description": "Visit both stations at {count} different same-name station pairs/clusters.",
         "mechanism": "lifetime_set",
         "criteria": {
             "type": "min_count_groups",
             "group_ref": "same_name_station_clusters",
+            "min_per_group": 2,
             "exclude_names": [
                 "34 St-Penn Station",
                 "Chambers St"
             ],
             "count": 5
-        },
-        "_note": "54 real clusters system-wide after excluding the 2 listed above (arguably one place split across complexes, not a fun 'twin' discovery -- see exclude_names, now real data the resolver can read instead of a prose note). count=5 is a guess out of 54 -- very achievable, adjust freely. group_ref still needs the resolver to implement the actual clustering: group stations by exact name, drop anything in exclude_names, keep groups with 2+ remaining."
+        }
     },
     "borough_completionist": {
         "title": "Five Boroughs",
@@ -84,8 +82,7 @@
         "criteria": {
             "type": "all_groups",
             "group_ref": "boroughs"
-        },
-        "_note": "Auto-derivable directly from each station's existing borough field -- no hand list needed."
+        }
     },
     "manhattan_neighborhoods": {
         "title": "Neighborhood Native",
@@ -94,8 +91,7 @@
         "criteria": {
             "type": "all_groups",
             "group_ref": "manhattan_neighborhoods"
-        },
-        "_note": "BLOCKED -- group_ref resolves from final_neighborhoods.json, which isn't final yet. Structurally ready; just needs that file to exist."
+        }
     },
     "crossroads": {
         "title": "Crossroads of the World",
@@ -153,8 +149,7 @@
                     "route": "GS"
                 }
             ]
-        },
-        "_note": "11 distinct lines converge at Times Sq (complex 611) -- verified against the stations data. Ready as-is."
+        }
     },
     "all_lines_rider": {
         "title": "Every Line",
@@ -162,8 +157,7 @@
         "mechanism": "lifetime_set",
         "criteria": {
             "type": "all_routes"
-        },
-        "_note": "Route-grain, not station-grain -- auto-resolves against the real distinct route list, same source route_totals already uses. Ready as-is."
+        }
     },
     "s_tier": {
         "title": "S Tier",
@@ -177,8 +171,7 @@
                 "GS",
                 "H"
             ]
-        },
-        "_note": "BLOCKED, but not for the reason I originally wrote -- FS/GS/H already exist as real routes in route_stops.json (confirmed by validate_quests.py NOT flagging them as missing). The real blocker is that the trip-logging UI can't select/log any individual shuttle yet (status.md: 'no shuttle is currently selectable anywhere in the trip-logging flow'). Since the resolver has no way to detect an app-UI fact from data, this needs an explicit blocked flag rather than relying on route-validity checking, which would otherwise let this resolve and ship an unwinnable quest. Flip blocked to false once shuttle selection ships."
+        }
     },
     "n_legger": {
         "title": "5-Legger",
@@ -187,8 +180,7 @@
         "criteria": {
             "type": "leg_count_min",
             "count": 5
-        },
-        "_note": "count=5 is a guess -- adjust freely. Could also ship as a tiered family (3/5/7) instead of one quest."
+        }
     },
     "im_not_leaving": {
         "title": "I'm Not Leaving!!",
@@ -197,8 +189,7 @@
         "criteria": {
             "type": "full_line_ride",
             "route": "any"
-        },
-        "_note": "Route-agnostic -- any single line ridden fully end-to-end within one trip's legs qualifies."
+        }
     },
     "wordsmith": {
         "title": "Wordsmith",
@@ -207,8 +198,7 @@
         "criteria": {
             "type": "route_letters_spell_word",
             "word": "JAM"
-        },
-        "_note": "Picked JAM since J/A/M are all real single-letter/valid route IDs and it's short enough to be achievable. Totally your call to swap for a different word -- just needs to only use letters that are real route IDs (no H/I/K/O/P/T/U/V/X/Y exist as subway line letters)."
+        }
     },
     "top_to_bottom": {
         "title": "Top to Bottom",
@@ -218,8 +208,7 @@
             "type": "geographic_endpoints",
             "start": 297,
             "end": 635
-        },
-        "_note": "start=215 St (1 train, northernmost mainline Manhattan complex), end=Whitehall St-South Ferry. Deliberately avoided Marble Hill as the start given its borough ambiguity. Adjust freely."
+        }
     },
     "bottom_to_top": {
         "title": "Bottom to Top",
@@ -239,8 +228,7 @@
             "type": "geographic_endpoints",
             "start": 306,
             "end": 392
-        },
-        "_note": "start=125 St (Broadway 1 train, west), end=125 St (Lexington Av 4/5/6, east) -- same street, opposite edges of the island. Adjust freely if a different crosstown pair reads better."
+        }
     },
     "line_loyalist": {
         "title": "Line Loyalist",
@@ -250,8 +238,7 @@
             "type": "ride_count_route",
             "route": "any",
             "count": 10
-        },
-        "_note": "count=10, route-agnostic (any single line hit 10 times qualifies). Adjust freely."
+        }
     },
     "transfer_master": {
         "title": "Transfer Master",
@@ -260,7 +247,6 @@
         "criteria": {
             "type": "transfer_count",
             "count": 20
-        },
-        "_note": "count=20 is a guess -- adjust freely."
+        }
     }
 }

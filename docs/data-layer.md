@@ -324,7 +324,7 @@ back, `trips` stays empty, and the exact same trigger condition correctly re-fir
 **Required test, not an assumption:** confirm directly that a trip with a `trip_deleted` event never
 materializes during replay — same standard already applied elsewhere in this project (see
 `buildOccurredAt`'s timezone bug, caught by testing an assumption that looked correct on paper and
-wasn't). The pure planning logic lives in `mobile/db/rehydrate_logic.ts` (deliberately zero React
+wasn't). The pure planning logic lives in `mobile/db/rehydrate-plan.ts` (deliberately zero React
 Native/Expo/Supabase imports — importing `rehydrate.ts` directly for a test pulls in `expo-sqlite`,
 which transitively pulls in Flow-syntax React Native source that a plain Node/tsx run can't parse;
 splitting the pure decision logic out is what makes it testable outside the app runtime at all).
@@ -346,7 +346,7 @@ covered by the existing dev/test launch-date-cutoff decision.
 
 ## Deleted trips at the dbt layer
 
-Same exclusion problem `rehydrate_logic.ts`'s `planRehydration()` already solves locally — a `trip_deleted`
+Same exclusion problem `rehydrate-plan.ts`'s `planRehydration()` already solves locally — a `trip_deleted`
 event doesn't remove the original trip's events from the append-only log, so anything reconstructing
 trips from raw/staged events must explicitly exclude any `trip_id` whose event group includes a
 `trip_deleted`. **Decided:** this exclusion happens once, in the intermediate layer's trip-reconstruction
@@ -437,6 +437,12 @@ grain change plus real business logic, not cleanup:**
   this one too rather than assumed. Required test: `unique` on `draft_id` for both
   `trip_draft_started` and `trip_draft_committed` — catches a double-fire (e.g. a remount bug)
   loudly rather than silently averaging over it with `MIN(recorded_at)`.
+- `int_user_visited_complexes`, `int_quest_completion_lifetime_set`/`_per_trip`/`_counting`
+  (milestone 8) — the same event-log-to-entity reconstruction problem, one level further up: a
+  quest's completion status isn't stored anywhere, it's derived from the same `int_trips`/`int_legs`
+  every other mart already reads, via the mechanism-specific logic each quest's criteria calls for.
+  See "Reusable pattern" below — these four models are the clearest instance yet of a practice this
+  project already used before milestone 8 existed.
 
 **Exception, stated explicitly so it doesn't get "fixed" later:** `dashboard-spec.md`'s "% of trips
 deleted after being logged" is the one metric that specifically *wants* to see `trip_deleted` events
@@ -480,6 +486,44 @@ Worth naming explicitly, since the difference isn't obvious in the moment and is
    materialized column to filter on. The NYC tracker had no analogous mechanism forcing aggregation
    into dbt.
 
+### Reusable pattern: one intermediate model, many mart-layer views
+
+Worth naming explicitly, since it's not a one-off — it's a practice this project has now applied
+more than once, deliberately: **an intermediate model computes a fact once, at the grain that fact
+naturally lives at, and every mart-layer metric that needs that fact reads the same intermediate
+model rather than re-deriving it.** Marts differ in how they aggregate or slice the fact, never in
+how the fact itself gets computed. The alternative — letting each mart that needs a fact compute its
+own version of it — means the same logical check exists in multiple places with no shared source of
+truth, and real risk of the copies quietly drifting apart from each other over time.
+
+Two concrete instances of this so far, not just one:
+
+- **`int_trips`/`int_legs`** — the base trip/leg reconstruction from raw events. Every downstream
+  model reads these, never raw/staged events directly: `mart_global_summary`, `mart_growth_daily`,
+  `mart_station_stats`, `mart_line_stats`, `mart_station_pairs`, every histogram mart, and (milestone
+  8) all four quest-completion models too. None of those marts re-implement "what happened on this
+  trip" — they all read the one correct reconstruction of it.
+- **`int_quest_completion_lifetime_set`/`_per_trip`/`_counting`** (milestone 8) — one row per
+  `(user_id, quest_id, completed)`, computed once per mechanism, mirroring the exact same evaluation
+  logic `mobile/db/quests_logic.ts` uses on the app side. `mart_quest_completion` (per-quest
+  completion counts, for the suppressed bar chart) and `mart_quest_completion_histogram` (per-user
+  completion counts, bucketed, exempt) both read these same three models — one groups by `quest_id`,
+  the other by `user_id`. Neither re-implements "did this user complete this quest"; they just count
+  the same already-correct fact two different ways.
+
+**Why this is worth calling a deliberate practice, not just "how dbt happens to work":** the
+line_completion bug found during milestone 8 (`resolve_line_completion_quests()` using
+route-agnostic `all_stations` criteria instead of route-specific `all_station_route_pairs`) is a
+concrete demonstration of what goes wrong when the *same logical check* gets a chance to be
+expressed incorrectly in more than one place — that bug lived in exactly one function, and fixing it
+in that one place fixed every quest depending on it, instantly and completely. If quest completion
+had instead been computed separately inside `mart_quest_completion` and (hypothetically) a second
+mart, the same bug could easily have been fixed in one and missed in the other, with no way to
+notice the disagreement short of someone comparing the two by hand. Every new "view" onto a fact this
+project already knows how to compute — a new histogram, a new breakdown, whatever a later milestone
+wants — should be a new aggregation over already-correct data, never a new place that could get the
+underlying logic wrong a second way.
+
 ## Quest-definitions, single source of truth (updated)
 
 Two-stage pipeline, not one file:
@@ -508,11 +552,28 @@ every required station at some point, in any trip, in any order. Sequence/ordere
 complexity (sequence-matching against trip legs, re-implemented identically in dbt and the app) with
 no concrete quest currently needing it. Revisit only if a specific quest idea genuinely requires it.
 
+**This cut was tested for real during milestone 8, not just theorized — "Conquistador" (ride through
+every tunnel/bridge crossing to/from Manhattan) is exactly the concrete quest idea this note said
+would justify revisiting it, and it was cut anyway.** Full reasoning in
+`milestone-8-achievements.md`'s "Considered and cut" section: ordered sub-segment matching is a
+genuinely different, fourth criteria mechanism (not a variant of the three already built), would
+need building twice (dbt SQL and TypeScript) and kept in sync forever, and nothing else on the
+milestone 8 quest list needs it — same instinct already correctly applied elsewhere on this project
+(the S3/RDS lake, a live Supabase-side rehydration projection).
+
+**Also cut during milestone 8: "first user to visit a station."** Can't be an in-app badge at all,
+architecturally, not just as a scoping choice — the whole in-app quest engine (`quests_logic.ts`/
+`quests.ts`) deliberately reads local SQLite only, per this doc's own "Data-flow architecture"
+section above; no other user's data ever reaches a device, by design. A dashboard-only version (a
+public "first visitor per station" stat) was considered and dropped too, as not compelling enough
+alone to justify carrying.
+
 ## Quest progress computation
 
-One shared module, `mobile/db/quests.ts` (alongside `projection.ts`, `rehydrate.ts` — same category,
-a query layer over local SQLite), used by every screen that shows quest progress (trip-complete
-delta, station page, profile page, challenge-detail page) — one implementation, not four.
+One shared module, `mobile/db/quests_logic.ts` (alongside `projection.ts`, `rehydrate_logic.ts` —
+same category, a query layer over local SQLite), used by every screen that shows quest progress
+(trip-complete delta, station page, profile page, challenge-detail page) — one implementation, not
+four.
 
 **Live query, no cached progress table.** Set-intersection against a local, small trips/legs table
 is cheap enough to compute on each screen visit — avoids inventing a second derived-data-store that
@@ -520,8 +581,8 @@ can drift from source of truth, same discipline behind removing the `operational
 
 **Exception: the trip-complete "what's new" screen needs a before/after diff**, not just current
 progress — which stations *this specific trip* newly contributed, vs. what was already visited
-before it. Computed inside the same commit transaction as `commitTrip`/`writeProjectionRows`, since
-the new trip's legs are already in hand at that moment — not reconstructed later from scratch.
+before it. Computed by comparing full lifetime history with and without that trip's data, both
+derived fresh each time — not reconstructed from a running total kept anywhere.
 
 ## Data-layer rigor checklist
 
@@ -533,7 +594,7 @@ the new trip's legs are already in hand at that moment — not reconstructed lat
 | 4 | Real constraints at schema level | ✅ `schema_tests.py` — 29 checks |
 | 5 | Explicitly designed edge cases | ✅ see above |
 | 6 | Sync policy, stated | ✅ idempotent-insert / single-writer, verified on-device |
-| 7 | dbt staging → intermediate → mart, tested | ⬜ not started |
+| 7 | dbt staging → intermediate → mart, tested | ✅ complete through milestone 8, verified against real BigQuery |
 | 8 | CI on every change | ⬜ not started |
 | 9 | Data dictionary / ERD | ✅ this doc |
 | 10 | Deliberate scope exclusions, stated | ✅ see above |

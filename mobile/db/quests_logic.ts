@@ -2,7 +2,7 @@
 //
 // Pure quest-evaluation logic -- zero imports of expo-sqlite, RN, or anything
 // that transitively pulls in RN/SVG source. Same reasoning as
-// rehydrate-logic.ts's split: importing subwayData.ts directly would pull in
+// rehydrate_logic.ts's split: importing subwayData.ts directly would pull in
 // lineIcons.tsx -> react-native-svg, the same "Flow-syntax RN source a plain
 // Node run can't parse" problem expo-sqlite caused for rehydrate.ts.
 // quests.ts (the I/O wrapper) queries SQLite and the bundled
@@ -52,8 +52,8 @@ export type ComplexLookup = Record<string, number>;
 export type LifetimeSetCriteria =
     | { type: 'all_stations'; stations: number[] }
     | { type: 'min_count_stations'; stations: number[]; count: number }
-    | { type: 'all_groups'; groups: number[][] }
-    | { type: 'min_count_groups'; groups: number[][]; count: number }
+    | { type: 'all_groups'; groups: number[][]; min_per_group?: number }
+    | { type: 'min_count_groups'; groups: number[][]; count: number; min_per_group?: number }
     | { type: 'all_station_route_pairs'; pairs: { station: number; route: string }[] }
     | { type: 'all_routes'; routes?: string[] };
 
@@ -86,12 +86,6 @@ export type QuestProgress = {
     // quests, which the UI shows as a plain checklist/badge, not a fraction.
     current: number | null;
     target: number | null;
-};
-
-export type QuestDeltaResult = {
-    questId: string;
-    title: string;
-    newlyCompleted: true; // this array only ever holds quests that newly flipped to complete
 };
 
 // ============================================================================
@@ -163,6 +157,16 @@ function ridesPerRoute(history: RiderHistory): Map<string, number> {
     return counts;
 }
 
+function bestRoute(history: RiderHistory): string | undefined {
+    const counts = ridesPerRoute(history);
+    let best: string | undefined;
+    let bestCount = -1;
+    for (const [route, count] of counts) {
+        if (count > bestCount) { best = route; bestCount = count; }
+    }
+    return best;
+}
+
 // ============================================================================
 // Mechanism 1: lifetime set-membership
 // ============================================================================
@@ -192,12 +196,14 @@ export function evaluateLifetimeSet(
         }
         case 'all_groups': {
             const visited = complexIdsVisited(history, complexLookup);
-            const groupsHit = criteria.groups.filter((g) => g.some((cid) => visited.has(cid))).length;
+            const minPerGroup = criteria.min_per_group ?? 1;
+            const groupsHit = criteria.groups.filter((g) => g.filter((cid) => visited.has(cid)).length >= minPerGroup).length;
             return { completed: groupsHit === criteria.groups.length, current: groupsHit, target: criteria.groups.length };
         }
         case 'min_count_groups': {
             const visited = complexIdsVisited(history, complexLookup);
-            const groupsHit = criteria.groups.filter((g) => g.some((cid) => visited.has(cid))).length;
+            const minPerGroup = criteria.min_per_group ?? 1;
+            const groupsHit = criteria.groups.filter((g) => g.filter((cid) => visited.has(cid)).length >= minPerGroup).length;
             return { completed: groupsHit >= criteria.count, current: groupsHit, target: criteria.count };
         }
         case 'all_station_route_pairs': {
@@ -293,8 +299,66 @@ export function evaluateCounting(
 }
 
 // ============================================================================
-// Dispatch across all quests + trip-complete delta
+// Single-quest dispatch (used by both getAllQuestProgressPure and quests.ts's
+// getQuestDetail, so the "how do I evaluate one quest" logic exists exactly once)
 // ============================================================================
+
+export function evaluateQuestProgress(
+    quest: Quest,
+    history: RiderHistory,
+    complexLookup: ComplexLookup,
+    allRealRoutes: string[],
+    fullRouteSpans: Record<string, string[]>
+): { completed: boolean; current: number | null; target: number | null } {
+    if (quest.mechanism === 'lifetime_set') {
+        return evaluateLifetimeSet(quest.criteria as LifetimeSetCriteria, history, complexLookup, allRealRoutes);
+    }
+    if (quest.mechanism === 'counting') {
+        return evaluateCounting(quest.criteria as CountingCriteria, history);
+    }
+    // per_trip: "completed" = at least one past trip satisfied it. No
+    // fractional progress makes sense here -- either some trip did or none did.
+    const completed = [...legsByTrip(history.legs).values()].some((tripLegs) =>
+        evaluatePerTrip(quest.criteria as PerTripCriteria, tripLegs, { complexLookup, fullRouteSpans })
+    );
+    return { completed, current: null, target: null };
+}
+
+/** Every quest that references this specific station (complex_id) anywhere
+ *  in its criteria -- feeds StationQuestsList. Route-grain criteria
+ *  (all_routes) and non-station per_trip/counting criteria never match,
+ *  since they're not about any particular station. */
+export function questIdsForStation(quests: QuestsFile, complexId: number): string[] {
+    const ids: string[] = [];
+    for (const [questId, quest] of Object.entries(quests)) {
+        if (quest.mechanism === 'lifetime_set') {
+            const c = quest.criteria as LifetimeSetCriteria;
+            switch (c.type) {
+                case 'all_stations':
+                case 'min_count_stations':
+                    if (c.stations.includes(complexId)) ids.push(questId);
+                    break;
+                case 'all_groups':
+                case 'min_count_groups':
+                    if (c.groups.some((g) => g.includes(complexId))) ids.push(questId);
+                    break;
+                case 'all_station_route_pairs':
+                    if (c.pairs.some((p) => p.station === complexId)) ids.push(questId);
+                    break;
+                case 'all_routes':
+                    break; // route-grain, not station-specific
+            }
+        } else if (quest.mechanism === 'per_trip') {
+            const c = quest.criteria as PerTripCriteria;
+            if (c.type === 'geographic_endpoints' && (c.start === complexId || c.end === complexId)) {
+                ids.push(questId);
+            }
+            // leg_count_min / full_line_ride / route_letters_spell_word aren't tied to any specific station
+        }
+        // counting-mechanism quests (ride_count_route, transfer_count) are never station-specific
+    }
+    return ids;
+}
 
 export function getAllQuestProgressPure(
     quests: QuestsFile,
@@ -303,31 +367,42 @@ export function getAllQuestProgressPure(
     allRealRoutes: string[],
     fullRouteSpans: Record<string, string[]>
 ): QuestProgress[] {
-    return Object.entries(quests).map(([questId, quest]) => {
-        if (quest.mechanism === 'lifetime_set') {
-            const r = evaluateLifetimeSet(quest.criteria as LifetimeSetCriteria, history, complexLookup, allRealRoutes);
-            return { questId, ...r };
-        }
-        if (quest.mechanism === 'counting') {
-            const r = evaluateCounting(quest.criteria as CountingCriteria, history);
-            return { questId, ...r };
-        }
-        // per_trip: "completed" = at least one past trip satisfied it. No
-        // fractional progress makes sense here -- either some trip did or none did.
-        const completed = [...legsByTrip(history.legs).values()].some((tripLegs) =>
-            evaluatePerTrip(quest.criteria as PerTripCriteria, tripLegs, { complexLookup, fullRouteSpans })
-        );
-        return { questId, completed, current: null, target: null };
-    });
+    return Object.entries(quests).map(([questId, quest]) => ({
+        questId,
+        ...evaluateQuestProgress(quest, history, complexLookup, allRealRoutes, fullRouteSpans),
+    }));
 }
 
-/** Which quests did THIS specific trip newly complete. historyBefore must
+// ============================================================================
+// Trip-complete progress (renamed from computeTripQuestDelta -- now reports
+// EVERY quest this trip moved the needle on, not just ones it fully
+// completed, per the "always show progress right after a trip" requirement)
+// ============================================================================
+
+export type QuestTripProgress = {
+    questId: string;
+    title: string;
+    completedBefore: boolean;
+    completedAfter: boolean;
+    // null for per_trip quests (no fractional concept), same convention as QuestProgress
+    currentBefore: number | null;
+    currentAfter: number | null;
+    target: number | null;
+};
+
+/** Every quest this specific trip changed something on. historyBefore must
  *  exclude the trip in question; historyAfter must include it; thisTripLegs
  *  is that trip's legs alone (for per_trip checks, which have no meaningful
- *  "before" state -- they're satisfied per-trip, not cumulatively; a quest
- *  counts as newly-completed-by-this-trip if THIS trip satisfies it, whether
- *  or not some earlier trip also happened to). */
-export function computeTripQuestDeltaPure(
+ *  "before" state -- they're satisfied per-trip, not cumulatively; a
+ *  per_trip quest appears here whenever THIS trip satisfies it, whether or
+ *  not an earlier trip also happened to -- "you did it again" is still a
+ *  real, worth-showing signal, not just "you did it for the first time").
+ *
+ *  lifetime_set/counting quests appear here whenever current changed at all
+ *  (not just when completed flipped) -- a Beachy visit that takes you from
+ *  1/6 to 2/6 belongs here even though it's nowhere near done, per the
+ *  "always show progress, not just completions" requirement. */
+export function computeTripQuestProgressPure(
     quests: QuestsFile,
     historyBefore: RiderHistory,
     historyAfter: RiderHistory,
@@ -335,25 +410,195 @@ export function computeTripQuestDeltaPure(
     complexLookup: ComplexLookup,
     allRealRoutes: string[],
     fullRouteSpans: Record<string, string[]>
-): QuestDeltaResult[] {
-    const results: QuestDeltaResult[] = [];
+): QuestTripProgress[] {
+    const results: QuestTripProgress[] = [];
     for (const [questId, quest] of Object.entries(quests)) {
-        let completedBefore = false;
-        let completedAfter = false;
-
-        if (quest.mechanism === 'lifetime_set') {
-            completedBefore = evaluateLifetimeSet(quest.criteria as LifetimeSetCriteria, historyBefore, complexLookup, allRealRoutes).completed;
-            completedAfter = evaluateLifetimeSet(quest.criteria as LifetimeSetCriteria, historyAfter, complexLookup, allRealRoutes).completed;
-        } else if (quest.mechanism === 'counting') {
-            completedBefore = evaluateCounting(quest.criteria as CountingCriteria, historyBefore).completed;
-            completedAfter = evaluateCounting(quest.criteria as CountingCriteria, historyAfter).completed;
-        } else {
-            completedAfter = evaluatePerTrip(quest.criteria as PerTripCriteria, thisTripLegs, { complexLookup, fullRouteSpans });
+        if (quest.mechanism === 'per_trip') {
+            const satisfied = evaluatePerTrip(quest.criteria as PerTripCriteria, thisTripLegs, { complexLookup, fullRouteSpans });
+            if (satisfied) {
+                results.push({
+                    questId, title: quest.title,
+                    completedBefore: false, completedAfter: true,
+                    currentBefore: null, currentAfter: null, target: null,
+                });
+            }
+            continue;
         }
 
-        if (!completedBefore && completedAfter) {
-            results.push({ questId, title: quest.title, newlyCompleted: true });
+        const before = evaluateQuestProgress(quest, historyBefore, complexLookup, allRealRoutes, fullRouteSpans);
+        const after = evaluateQuestProgress(quest, historyAfter, complexLookup, allRealRoutes, fullRouteSpans);
+        if (after.current !== before.current) {
+            results.push({
+                questId, title: quest.title,
+                completedBefore: before.completed, completedAfter: after.completed,
+                currentBefore: before.current, currentAfter: after.current, target: after.target,
+            });
         }
     }
     return results;
+}
+
+// ============================================================================
+// Per-item breakdown -- "exactly which ones have you done, which haven't,
+// and which trips did it." Only meaningful for criteria shapes with
+// enumerable members; per_trip/counting get their own simpler shapes below.
+// ============================================================================
+
+export type StationBreakdownItem = { complexId: number; visited: boolean; tripIds: string[] };
+export type GroupBreakdownItem = {
+    groupIndex: number;
+    complexIds: number[];
+    minRequired: number; // how many of this group's members must be visited for it to count -- see min_per_group
+    visitedComplexIds: number[]; // every member of this group actually visited (0, 1, or more)
+    visited: boolean; // visitedComplexIds.length >= minRequired
+    tripIds: string[]; // union of trips across every visited member
+};
+export type PairBreakdownItem = { station: number; route: string; visited: boolean; tripIds: string[] };
+export type RouteBreakdownItem = { route: string; visited: boolean; tripIds: string[] };
+
+export type QuestBreakdown =
+    | { kind: 'stations'; items: StationBreakdownItem[] }
+    | { kind: 'groups'; items: GroupBreakdownItem[] }
+    | { kind: 'pairs'; items: PairBreakdownItem[] }
+    | { kind: 'routes'; items: RouteBreakdownItem[] }
+    | { kind: 'per_trip'; qualifyingTripIds: string[] } // every trip that has ever satisfied this quest
+    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[] };
+
+function tripsVisitingComplex(history: RiderHistory, complexLookup: ComplexLookup): Map<number, Set<string>> {
+    const map = new Map<number, Set<string>>();
+    const add = (stopId: string, tripId: string) => {
+        const cid = complexLookup[stopId];
+        if (cid === undefined) return;
+        if (!map.has(cid)) map.set(cid, new Set());
+        map.get(cid)!.add(tripId);
+    };
+    for (const trip of history.trips) {
+        add(trip.originStationId, trip.tripId);
+        add(trip.destinationStationId, trip.tripId);
+    }
+    for (const leg of history.legs) {
+        add(leg.entryStationId, leg.tripId);
+        add(leg.exitStationId, leg.tripId);
+    }
+    return map;
+}
+
+function tripsForStationRoutePair(history: RiderHistory, complexLookup: ComplexLookup): Map<string, Set<string>> {
+    const map = new Map<string, Set<string>>();
+    const add = (stopId: string, routeId: string, tripId: string) => {
+        const cid = complexLookup[stopId];
+        if (cid === undefined) return;
+        const key = `${cid}:${routeId}`;
+        if (!map.has(key)) map.set(key, new Set());
+        map.get(key)!.add(tripId);
+    };
+    for (const leg of history.legs) {
+        add(leg.entryStationId, leg.routeId, leg.tripId);
+        add(leg.exitStationId, leg.routeId, leg.tripId);
+    }
+    return map;
+}
+
+function tripsPerRoute(history: RiderHistory): Map<string, Set<string>> {
+    const map = new Map<string, Set<string>>();
+    for (const leg of history.legs) {
+        if (!map.has(leg.routeId)) map.set(leg.routeId, new Set());
+        map.get(leg.routeId)!.add(leg.tripId);
+    }
+    return map;
+}
+
+export function getQuestBreakdown(
+    quest: Quest,
+    history: RiderHistory,
+    complexLookup: ComplexLookup,
+    allRealRoutes: string[],
+    fullRouteSpans: Record<string, string[]>
+): QuestBreakdown {
+    if (quest.mechanism === 'lifetime_set') {
+        const c = quest.criteria as LifetimeSetCriteria;
+        const visits = tripsVisitingComplex(history, complexLookup);
+
+        switch (c.type) {
+            case 'all_stations':
+            case 'min_count_stations':
+                return {
+                    kind: 'stations',
+                    items: c.stations.map((complexId) => ({
+                        complexId,
+                        visited: visits.has(complexId),
+                        tripIds: [...(visits.get(complexId) ?? [])],
+                    })),
+                };
+            case 'all_groups':
+            case 'min_count_groups': {
+                const minPerGroup = c.min_per_group ?? 1;
+                return {
+                    kind: 'groups',
+                    items: c.groups.map((group, groupIndex) => {
+                        const visitedComplexIds = group.filter((cid) => visits.has(cid));
+                        const tripIds = [...new Set(visitedComplexIds.flatMap((cid) => [...(visits.get(cid) ?? [])]))];
+                        return {
+                            groupIndex,
+                            complexIds: group,
+                            minRequired: minPerGroup,
+                            visitedComplexIds,
+                            visited: visitedComplexIds.length >= minPerGroup,
+                            tripIds,
+                        };
+                    }),
+                };
+            }
+            case 'all_station_route_pairs': {
+                const pairTrips = tripsForStationRoutePair(history, complexLookup);
+                return {
+                    kind: 'pairs',
+                    items: c.pairs.map((p) => {
+                        const trips = pairTrips.get(`${p.station}:${p.route}`);
+                        return { station: p.station, route: p.route, visited: !!trips, tripIds: trips ? [...trips] : [] };
+                    }),
+                };
+            }
+            case 'all_routes': {
+                const routeTrips = tripsPerRoute(history);
+                const needed = c.routes ?? allRealRoutes;
+                return {
+                    kind: 'routes',
+                    items: needed.map((route) => {
+                        const trips = routeTrips.get(route);
+                        return { route, visited: !!trips, tripIds: trips ? [...trips] : [] };
+                    }),
+                };
+            }
+        }
+    }
+
+    if (quest.mechanism === 'per_trip') {
+        const criteria = quest.criteria as PerTripCriteria;
+        const qualifyingTripIds = [...legsByTrip(history.legs).entries()]
+            .filter(([, legs]) => evaluatePerTrip(criteria, legs, { complexLookup, fullRouteSpans }))
+            .map(([tripId]) => tripId);
+        return { kind: 'per_trip', qualifyingTripIds };
+    }
+
+    // counting
+    const criteria = quest.criteria as CountingCriteria;
+    if (criteria.type === 'ride_count_route') {
+        const routeId = criteria.route === 'any' ? bestRoute(history) : criteria.route;
+        const routeTrips = tripsPerRoute(history);
+        const current = routeId ? (ridesPerRoute(history).get(routeId) ?? 0) : 0;
+        return {
+            kind: 'counting', current, target: criteria.count,
+            contributingTripIds: routeId ? [...(routeTrips.get(routeId) ?? [])] : [],
+        };
+    }
+    // transfer_count -- contributing trips = trips with at least one detected transfer
+    const contributing = new Set<string>();
+    for (const [tripId, legs] of legsByTrip(history.legs)) {
+        const ordered = [...legs].sort((a, b) => a.sequence - b.sequence);
+        for (let i = 1; i < ordered.length; i++) {
+            if (ordered[i - 1].exitStationId === ordered[i].entryStationId) { contributing.add(tripId); break; }
+        }
+    }
+    return { kind: 'counting', current: transferCount(history), target: criteria.count, contributingTripIds: [...contributing] };
 }

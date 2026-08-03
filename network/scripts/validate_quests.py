@@ -108,6 +108,16 @@ def main():
 
         for field in ("title", "description", "mechanism", "criteria"):
             check(field in quest, f"{prefix} missing required field '{field}'")
+
+        check("source" in quest,
+              f"{prefix} missing 'source' field -- build_quests.py must stamp "
+              f"'hand_authored' or 'auto_generated' on every quest, or the "
+              f"dashboard's hand-authored/auto-generated split silently breaks")
+        if "source" in quest:
+            check(quest["source"] in ("hand_authored", "auto_generated"),
+                  f"{prefix} has invalid source {quest['source']!r} -- must be "
+                  f"'hand_authored' or 'auto_generated'")
+
         if "mechanism" not in quest or "criteria" not in quest:
             continue  # can't check criteria shape without these
 
@@ -244,6 +254,27 @@ def main():
     check(not missing_routes,
           f"missing line_completion quests for real route(s): {sorted(missing_routes)} "
           f"-- every real route should resolve to at least one station")
+
+    # REGRESSION CHECK for a real bug found on-device: line_completion quests
+    # must be route-SPECIFIC (all_station_route_pairs), never route-agnostic
+    # (all_stations). all_stations only checks "was this physical place ever
+    # visited," with zero awareness of which route got you there -- at a
+    # shared multi-line transfer complex (e.g. Atlantic Av-Barclays Ctr,
+    # served by B/D/N/Q/2/3/4/5 all at once), that gives false completion
+    # credit toward every line sharing the platform, not just the one
+    # actually ridden. This check would have caught that regression directly.
+    for qid in line_completion_ids:
+        quest = quests[qid]
+        expected_route = qid.removeprefix("line_completion_")
+        check(quest["criteria"]["type"] == "all_station_route_pairs",
+              f"{qid} uses '{quest['criteria']['type']}' criteria -- must be "
+              f"'all_station_route_pairs' (route-specific), or it will give false "
+              f"credit at any station shared with another line")
+        if quest["criteria"]["type"] == "all_station_route_pairs":
+            wrong_route = [p for p in quest["criteria"]["pairs"] if p["route"] != expected_route]
+            check(not wrong_route,
+                  f"{qid} has pair(s) referencing a route other than '{expected_route}': {wrong_route}")
+
     warn(len(branching_out_ids) > 0,
          "no branching_out quests were generated at all -- expected at least one "
          "(the A train's 3-way fork is a known real branch)")

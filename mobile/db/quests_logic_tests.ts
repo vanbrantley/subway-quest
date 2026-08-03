@@ -7,7 +7,7 @@
 import {
     Leg, Trip, RiderHistory, QuestsFile,
     evaluateLifetimeSet, evaluatePerTrip, evaluateCounting,
-    getAllQuestProgressPure, computeTripQuestDeltaPure,
+    getAllQuestProgressPure, computeTripQuestProgressPure, getQuestBreakdown, questIdsForStation,
 } from './quests_logic';
 
 let passed = 0;
@@ -148,7 +148,7 @@ function trip(tripId: string, origin: string, dest: string): Trip {
     check('transfer_count: exactly 1 real transfer detected across 2 trips', r.current === 1 && r.completed === true);
 }
 
-// ---- Dispatch + delta ----
+// ---- getAllQuestProgressPure ----
 
 {
     const quests: QuestsFile = {
@@ -161,40 +161,204 @@ function trip(tripId: string, origin: string, dest: string): Trip {
             criteria: { type: 'leg_count_min', count: 2 },
         },
     };
-
-    const historyBefore: RiderHistory = { trips: [], legs: [] };
-    const newTripLegs = [leg('t1', 1, 'N', 'R16', 'B06'), leg('t1', 2, 'A', 'B06', 'A02')];
-    const historyAfter: RiderHistory = {
+    const history: RiderHistory = {
         trips: [trip('t1', 'R16', 'A02')],
-        legs: newTripLegs,
+        legs: [leg('t1', 1, 'N', 'R16', 'B06'), leg('t1', 2, 'A', 'B06', 'A02')],
     };
-
-    const delta = computeTripQuestDeltaPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
-    const deltaIds = delta.map((d) => d.questId).sort();
-    check('computeTripQuestDelta: both a lifetime_set and a per_trip quest newly complete',
-        deltaIds.length === 2 && deltaIds[0] === 'n_legger' && deltaIds[1] === 'roosevelt_island');
-
-    const progress = getAllQuestProgressPure(quests, historyAfter, complexLookup, [], {});
+    const progress = getAllQuestProgressPure(quests, history, complexLookup, [], {});
     check('getAllQuestProgressPure: both quests show completed after the trip',
         progress.every((p) => p.completed === true));
 }
 
+// ---- computeTripQuestProgressPure: full completion ----
+
 {
-    // Already-complete quest before this trip should NOT show up in the delta again
+    const quests: QuestsFile = {
+        roosevelt_island: {
+            title: 'Island Hopper', description: 'x', mechanism: 'lifetime_set',
+            criteria: { type: 'all_stations', stations: [222] },
+        },
+        n_legger: {
+            title: '2-Legger', description: 'x', mechanism: 'per_trip',
+            criteria: { type: 'leg_count_min', count: 2 },
+        },
+    };
+    const historyBefore: RiderHistory = { trips: [], legs: [] };
+    const newTripLegs = [leg('t1', 1, 'N', 'R16', 'B06'), leg('t1', 2, 'A', 'B06', 'A02')];
+    const historyAfter: RiderHistory = { trips: [trip('t1', 'R16', 'A02')], legs: newTripLegs };
+
+    const delta = computeTripQuestProgressPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
+    const deltaIds = delta.map((d) => d.questId).sort();
+    check('computeTripQuestProgressPure: both quests appear, both newly complete',
+        deltaIds.length === 2 && deltaIds[0] === 'n_legger' && deltaIds[1] === 'roosevelt_island'
+        && delta.every((d) => d.completedBefore === false && d.completedAfter === true));
+}
+
+// ---- computeTripQuestProgressPure: PARTIAL progress (the actual bug being fixed --
+// a quest that made progress but isn't complete must still appear) ----
+
+{
+    const quests: QuestsFile = {
+        beachy: {
+            title: 'Beachy', description: 'Visit {count} beach stations.', mechanism: 'lifetime_set',
+            criteria: { type: 'min_count_stations', stations: [222, 143, 144, 611, 1, 2], count: 6 },
+        },
+    };
+    const historyBefore: RiderHistory = { trips: [], legs: [] };
+    const newTripLegs = [leg('t1', 1, 'M', 'B06', 'B06')]; // visits complex 222 only -- 1 of 6, nowhere near complete
+    const historyAfter: RiderHistory = { trips: [trip('t1', 'B06', 'B06')], legs: newTripLegs };
+
+    const delta = computeTripQuestProgressPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
+    check('computeTripQuestProgressPure: partial (1/6) progress still appears, not just completions',
+        delta.length === 1 && delta[0].questId === 'beachy'
+        && delta[0].currentBefore === 0 && delta[0].currentAfter === 1
+        && delta[0].completedBefore === false && delta[0].completedAfter === false);
+}
+
+// ---- computeTripQuestProgressPure: no change -> quest does NOT appear ----
+
+{
     const quests: QuestsFile = {
         roosevelt_island: {
             title: 'Island Hopper', description: 'x', mechanism: 'lifetime_set',
             criteria: { type: 'all_stations', stations: [222] },
         },
     };
-    const historyBefore: RiderHistory = { trips: [trip('t0', 'B06', 'B06')], legs: [leg('t0', 1, 'N', 'B06', 'B06')] };
-    const newTripLegs = [leg('t1', 1, 'A', 'A02', 'B06')];
+    const historyBefore: RiderHistory = { trips: [trip('t0', 'B06', 'B06')], legs: [leg('t0', 1, 'M', 'B06', 'B06')] };
+    const newTripLegs = [leg('t1', 1, 'A', 'A02', 'A02')]; // touches complex 143, unrelated to this quest
     const historyAfter: RiderHistory = {
-        trips: [...historyBefore.trips, trip('t1', 'A02', 'B06')],
+        trips: [...historyBefore.trips, trip('t1', 'A02', 'A02')],
         legs: [...historyBefore.legs, ...newTripLegs],
     };
-    const delta = computeTripQuestDeltaPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
-    check('computeTripQuestDelta: quest already completed before this trip does NOT re-appear', delta.length === 0);
+    const delta = computeTripQuestProgressPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
+    check('computeTripQuestProgressPure: quest untouched by this trip does not appear at all', delta.length === 0);
+}
+
+// ---- computeTripQuestProgressPure: per_trip quest satisfied again by a later trip
+// still appears (not just "first time ever") ----
+
+{
+    const quests: QuestsFile = {
+        n_legger: {
+            title: '2-Legger', description: 'x', mechanism: 'per_trip',
+            criteria: { type: 'leg_count_min', count: 2 },
+        },
+    };
+    const earlierLegs = [leg('t0', 1, 'A', 'x', 'y'), leg('t0', 2, 'N', 'y', 'z')]; // already satisfied once
+    const newTripLegs = [leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'N', 'y', 'z')]; // satisfies it again
+    const historyBefore: RiderHistory = { trips: [], legs: earlierLegs };
+    const historyAfter: RiderHistory = { trips: [], legs: [...earlierLegs, ...newTripLegs] };
+    const delta = computeTripQuestProgressPure(quests, historyBefore, historyAfter, newTripLegs, complexLookup, [], {});
+    check('computeTripQuestProgressPure: per_trip quest reappears on a later qualifying trip, not just the first',
+        delta.length === 1 && delta[0].questId === 'n_legger');
+}
+
+// ---- getQuestBreakdown ----
+
+{
+    const quest = {
+        title: 'Beachy', description: 'x', mechanism: 'lifetime_set' as const,
+        criteria: { type: 'min_count_stations' as const, stations: [222, 143, 144], count: 2 },
+    };
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'M', 'B06', 'B06'), leg('t2', 1, 'A', 'A02', 'A02')] };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (stations): correct visited flags and trip attribution',
+        b.kind === 'stations'
+        && b.items.find((i) => i.complexId === 222)?.visited === true
+        && (b.items.find((i) => i.complexId === 222)?.tripIds.includes('t1') ?? false)
+        && b.items.find((i) => i.complexId === 144)?.visited === false);
+}
+
+{
+    const quest = {
+        title: 'Five Boroughs', description: 'x', mechanism: 'lifetime_set' as const,
+        criteria: { type: 'all_groups' as const, groups: [[222, 611], [143, 144]] },
+    };
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'M', 'B06', 'B06')] };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (groups): group 0 visited via complex 222/t1, group 1 untouched',
+        b.kind === 'groups'
+        && b.items[0].visited === true && b.items[0].visitedComplexIds.includes(222) && b.items[0].tripIds.includes('t1')
+        && b.items[1].visited === false && b.items[1].visitedComplexIds.length === 0);
+}
+
+// ---- min_per_group (the Deja Vu fix: a same-name cluster should only count
+// once you've genuinely visited 2+ of its members, not just 1) ----
+
+{
+    const quest = {
+        title: 'Déjà Vu', description: 'x', mechanism: 'lifetime_set' as const,
+        criteria: { type: 'min_count_groups' as const, groups: [[333, 413], [143, 144]], count: 2, min_per_group: 2 },
+    };
+    // Visiting only ONE member of a 2-member group should NOT count under min_per_group: 2
+    const onlyOneVisited: RiderHistory = { trips: [], legs: [leg('t1', 1, '2', 'A02', 'A02')] }; // visits complex 143 only, 1 of group 2's 2 members
+    const rOnlyOne = evaluateLifetimeSet(quest.criteria, onlyOneVisited, complexLookup, []);
+    check('min_per_group=2: visiting only 1 of 2 members does NOT count the group', rOnlyOne.current === 0);
+
+    const bothVisited: RiderHistory = {
+        trips: [], legs: [leg('t1', 1, 'A', 'A02', 'A02'), leg('t2', 1, 'A', 'A03', 'A03')], // A02->143, A03->144, both members of group 1
+    };
+    const rBoth = evaluateLifetimeSet(quest.criteria, bothVisited, complexLookup, []);
+    check('min_per_group=2: visiting both members of a group DOES count it', rBoth.current === 1);
+}
+
+{
+    // Regression check: min_per_group defaults to 1 (existing OR behavior) when
+    // absent, so boroughs/branching_out (which never set it) are unaffected.
+    const criteria = { type: 'all_groups' as const, groups: [[611, 222], [143, 144]] }; // no min_per_group
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'N', 'R16', 'R16')] }; // visits only complex 611, 1 of group 0
+    const r = evaluateLifetimeSet(criteria, history, complexLookup, []);
+    check('all_groups with no min_per_group still uses OR semantics (1 member is enough) -- no regression', r.current === 1);
+}
+
+{
+    const quest = {
+        title: '2-Legger', description: 'x', mechanism: 'per_trip' as const,
+        criteria: { type: 'leg_count_min' as const, count: 2 },
+    };
+    const history: RiderHistory = {
+        trips: [], legs: [
+            leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'N', 'y', 'z'), // qualifies (2 legs)
+            leg('t2', 1, 'A', 'x', 'y'), // does not qualify (1 leg)
+        ],
+    };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (per_trip): only the qualifying trip is listed',
+        b.kind === 'per_trip' && b.qualifyingTripIds.length === 1 && b.qualifyingTripIds[0] === 't1');
+}
+
+{
+    const quest = {
+        title: 'Line Loyalist', description: 'x', mechanism: 'counting' as const,
+        criteria: { type: 'ride_count_route' as const, route: 'A', count: 3 },
+    };
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t2', 1, 'A', 'x', 'y')] };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (counting): current/target correct, both contributing trips listed',
+        b.kind === 'counting' && b.current === 2 && b.target === 3
+        && b.contributingTripIds.sort().join(',') === 't1,t2');
+}
+
+// ---- questIdsForStation ----
+
+{
+    const quests: QuestsFile = {
+        roosevelt_island: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_stations', stations: [222] } },
+        beachy: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'min_count_stations', stations: [222, 58], count: 1 } },
+        boroughs: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_groups', groups: [[222, 611], [143]] } },
+        crossroads: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_station_route_pairs', pairs: [{ station: 222, route: 'M' }] } },
+        all_lines: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_routes' } },
+        top_to_bottom: { title: 'x', description: 'x', mechanism: 'per_trip', criteria: { type: 'geographic_endpoints', start: 222, end: 999 } },
+        n_legger: { title: 'x', description: 'x', mechanism: 'per_trip', criteria: { type: 'leg_count_min', count: 3 } },
+        line_loyalist: { title: 'x', description: 'x', mechanism: 'counting', criteria: { type: 'ride_count_route', route: 'any', count: 5 } },
+        unrelated: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_stations', stations: [999] } },
+    };
+    const matches = questIdsForStation(quests, 222).sort();
+    check('questIdsForStation: matches all_stations, min_count_stations, all_groups, all_station_route_pairs, and geographic_endpoints',
+        matches.join(',') === 'beachy,boroughs,crossroads,roosevelt_island,top_to_bottom');
+    check('questIdsForStation: does NOT match all_routes, leg_count_min, counting, or an unrelated station list',
+        !matches.includes('all_lines') && !matches.includes('n_legger')
+        && !matches.includes('line_loyalist') && !matches.includes('unrelated'));
 }
 
 // ---- report ----
