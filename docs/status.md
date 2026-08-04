@@ -210,7 +210,16 @@ into actual text via `Asset.fromModule()` + `File`.
   `getAllStationStatuses()` on every focus (not just mount), each `Marker` keyed on its own status so
   a flip forces a clean remount rather than a stale bitmap under `tracksViewChanges={false}`. Tapping
   a marker opens `components/map/StationPreviewModal.tsx`.
-- `(tabs)/search.tsx` — still a stub, out of this milestone's scope.
+- `(tabs)/search.tsx` — **(Search tab pass, post-milestone-9)** real Search tab. Search bar over a grid
+  of `getDisplayableRoutes()` line icons (empty query) or a results list (non-empty query), via
+  `subwayData.ts`'s new `searchStations()` — case-insensitive substring match over all 496 bundled
+  stations, `startsWith` matches ranked before other substring matches, alphabetical within each group.
+  **One row per stop_id, deliberately not deduped by name/complex** — 76 of the 496 stations share a
+  name with at least one other stop_id (e.g. "14 St-Union Sq" is 3 separate stop_ids, one per platform
+  group); matches the stop_id grain used everywhere else (Map markers, Station page's "This platform"),
+  and whichever duplicate gets tapped, that platform's Station page already surfaces the complex's other
+  lines via "Transfer here" — no dead end. Tapping a grid icon → Line page; tapping a result row →
+  Station page.
 - `(tabs)/profile/_layout.tsx`, `index.tsx` — **(Milestone 9)** real Profile mini-dashboard, replacing
   the stub + three temporary debug buttons. Rides logged, stations visited, % of network overall + by
   borough, favorite station/line, least-travelled line(s), trip history, Saved Stations list, mounts

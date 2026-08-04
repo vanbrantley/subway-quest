@@ -78,6 +78,48 @@ export function getBoroughName(code: string): string {
     return BOROUGH_NAMES[code] ?? code;
 }
 
+// ---- Search tab: name lookup over the full bundled station list ----
+//
+// One row per stop_id, deliberately not deduped by name/complex — 76 of the
+// 496 stations share a name with at least one other stop_id (e.g.
+// "14 St-Union Sq" is 3 separate stop_ids, one per platform group), and
+// this keeps the same stop_id grain used everywhere else (Map markers,
+// Station page's "This platform"). Whichever duplicate gets tapped, that
+// platform's Station page already surfaces the complex's other lines via
+// "Transfer here" — no dead end from picking the "wrong" one of a
+// same-named group.
+
+export type StationSearchResult = {
+    stopId: string;
+    name: string;
+    borough: string;
+    daytimeRoutes: string[];
+};
+
+export function searchStations(query: string): StationSearchResult[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const startsWith: StationSearchResult[] = [];
+    const contains: StationSearchResult[] = [];
+
+    for (const [stopId, station] of Object.entries(STATIONS)) {
+        const nameLower = station.name.toLowerCase();
+        const index = nameLower.indexOf(q);
+        if (index === -1) continue;
+        const result: StationSearchResult = {
+            stopId,
+            name: station.name,
+            borough: station.borough,
+            daytimeRoutes: station.daytime_routes,
+        };
+        (index === 0 ? startsWith : contains).push(result);
+    }
+
+    const byName = (a: StationSearchResult, b: StationSearchResult) => a.name.localeCompare(b.name);
+    return [...startsWith.sort(byName), ...contains.sort(byName)];
+}
+
 // Maps a raw display route label (as seen in stations.json's daytime_routes)
 // to the key used everywhere else (route_stops.json, LINE_ICONS, LINE_COLORS)
 // — currently just SIR -> SI. Anything with no alias passes through
