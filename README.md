@@ -5,10 +5,10 @@ A mobile app that logs your NYC subway rides and turns exploring the system into
 Built end-to-end as a full data product: a React Native app generating real event data, a production-style pipeline transforming it, and a live BigQuery-connected Power BI dashboard on top — aimed at Data Analyst / Analytics Engineer / Data Engineer work, not just app development.
 
 <p align="center">
-  <img src="./screenshots/app-screenshot-1.png" width="24%" alt="Map page" />
-  <img src="./screenshots/app-screenshot-2.png" width="24%" alt="Log page" />
-  <img src="./screenshots/app-screenshot-3.png" width="24%" alt="Station page" />
-  <img src="./screenshots/app-screenshot-4.png" width="24%" alt="Achievements page" />
+  <img src="./screenshots/app-screenshot-1.PNG" width="24%" alt="Map page" />
+  <img src="./screenshots/app-screenshot-2.PNG" width="24%" alt="Log page" />
+  <img src="./screenshots/app-screenshot-3.PNG" width="24%" alt="Station page" />
+  <img src="./screenshots/app-screenshot-4.PNG" width="24%" alt="Achievements page" />
 </p>
 
 ## Live Dashboard
