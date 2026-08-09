@@ -1,4 +1,10 @@
-# SubwayQuest
+<!-- # SubwayQuest -->
+
+<p align="center">
+    <img src="./mobile/assets/images/icon.png" width="200" height="200" alt="Subway Quest logo"/>
+</p>
+
+<h1 align="center"><strong>Subway Quest</strong></h1>
 
 A mobile app that logs your NYC subway rides and turns exploring the system into something visible and a little game-like — check off stations as you ride them and complete achievements for exploring new lines and neighborhoods, with your own progress tracked right in the app's Profile tab. A public dashboard aggregates activity across every rider for a system-wide view of how the app's being used.
 
