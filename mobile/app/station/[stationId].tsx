@@ -2,9 +2,9 @@
 // reached from the Map tab's preview modal, a Line page's station list, and
 // eventually Search results — same pattern as line/[lineId].tsx. Never
 // nested under one tab's own stack; see status.md's router-rules note.)
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../contexts/DatabaseContext';
@@ -37,14 +37,39 @@ export default function StationScreen() {
     const transferRoutes = getOtherComplexRoutes(stationId);
     const complexId = getComplexId(stationId);
 
+    // station_detail_opened is "once per open" (see data-layer.md's product
+    // events table) -- mount-only, deliberately NOT in the focus-effect below,
+    // since navigating back to an already-mounted Station page (e.g. from
+    // Trip Detail after a delete) refocuses it without remounting it, and
+    // that isn't a new "open."
     useEffect(() => {
         (async () => {
-            setStatus(await getStationStatus(db, userId, stationId));
-            setVisits(await getStationVisitHistory(db, userId, stationId));
             const deviceId = await getOrCreateDeviceId();
             await writeProductEvent(db, 'station_detail_opened', { station_id: stationId }, { deviceId, userId });
         })();
     }, [db, userId, stationId]);
+
+    // Refetched on focus, not just mount -- deleting a trip on Trip Detail
+    // (reached from this page's visit history) needs to be reflected here on
+    // return, same reasoning as Profile's trip history/stats refetch.
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            (async () => {
+                const [stationStatus, visitHistory] = await Promise.all([
+                    getStationStatus(db, userId, stationId),
+                    getStationVisitHistory(db, userId, stationId),
+                ]);
+                if (!cancelled) {
+                    setStatus(stationStatus);
+                    setVisits(visitHistory);
+                }
+            })();
+            return () => {
+                cancelled = true;
+            };
+        }, [db, userId, stationId])
+    );
 
     function goToLine(routeId: string) {
         const target = normalizeRouteIdForIcon(routeId);

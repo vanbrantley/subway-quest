@@ -1039,6 +1039,20 @@
     },
     "source": "hand_authored"
   },
+  "s_tier": {
+    "title": "S Tier",
+    "description": "Ride all three shuttles.",
+    "mechanism": "lifetime_set",
+    "criteria": {
+      "type": "all_routes",
+      "routes": [
+        "FS",
+        "GS",
+        "H"
+      ]
+    },
+    "source": "hand_authored"
+  },
   "n_legger": {
     "title": "5-Legger",
     "description": "Log a single trip with at least {count} legs.",

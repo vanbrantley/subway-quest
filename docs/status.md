@@ -16,7 +16,7 @@ new session, not reconstructed from git history.
 | 5 | dbt mart | `dbt run`/`dbt test` green, hand-check one number | ✅ Done — full staging → intermediate → mart chain built and tested (stg_events; int_trips/int_committed_trips/int_legs/int_transfers/int_draft_sessions; nine mart models). Hand-checked real numbers in mart_global_summary and mart_growth_daily against known usage — sane. Pipeline's dbt step verified end-to-end in CI via pipeline.yml. One open thread carried forward, not blocking: shuttle grouping (S/FS/GS/H) — see "Mobile UI — remaining". |
 | 6 | Min-N enforced | Query as Power BI's service account, confirm suppression | ✅ Done — N=5, scoped to `mart_station_stats`, `mart_station_pairs`, `mart_line_stats` (the three marts that name actual stations/routes at small-group grain; reasoning in `docs/dashboard-spec.md`, full setup/testing runbook in `docs/bigquery-min-n.md`). Dedicated `powerbi-reader` GCP service account created, read-only, scoped to the `subwayquest_dbt_mart` dataset only. Verified via impersonated `bq` queries against synthetic seed data at N=3/4/5/9/20 — below-threshold segments absent, at/above-threshold unmodified, boundary correct at `>=5`, enforcement confirmed independent of client (direct `bq` calls, not through Power BI). |
 | 7 | Power BI live | Three pages, Publish to Web page-nav works | ✅ Done — all 4 pages built (Growth & Engagement, Product/Instrumentation, Exploration & Usage, Achievements), connected to `subwayquest_dbt_mart` via `powerbi-reader`, scheduled refresh live (4x/day, offset 30 min after each pipeline cron run), published and confirmed live on the public Publish to Web link. **Dashboard polish pass — done.** KPI styling, intro page, axis labels/tooltips, conditional subtitles for min-N suppressed charts, across all 4 pages. Sync-health chart (p50/p95 latency trend) also done — see "Dashboard" section below. |
-| 8 | Achievements — full app integration | Quest content resolved, progress logic wired into all 4 touchpoints (trip-complete delta, station page, profile page, challenge-detail page), dashboard mart built and suppressed | ✅ **Functionally complete.** Full detail, reasoning, and bug-fix history in `docs/milestone-8-achievements.md` (the primary reference for this milestone) and `docs/dbt-coverage.md` (schema reference). Content (18 hand-authored quests + auto-generated line-completion/branching-out families, 52 total), resolver + validator, mobile logic (`quests_logic.ts`, 32 tests) + full mobile UI, warehouse layer (4 new seeds, one intermediate model per mechanism, 2 marts, suppression verified via impersonated `bq`), and docs handoff (`mobile-quests-integration.md`, `data-layer.md`'s cut-list) — all done and verified. **Power BI achievements page visual polish — done** (was deliberately deferred, now complete as part of the full dashboard polish pass). One item still genuinely open, not forgotten: per_trip/counting mechanism on-device verification (only lifetime_set was explicitly confirmed) — see "Achievements / quests" section below. `StationQuestsList`/`ProfileQuestsSummary` components mounted for real in milestone 9. |
+| 8 | Achievements — full app integration | Quest content resolved, progress logic wired into all 4 touchpoints (trip-complete delta, station page, profile page, challenge-detail page), dashboard mart built and suppressed | ✅ **Functionally complete.** Full detail, reasoning, and bug-fix history in `docs/milestone-8-achievements.md` (the primary reference for this milestone) and `docs/dbt-coverage.md` (schema reference). Content (18 hand-authored quests + auto-generated line-completion/branching-out families, 53 total), resolver + validator, mobile logic (`quests_logic.ts`, 32 tests) + full mobile UI, warehouse layer (4 new seeds, one intermediate model per mechanism, 2 marts, suppression verified via impersonated `bq`), and docs handoff (`mobile-quests-integration.md`, `data-layer.md`'s cut-list) — all done and verified. **Power BI achievements page visual polish — done** (was deliberately deferred, now complete as part of the full dashboard polish pass). One item still genuinely open, not forgotten: per_trip/counting mechanism on-device verification (only lifetime_set was explicitly confirmed) — see "Achievements / quests" section below. `StationQuestsList`/`ProfileQuestsSummary` components mounted for real in milestone 9. |
 | 9 | Remaining plain UI pages | Station drill-down, branch-aware picker, profile dashboard (now scoped down — quest UI is milestone 8's job, not this one) | ✅ **Done, on-device verified.** Map tab, canonical Station page, canonical Line page (branch-aware), and Profile mini-dashboard all built and verified; `StationQuestsList`/`ProfileQuestsSummary` mounted per `docs/mobile-quests-integration.md`; saved-stations feature (new event types, `saved_stations` table, versioned local migration, rehydration folding) built end-to-end. The Supabase `ALTER TABLE` migration ran successfully (confirmed live via `pg_get_constraintdef`); the local schema migration bug it surfaced (see `db/` file-by-file below) was fixed same-day via migration 3 and confirmed working on-device on re-test. Search tab (out of milestone 9's original scope, done as a follow-on pass) also complete — see "Mobile app — file-by-file" below. |
 | 10 | Release readiness | App Store Connect, privacy policy, testers | Apple Developer membership ✅; rest ⬜ |
 | 11 | Portfolio narrative | README, case study | 🔄 GitHub README done (with screenshots) and live on the repo. Case study / longer write-up — ⬜ not started. |
@@ -499,37 +499,60 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
 
 ## Mobile UI — remaining
 
-- [ ] **Shuttle grouping (S) — three real, separately countable routes under one shared icon.**
-      Currently a real bug, not just a gap: `S` in `LINE_ICONS`/`LINE_COLORS` matches no real GTFS
-      route_id (only `FS`/`GS`/`H` — Franklin Ave, 42nd St, and Rockaway Park shuttles — actually
-      exist), so no shuttle is currently selectable anywhere in the trip-logging flow.
-      **Design, decided:**
-      - Tapping the `S` icon shows a combined stop list across all three shuttles for the initial
-        entry pick; once a real entry station is chosen, resolve which of the three routes it
-        belongs to, then exit/transfer logic operates on that real route_id — same pattern
-        `branchesForRoute()`/`getValidExitStations()` already use for branch filtering within one
-        route, applied here across three routes sharing one icon.
-      - Store the real `route_id` (`FS`/`GS`/`H`) in every event, never a normalized `'S'` —
-        matches this project's standing "never destroy non-derivable information" principle (same
-        reasoning behind `leg_boarded` gaining `sequence`). `S` stays a pure display grouping,
-        applied downstream, never written to data.
-      - **Deliberate:** counting the three shuttles as three separately-completable lines (not one
-        merged "S" credit) is the right incentive for encouraging exploration of all three — someone
-        riding just the easiest one shouldn't get full credit for "the S line." A "S Tier" quest for
-        this already exists in `network/quests_source.json` (`s_tier`), explicitly gated with a
-        `blocked: true` flag — the underlying route data is already real, it's specifically this
-        UI gap keeping it from being completable. **Flip `blocked` once this ships — part of this
-        same item, not a separate follow-up.**
-      - **Resolved:** the dashboard's "Top lines" chart shows all three shuttles as individual bars —
-        `mart_line_stats` is one row per real `route_id`, no combined "S ridership" rollup added. Also
-        now the same reasoning applies here as the min-N decision below: a shuttle row at low N is a
-        real disclosure risk, one grain coarser than a station — see milestone 6.
-      - **Resolved, milestone 9:** the canonical Line page doesn't need its own special-case thinking
-        for this after all — `isNavigableRoute()` (`routeId in ROUTE_STOPS`) already keeps a bare `S`
-        icon from being wired up as tappable anywhere (Map preview, Station page), since `route_stops.json`
-        has no `'S'` key at all (only `FS`/`GS`/`H`, which have no icon/color entries yet either — this
-        item's actual scope, unchanged). Nothing new needed here; the Line page itself is simply
-        unreachable for `S` until this item ships, exactly as intended.
+- [x] **Shuttle grouping (S) — three real, separately countable routes under one shared icon.**
+      Tapping `S` shows a combined FS/GS/H stop list for the entry pick (`branchesForRoute('S')`
+      in `subwayData.ts` returns the union of all three shuttles' branches — one change that makes
+      `getStationIdsForRoute`/`getValidExitStations` work for free, no changes needed there); once
+      a real entry station is picked, `resolveShuttleRouteId()` determines which of the three it
+      belongs to. Three resolution points needed it: `selectEntry` (leg 0), `selectLine`'s
+      `legIndex > 0` branch (re-editing a transfer leg's line chip), and `selectTransfer` (a new
+      transfer leg) — all in `log-trip.tsx`. The real `route_id` (`FS`/`GS`/`H`) is what gets
+      committed to every leg/event, never `'S'` itself — matches "never destroy non-derivable
+      information." `FS`/`GS`/`H` reuse `S`'s icon/color (`lineIcons.tsx`/`lineColors.ts`) — no new
+      assets, matching "S stays a pure display grouping" and MTA's own signage (which doesn't
+      visually distinguish the three either). Shuttles count as three separately-completable lines,
+      not one merged credit, as designed. `s_tier`'s `blocked` flag removed from
+      `network/quests_source.json` as part of this same change — `network/processed/quests.json`
+      now resolves 53 quests (was 52), `s_tier` present with `{FS, GS, H}` criteria, validator
+      passing. On-device verification (all three shuttles ride correctly, transfer-into and
+      re-edit-transfer-line paths, `s_tier` progress) still to be done for real usage, not just
+      TypeScript/validator checks.
+      **Follow-up, same day:** the bare `S` icon (shown on a station's own platform list, the map
+      preview, and Search's line grid — anywhere before a specific shuttle has been resolved) was
+      found inconsistently navigable: `isNavigableRoute('S')` was `false` everywhere (correct
+      pre-shuttle-work, when `S` genuinely led nowhere), so Station/Map's `isNavigableRoute`-gated
+      icons correctly stayed inert — except Search's grid, which pushes `/line/${routeId}`
+      unconditionally with no gate, so `S` was tappable there by omission, landing on `/line/S`
+      where `getLineStationLayout`'s generic trunk/tail split (now running against
+      `branchesForRoute('S')`'s FS/GS/H union) happened to produce three plausible-looking groups,
+      but labeled by station termini, not by which real shuttle each one was. **Decided:** made
+      this consistent and deliberate rather than accidental-only-via-Search. `isNavigableRoute()`
+      now special-cases `'S'` as navigable; `subwayData.ts` gained `getShuttleGroups()` (three
+      groups, one per real shuttle, each labeled by name — "Franklin Ave Shuttle"/"42 St
+      Shuttle"/"Rockaway Park Shuttle" — using `getStationIdsForRoute()` for real stops, not
+      `getLineStationLayout`'s termini-based labels, since `S` isn't a geographic branch-fork, it's
+      three unrelated routes sharing one icon); `line/[lineId].tsx` special-cases `lineId === 'S'`
+      to build its `layout` from `getShuttleGroups()` instead of `getLineStationLayout`, reusing
+      every other bit of that page's rendering/progress-bar logic unchanged. A committed trip leg's
+      icon still navigates to that leg's own specific shuttle page (`FS`/`GS`/`H`, e.g. "2 of 4"),
+      unaffected and unchanged — the combined `/line/S` page is specifically the pre-resolution
+      overview, reached from anywhere the generic `S` grouping icon is shown.
+      **Second follow-up, same day:** each of the three group headers on the combined `S` page
+      ("Franklin Ave Shuttle" etc.) is now itself tappable, drilling into that specific shuttle's
+      own page — same "everything drills into its own page" model used everywhere else.
+      `LineStationGroup` gained an optional `routeId?: string` (set only by `getShuttleGroups()`;
+      `getLineStationLayout()`'s real geographic branch tails never set it, since a branch tail
+      isn't itself a separately-navigable line). `line/[lineId].tsx`'s `GroupSection` renders a
+      tappable header (with a chevron) only when `group.routeId` is present, so every other line's
+      branch-tail rendering is unaffected — the behavior is driven entirely by the data, not a
+      lineId-based special case at the call site.
+      **Warehouse gap caught and closed:** the `s_tier` unblock only regenerated
+      `network/processed/quests.json` at the time; `dbt/seeds/quest_definitions.csv` (built by
+      `network/scripts/build_quest_seed.py`, the actual last step before `dbt seed`) was left stale
+      and missing `s_tier` until caught in conversation and regenerated — now 53 rows, `s_tier`
+      present with its `{FS, GS, H}` criteria. `dbt seed` needs a real run to pick this up in
+      BigQuery; not yet done (no `dbt` CLI in this environment — see the deletion-metric note above
+      for the same limitation).
 - [x] Station tap → station info drill-down — `app/station/[stationId].tsx`, milestone 9. Mounts
       `StationQuestsList` per `docs/mobile-quests-integration.md`. Shows lines as two groups
       ("This platform" / "Transfer here" — see `ui-spec.md`'s Canonical Station page section), visit
@@ -556,11 +579,26 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
 - [ ] Compact date picker requires tapping outside to confirm — no Done button, no auto-close on
       selection. Confirmed real iOS/library limitation (two open, unresolved upstream issues), not
       fixable with a different prop. Revisit only if still a real friction point once used for real.
-- [ ] **Delete-trip UI affordance** — `deleteTrip()` in `projection.ts` exists and is unit-tested, but
-      no screen currently exposes it (not on Trip Detail, not in Profile's trip history). Backend-ready,
-      not user-reachable yet. See also "% of trips deleted" under Dashboard below — the metric this
-      feature would actually generate data for is itself unbuilt, worth doing as one piece of work
-      rather than two separate ones.
+- [x] **Delete-trip UI affordance** — Trip Detail (`app/trip.tsx`) now has a trash icon in the header
+      (mirroring the close button's position/size), gated behind a two-button confirm
+      (`Alert.alert`, "Delete this trip? / This can't be undone.") — the app's first two-button
+      alert; the only prior precedent was a single-button error alert. On confirm, writes
+      `trip_deleted` via the existing `deleteTrip()` (now covered by a new unit test,
+      `mobile/db/projection_tests.py` — the previous gap: it had no test of its own, only indirect
+      coverage via `rehydrate_tests.ts`'s replay path and `schema-tests.py`'s CHECK validation) and
+      navigates back via the screen's existing `router.back()` idiom. Deliberately **not** added as
+      a second surface on Profile's `TripHistoryRow` — that component is a single full-row
+      `Pressable` with no secondary tap target, shared with the Station page's visit history;
+      squeezing in inline delete there wasn't the easy win the brief allowed for. **Real gap found
+      while wiring this up, fixed as part of the same change:** `station/[stationId].tsx` fetched
+      its visit-history data on mount only, unlike Profile's `useFocusEffect`-based refetch — since
+      Trip Detail (and now delete) is also reachable from a station's visit history, deleting a
+      trip that way and tapping back would have left a stale, already-deleted trip listed. Split
+      into two effects: `station_detail_opened` stays a plain mount-only `useEffect` (it's "once per
+      open" per `data-layer.md`, and refocusing an already-mounted screen isn't a new open), while
+      `getStationStatus`/`getStationVisitHistory` moved to a `useFocusEffect`, matching Profile's
+      established pattern exactly. See also "% of trips deleted" under Dashboard below, which this
+      unblocks.
 - [x] **UI polish pass, round 1** — a concrete, scoped set of six fixes rather than open-ended feel:
       pure-white app background (centralized via `Stack`'s `contentStyle`/`Tabs`' `sceneStyle`, not
       per-screen); shared `ProgressBar` component replacing 9 plain-text "N of M" displays app-wide;
@@ -664,14 +702,24 @@ runs dbt (seed/run/test) immediately after — see data-layer.md.
       `docs/bigquery-min-n.md`. `mart_quest_completion_histogram` and 3 new `mart_global_summary`
       columns (milestone 8) are exempt — magnitudes/headcounts, same category as the existing
       exempt histograms and total-signups metrics, no location content.
-- [ ] **"% of trips deleted after being logged" — designed, not built.** `data-layer.md`'s "Deleted
-      trips at the dbt layer" section documents exactly how this should work (reads staged events
-      directly, or a small dedicated intermediate model, specifically because it's the one metric
-      that *wants* to see `trip_deleted` rows rather than exclude them like every other mart does) —
-      but no dbt model, mart column, or dashboard visual for it actually exists yet as of this doc's
-      last update. Natural pairing with the delete-trip UI affordance above — right now there'd be
-      close to zero real deletion data to show even if this were built, since the feature that
-      generates it isn't user-reachable yet.
+- [x] **"% of trips deleted after being logged" — already built, verified by inspection.** Turns out
+      this was built during an earlier pass and the doc had gone stale: `int_committed_trips.sql`
+      (deletion-inclusive trip reconstruction, exists specifically as this metric's denominator),
+      `mart_global_summary.sql`'s `deletion_rate` CTE → `pct_trips_deleted` column, and three tests
+      (`assert_deleted_trips_excluded_from_int_trips.sql`, the inverse
+      `assert_deleted_trips_present_in_int_committed_trips.sql`, and a range check in
+      `assert_global_summary_rates_valid.sql`) all exist and match `data-layer.md`'s design exactly.
+      Confirmed correct by direct reading — `dbt` isn't installed in this environment (no CLI, only
+      a `~/.dbt/profiles.yml`), so `dbt build`/`dbt test` haven't been run live against this change;
+      worth a real run once BigQuery access is available. Real trip-deletion data will start flowing
+      now that the UI above ships. **The KPI card for this already exists on the Power BI dashboard**
+      (confirmed by Van — correcting this doc's earlier assumption that no visual existed) — nothing
+      further needed there; it'll start showing real data once the pipeline (EL job, then `dbt run`)
+      picks up a real `trip_deleted` event and Power BI refreshes. Testing note: `dbt run` alone
+      won't see a new deletion — it only transforms what's already landed in BigQuery's raw dataset;
+      the Python EL job (`el/sync_to_bigquery.py`) has to pull the event from Supabase first. Easiest
+      one-shot test: manually trigger `pipeline.yml` via `workflow_dispatch` (runs the EL job and the
+      full `dbt seed`/`run`/`test` chain back to back), then refresh Power BI.
 
 **Dev/test data exclusion (decided, not yet implemented):** Dev/testing happens signed in with the
 same Apple ID that'll be used for real post-launch — so `user_id` can't separate test rows from real
@@ -698,8 +746,10 @@ a filter like this.
 - [x] **Achievements page visual polish — done.** Along with the rest of the full dashboard polish
       pass: KPI styling, intro page, axis labels/tooltips, conditional subtitles for min-N suppressed
       charts, across all 4 pages.
-- [ ] **"% of trips deleted" visual** — depends on the mart/metric above existing first; see Python
-      EL job / BigQuery / dbt section.
+- [x] **"% of trips deleted" visual** — KPI card already exists on the dashboard (confirmed by Van);
+      the mart/metric it reads (`mart_global_summary.pct_trips_deleted`) is confirmed built too (see
+      Python EL job / BigQuery / dbt section). Will show real data once the pipeline runs against a
+      real deletion and Power BI refreshes — see that section's testing note.
 - **Note on authoring environment:** Power BI Desktop has no native Mac version (confirmed current,
   not a legacy gap). Resolved for this project — author on the Windows Dell already owned for
   Windows-only analysis tools; develop/EL job work continues on Mac as before. No VM/Parallels setup
@@ -722,8 +772,8 @@ reference for every new seed/model). Summary:
 
 - [x] Content: 18 hand-authored quests (`network/quests_source.json`) across the three mechanisms
       (lifetime set-membership, per-trip property check, lifetime counting), plus auto-generated
-      line-completion/branching-out families — 52 quests total (53 once shuttle grouping ships and
-      `s_tier` is unblocked)
+      line-completion/branching-out families — 53 quests total (`s_tier` unblocked once shuttle
+      grouping shipped, see "Mobile UI — remaining")
 - [x] Resolver (`network/scripts/build_quests.py`) + validator (`network/scripts/validate_quests.py`)
       — both real, tested tools; caught and fixed a dozen-plus genuine bugs during development, full
       list in the milestone doc (the biggest: line-completion criteria were originally

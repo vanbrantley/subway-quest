@@ -163,7 +163,6 @@
         "title": "S Tier",
         "description": "Ride all three shuttles.",
         "mechanism": "lifetime_set",
-        "blocked": true,
         "criteria": {
             "type": "all_routes",
             "routes": [

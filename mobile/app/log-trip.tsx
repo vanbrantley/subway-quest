@@ -23,6 +23,7 @@ import {
     getTransferRoutes,
     getComplexId,
     getEntryStopForTransfer,
+    resolveShuttleRouteId,
 } from '../lib/subwayData';
 import type { DraftLeg, ActiveField } from '../components/trip-logging/types';
 
@@ -105,13 +106,22 @@ export default function LogTripModal() {
         }
 
         const entryStopId = getTransferEntryStop(legs[legIndex - 1], routeId);
-        commitLeg(legIndex, { routeId, entryStationId: entryStopId, exitStationId: null });
+        // Resolve a shuttle transfer to its real route_id immediately — this
+        // covers re-editing an already-picked transfer leg's line chip, a
+        // second resolution point distinct from selectTransfer below.
+        const resolvedRouteId = routeId === 'S' && entryStopId ? resolveShuttleRouteId(entryStopId) ?? routeId : routeId;
+        commitLeg(legIndex, { routeId: resolvedRouteId, entryStationId: entryStopId, exitStationId: null });
         setActive({ step: 'exit', legIndex });
     }
 
     function selectEntry(stopId: string) {
         const legIndex = active.legIndex;
-        commitLeg(legIndex, { ...legs[legIndex], entryStationId: stopId, exitStationId: null });
+        const leg = legs[legIndex];
+        // Leg 0's line grid stores 'S' transiently until a real entry station
+        // is picked — resolve to the real FS/GS/H here, before it's ever
+        // committed for real. 'S' itself must never reach a leg.
+        const routeId = leg.routeId === 'S' ? resolveShuttleRouteId(stopId) ?? leg.routeId : leg.routeId;
+        commitLeg(legIndex, { ...leg, routeId, entryStationId: stopId, exitStationId: null });
         setActive({ step: 'exit', legIndex });
     }
 
@@ -125,8 +135,11 @@ export default function LogTripModal() {
     function selectTransfer(routeId: string) {
         const finishedLeg = legs[active.legIndex];
         const entryStopId = getTransferEntryStop(finishedLeg, routeId);
+        // Same shuttle resolution as selectEntry/selectLine — a brand-new
+        // transfer leg onto 'S' must also commit the real FS/GS/H.
+        const resolvedRouteId = routeId === 'S' && entryStopId ? resolveShuttleRouteId(entryStopId) ?? routeId : routeId;
         const nextLegIndex = active.legIndex + 1;
-        commitLeg(nextLegIndex, { routeId, entryStationId: entryStopId, exitStationId: null });
+        commitLeg(nextLegIndex, { routeId: resolvedRouteId, entryStationId: entryStopId, exitStationId: null });
         setActive({ step: 'exit', legIndex: nextLegIndex });
     }
 

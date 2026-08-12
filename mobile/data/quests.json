@@ -8,7 +8,8 @@
       "stations": [
         222
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "the_middle": {
     "title": "The Middle",
@@ -19,7 +20,8 @@
       "stations": [
         108
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "park_fence": {
     "title": "Park Fence",
@@ -35,7 +37,8 @@
         159,
         160
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "beachy": {
     "title": "Beachy",
@@ -58,7 +61,8 @@
         208
       ],
       "count": 6
-    }
+    },
+    "source": "hand_authored"
   },
   "same_name_explorer": {
     "title": "D\u00e9j\u00e0 Vu",
@@ -316,7 +320,8 @@
           445
         ]
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "borough_completionist": {
     "title": "Five Boroughs",
@@ -781,7 +786,8 @@
           523
         ]
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "manhattan_neighborhoods": {
     "title": "Neighborhood Native",
@@ -962,7 +968,8 @@
           167
         ]
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "crossroads": {
     "title": "Crossroads of the World",
@@ -1020,7 +1027,8 @@
           "route": "GS"
         }
       ]
-    }
+    },
+    "source": "hand_authored"
   },
   "all_lines_rider": {
     "title": "Every Line",
@@ -1028,7 +1036,22 @@
     "mechanism": "lifetime_set",
     "criteria": {
       "type": "all_routes"
-    }
+    },
+    "source": "hand_authored"
+  },
+  "s_tier": {
+    "title": "S Tier",
+    "description": "Ride all three shuttles.",
+    "mechanism": "lifetime_set",
+    "criteria": {
+      "type": "all_routes",
+      "routes": [
+        "FS",
+        "GS",
+        "H"
+      ]
+    },
+    "source": "hand_authored"
   },
   "n_legger": {
     "title": "5-Legger",
@@ -1037,7 +1060,8 @@
     "criteria": {
       "type": "leg_count_min",
       "count": 5
-    }
+    },
+    "source": "hand_authored"
   },
   "im_not_leaving": {
     "title": "I'm Not Leaving!!",
@@ -1046,7 +1070,8 @@
     "criteria": {
       "type": "full_line_ride",
       "route": "any"
-    }
+    },
+    "source": "hand_authored"
   },
   "wordsmith": {
     "title": "Wordsmith",
@@ -1055,7 +1080,8 @@
     "criteria": {
       "type": "route_letters_spell_word",
       "word": "JAM"
-    }
+    },
+    "source": "hand_authored"
   },
   "top_to_bottom": {
     "title": "Top to Bottom",
@@ -1065,7 +1091,8 @@
       "type": "geographic_endpoints",
       "start": 297,
       "end": 635
-    }
+    },
+    "source": "hand_authored"
   },
   "bottom_to_top": {
     "title": "Bottom to Top",
@@ -1075,7 +1102,8 @@
       "type": "geographic_endpoints",
       "start": 635,
       "end": 297
-    }
+    },
+    "source": "hand_authored"
   },
   "side_to_side": {
     "title": "Side to Side",
@@ -1085,7 +1113,8 @@
       "type": "geographic_endpoints",
       "start": 306,
       "end": 392
-    }
+    },
+    "source": "hand_authored"
   },
   "line_loyalist": {
     "title": "Line Loyalist",
@@ -1095,7 +1124,8 @@
       "type": "ride_count_route",
       "route": "any",
       "count": 10
-    }
+    },
+    "source": "hand_authored"
   },
   "transfer_master": {
     "title": "Transfer Master",
@@ -1104,12 +1134,14 @@
     "criteria": {
       "type": "transfer_count",
       "count": 20
-    }
+    },
+    "source": "hand_authored"
   },
   "line_completion_1": {
     "title": "1 Completionist",
     "description": "Visit every station on the 1 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -1272,6 +1304,7 @@
     "title": "2 Completionist",
     "description": "Visit every station on the 2 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -1566,6 +1599,7 @@
     "title": "3 Completionist",
     "description": "Visit every station on the 3 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -1712,6 +1746,7 @@
     "title": "4 Completionist",
     "description": "Visit every station on the 4 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -1938,6 +1973,7 @@
     "title": "5 Completionist",
     "description": "Visit every station on the 5 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2168,6 +2204,7 @@
     "title": "6 Completionist",
     "description": "Visit every station on the 6 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2330,6 +2367,7 @@
     "title": "6X Completionist",
     "description": "Visit every station on the 6X line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2456,6 +2494,7 @@
     "title": "7 Completionist",
     "description": "Visit every station on the 7 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2546,6 +2585,7 @@
     "title": "7X Completionist",
     "description": "Visit every station on the 7X line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2616,6 +2656,7 @@
     "title": "A Completionist",
     "description": "Visit every station on the A line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -2890,6 +2931,7 @@
     "title": "B Completionist",
     "description": "Visit every station on the B line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3048,6 +3090,7 @@
     "title": "C Completionist",
     "description": "Visit every station on the C line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3218,6 +3261,7 @@
     "title": "D Completionist",
     "description": "Visit every station on the D line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3392,6 +3436,7 @@
     "title": "E Completionist",
     "description": "Visit every station on the E line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3546,6 +3591,7 @@
     "title": "F Completionist",
     "description": "Visit every station on the F line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3792,6 +3838,7 @@
     "title": "FS Completionist",
     "description": "Visit every station on the FS line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3818,6 +3865,7 @@
     "title": "FX Completionist",
     "description": "Visit every station on the FX line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -3984,6 +4032,7 @@
     "title": "G Completionist",
     "description": "Visit every station on the G line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4078,6 +4127,7 @@
     "title": "GS Completionist",
     "description": "Visit every station on the GS line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4096,6 +4146,7 @@
     "title": "H Completionist",
     "description": "Visit every station on the H line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4142,6 +4193,7 @@
     "title": "J Completionist",
     "description": "Visit every station on the J line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4272,6 +4324,7 @@
     "title": "L Completionist",
     "description": "Visit every station on the L line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4378,6 +4431,7 @@
     "title": "M Completionist",
     "description": "Visit every station on the M line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4532,6 +4586,7 @@
     "title": "N Completionist",
     "description": "Visit every station on the N line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4738,6 +4793,7 @@
     "title": "Q Completionist",
     "description": "Visit every station on the Q line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -4884,6 +4940,7 @@
     "title": "R Completionist",
     "description": "Visit every station on the R line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -5090,6 +5147,7 @@
     "title": "SI Completionist",
     "description": "Visit every station on the SI line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -5184,6 +5242,7 @@
     "title": "W Completionist",
     "description": "Visit every station on the W line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -5370,6 +5429,7 @@
     "title": "Z Completionist",
     "description": "Visit every station on the Z line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_station_route_pairs",
       "pairs": [
@@ -5464,6 +5524,7 @@
     "title": "2 Branching Out",
     "description": "Visit a station on every branch of the 2 line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [
@@ -5507,6 +5568,7 @@
     "title": "A Branching Out",
     "description": "Visit a station on every branch of the A line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [
@@ -5536,6 +5598,7 @@
     "title": "E Branching Out",
     "description": "Visit a station on every branch of the E line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [
@@ -5567,6 +5630,7 @@
     "title": "F Branching Out",
     "description": "Visit a station on every branch of the F line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [
@@ -5599,6 +5663,7 @@
     "title": "N Branching Out",
     "description": "Visit a station on every branch of the N line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [
@@ -5624,6 +5689,7 @@
     "title": "R Branching Out",
     "description": "Visit a station on every branch of the R line.",
     "mechanism": "lifetime_set",
+    "source": "auto_generated",
     "criteria": {
       "type": "all_groups",
       "groups": [

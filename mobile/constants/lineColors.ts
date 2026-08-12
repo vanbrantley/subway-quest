@@ -28,6 +28,10 @@ export const LINE_COLORS: Record<string, { bg: string; text: string }> = {
     W: { bg: '#FCCC0A', text: '#000' },
     S: { bg: '#808183', text: '#fff' },
     SI: { bg: '#0039A6', text: '#fff' },
+    // Same gray as S — see lineIcons.tsx's matching comment.
+    FS: { bg: '#808183', text: '#fff' },
+    GS: { bg: '#808183', text: '#fff' },
+    H: { bg: '#808183', text: '#fff' },
 };
 
 // Standard MTA display order: numbers first, then shuttles, then letters.

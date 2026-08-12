@@ -15,7 +15,7 @@ import { LINE_COLORS } from '../../constants/lineColors';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
-import { getLineStationLayout, getStationName, getOtherComplexRoutes, type LineStationGroup } from '../../lib/subwayData';
+import { getLineStationLayout, getShuttleGroups, getStationName, getOtherComplexRoutes, type LineStationGroup } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 
 function LineIcon({ routeId, size }: { routeId: string; size: number }) {
@@ -53,10 +53,27 @@ function StationRow({ stopId, visited, onPress }: { stopId: string; visited: boo
     );
 }
 
-function GroupSection({ group, statuses, onPressStation }: { group: LineStationGroup; statuses: Record<string, StationStatus>; onPressStation: (stopId: string) => void }) {
+function GroupSection({
+    group, statuses, onPressStation, onPressGroup,
+}: {
+    group: LineStationGroup;
+    statuses: Record<string, StationStatus>;
+    onPressStation: (stopId: string) => void;
+    onPressGroup: (routeId: string) => void;
+}) {
     return (
         <View style={styles.group}>
-            <Text style={styles.groupLabel}>{group.label}</Text>
+            {group.routeId ? (
+                // Only a group that's itself a separately-navigable line (the S
+                // overview page's shuttle groups) gets a tappable header — a
+                // real branch tail's label stays plain text, same as today.
+                <Pressable style={styles.groupLabelRow} onPress={() => onPressGroup(group.routeId!)}>
+                    <Text style={styles.groupLabel}>{group.label}</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#888" />
+                </Pressable>
+            ) : (
+                <Text style={[styles.groupLabel, styles.groupLabelSpacing]}>{group.label}</Text>
+            )}
             {group.stops.map((stopId) => (
                 <StationRow key={stopId} stopId={stopId} visited={statuses[stopId]?.visited ?? false} onPress={() => onPressStation(stopId)} />
             ))}
@@ -71,7 +88,19 @@ export default function LineScreen() {
     const insets = useSafeAreaInsets();
     const [statuses, setStatuses] = useState<Record<string, StationStatus> | null>(null);
 
-    const layout = useMemo(() => getLineStationLayout(lineId), [lineId]);
+    // 'S' isn't a branching route with a shared trunk -- it's three separate,
+    // unrelated shuttles sharing one display icon. getLineStationLayout's
+    // generic trunk/tail split (built for real geographic forks) would still
+    // technically run against it via branchesForRoute's FS/GS/H union, but
+    // its termini-based labels don't say which real shuttle each group is --
+    // getShuttleGroups() gives each its own real name instead, reusing the
+    // exact same { trunk, tails } shape so nothing else on this page changes.
+    const layout = useMemo(
+        () => (lineId === 'S'
+            ? { trunk: [], tails: getShuttleGroups() }
+            : getLineStationLayout(lineId)),
+        [lineId]
+    );
     const totalStations = useMemo(
         () => layout.trunk.length + layout.tails.reduce((sum, t) => sum + t.stops.length, 0),
         [layout]
@@ -97,6 +126,10 @@ export default function LineScreen() {
         router.push(`/station/${stopId}`);
     }
 
+    function goToShuttleLine(routeId: string) {
+        router.push(`/line/${routeId}`);
+    }
+
     return (
         <View style={styles.container}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -117,7 +150,7 @@ export default function LineScreen() {
 
                     {layout.trunk.length > 0 && (
                         <View style={styles.group}>
-                            <Text style={styles.groupLabel}>Trunk</Text>
+                            <Text style={[styles.groupLabel, styles.groupLabelSpacing]}>Trunk</Text>
                             {layout.trunk.map((stopId) => (
                                 <StationRow key={stopId} stopId={stopId} visited={statuses[stopId]?.visited ?? false} onPress={() => goToStation(stopId)} />
                             ))}
@@ -125,7 +158,7 @@ export default function LineScreen() {
                     )}
 
                     {layout.tails.map((tail, i) => (
-                        <GroupSection key={i} group={tail} statuses={statuses} onPressStation={goToStation} />
+                        <GroupSection key={i} group={tail} statuses={statuses} onPressStation={goToStation} onPressGroup={goToShuttleLine} />
                     ))}
                 </ScrollView>
             )}
@@ -141,7 +174,9 @@ const styles = StyleSheet.create({
     lineHeading: { alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 16 },
     lineNameHeading: { fontSize: 24, fontWeight: '700' },
     group: { marginTop: 16, marginBottom: 16 },
-    groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 },
+    groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 },
+    groupLabelSpacing: { marginBottom: 4 },
+    groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     rowText: { flex: 1, fontSize: 15, color: '#222' },
     transferIcons: { flexDirection: 'row', gap: 4 },

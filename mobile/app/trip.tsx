@@ -1,6 +1,6 @@
 // mobile/app/trip.tsx
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,8 @@ import { useDb } from '../contexts/DatabaseContext';
 import { useUserId } from '../contexts/AuthContext';
 import { getStationName, isNavigableRoute, normalizeRouteIdForIcon } from '../lib/subwayData';
 import { computeTripQuestProgress, type QuestTripProgress } from '../db/quests';
+import { deleteTrip } from '../db/projection';
+import { getOrCreateDeviceId } from '../lib/device';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { RouteIcon } from '../components/ui/RouteIcon';
 
@@ -68,6 +70,23 @@ export default function TripDetailScreen() {
         router.push(`/line/${target}`);
     }
 
+    function confirmDelete() {
+        Alert.alert(
+            'Delete this trip?',
+            "This can't be undone.",
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: performDelete },
+            ]
+        );
+    }
+
+    async function performDelete() {
+        const deviceId = await getOrCreateDeviceId();
+        await deleteTrip(db, tripId, { deviceId, userId });
+        router.back();
+    }
+
     if (loading) return <View style={styles.centered}><ActivityIndicator /></View>;
     if (!trip) return <View style={styles.centered}><Text style={styles.label}>Trip not found.</Text></View>;
 
@@ -78,7 +97,9 @@ export default function TripDetailScreen() {
                     <Ionicons name="close" size={28} color="#111" />
                 </Pressable>
                 <Text style={styles.title}>Trip Summary</Text>
-                <View style={{ width: 28 }} />
+                <Pressable onPress={confirmDelete} accessibilityLabel="Delete trip">
+                    <Ionicons name="trash-outline" size={24} color="#111" />
+                </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.routeRow}>

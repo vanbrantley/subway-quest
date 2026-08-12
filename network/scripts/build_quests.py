@@ -85,10 +85,9 @@ def dedupe_by_complex(stations):
 
 def real_routes(route_stops):
     """Every real, displayable route_id -- the keys of route_stops.json.
-    NOTE: currently includes the placeholder 'S' route_id, not the real
-    FS/GS/H shuttle routes -- shuttle grouping hasn't shipped yet (see
-    status.md). Quests depending on the real shuttle split (s_tier) stay
-    blocked until that ships; this function just reflects today's data."""
+    Includes the real FS/GS/H shuttle routes (no bare 'S' key exists here --
+    'S' is a pure mobile-app display grouping, never a route_stops.json key
+    or a written route_id, see mobile/lib/subwayData.ts)."""
     return sorted(route_stops.keys())
 
 

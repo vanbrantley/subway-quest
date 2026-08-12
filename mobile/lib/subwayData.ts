@@ -50,16 +50,28 @@ const ROUTE_STOPS = routeStops as unknown as RouteStops;
 const STATIONS = stations as unknown as Stations;
 const TRANSFERS = transfers as unknown as Transfers;
 
+// The three real, separately-completable shuttle routes 'S' groups for display.
+// route_stops.json has no 'S' key at all — only these three real route_ids.
+// Never write 'S' itself to a leg/event; it's a pure display grouping, resolved
+// to one of these the moment a real entry station is picked (see log-trip.tsx).
+const SHUTTLE_ROUTE_IDS = ['FS', 'GS', 'H'];
+
 // Every route with either a custom icon or a color fallback — this is the single
 // definition of "a route we actually show anywhere in the logging flow," shared
 // by the line grid and transfer suggestions so they can never disagree about
-// which GTFS route codes (6X, GS, etc.) are real, rider-facing lines.
-const DISPLAYABLE_ROUTES = new Set(
-    Object.keys(routeStops).filter((id) => id in LINE_ICONS || id in LINE_COLORS)
-);
+// which GTFS route codes (6X, GS, etc.) are real, rider-facing lines. 'S' is
+// added explicitly — it's a synthetic grouping id, never a route_stops.json key,
+// so the filter below can't discover it on its own.
+const DISPLAYABLE_ROUTES = new Set([
+    ...Object.keys(routeStops).filter((id) => id in LINE_ICONS || id in LINE_COLORS),
+    'S',
+]);
 
+// The line grid shows one 'S' tile, not three — the raw shuttle route_ids are
+// real for resolution/rendering purposes (DISPLAYABLE_ROUTES, LINE_ICONS) but
+// never tap targets of their own.
 export function getDisplayableRoutes(): string[] {
-    return sortRouteIds([...DISPLAYABLE_ROUTES]);
+    return sortRouteIds([...DISPLAYABLE_ROUTES].filter((id) => !SHUTTLE_ROUTE_IDS.includes(id)));
 }
 
 export function getStationName(stopId: string): string {
@@ -129,17 +141,54 @@ export function normalizeRouteIdForIcon(routeId: string): string {
 }
 
 // Whether a route_id has real branch/station data behind it — i.e. whether
-// pushing the Line page for it would actually show something. Bare 'S'
-// (generic shuttle grouping) fails this; 'SI' (after normalizing 'SIR')
-// passes. Deliberately NOT fixing the underlying shuttle-grouping gap (see
-// status.md) — this just keeps a non-navigable route's icon from being
-// wired up as tappable, rather than pushing a broken/empty Line page.
+// pushing the Line page for it would actually show something. 'S' is a
+// special case: it's not a route_stops.json key (never will be — it's a
+// pure display grouping, see SHUTTLE_ROUTE_IDS), but it IS navigable to the
+// combined shuttle overview page (see getShuttleGroups()/line/[lineId].tsx),
+// so it's listed explicitly rather than derived from ROUTE_STOPS membership.
 export function isNavigableRoute(routeId: string): boolean {
-    return routeId in ROUTE_STOPS;
+    return routeId === 'S' || routeId in ROUTE_STOPS;
 }
 
+// 'S' resolves to the union of all three real shuttles' branches — this one
+// case is what makes getStationIdsForRoute('S')/getValidExitStations('S', ...)
+// return the combined FS+GS+H stop list for free, everywhere in this file
+// that's already built on branchesForRoute.
 function branchesForRoute(routeId: string): Branch[] {
+    if (routeId === 'S') return SHUTTLE_ROUTE_IDS.flatMap((r) => ROUTE_STOPS[r]?.['0'] ?? []);
     return ROUTE_STOPS[routeId]?.['0'] ?? [];
+}
+
+// Given a picked entry stop, which real shuttle actually serves it — the
+// resolution step that turns a transient 'S' selection into the real route_id
+// that gets committed to a leg. Never returns 'S' itself.
+export function resolveShuttleRouteId(stopId: string): string | null {
+    return SHUTTLE_ROUTE_IDS.find((r) => getStationIdsForRoute(r).includes(stopId)) ?? null;
+}
+
+// Human-friendly names for the three real shuttles — route_stops.json/
+// stations.json carry no display-name data of their own (only route codes).
+const SHUTTLE_NAMES: Record<string, string> = {
+    FS: 'Franklin Ave Shuttle',
+    GS: '42 St Shuttle',
+    H: 'Rockaway Park Shuttle',
+};
+
+export type ShuttleGroup = { routeId: string; label: string; stops: string[] };
+
+// The three real shuttles, each as its own labeled group with its own real
+// stations — the combined 'S' overview page's data (see line/[lineId].tsx's
+// special case for lineId === 'S'). Deliberately separate from
+// getLineStationLayout()'s generic trunk/tail logic: S isn't a branching
+// route with a shared trunk, it's three unrelated routes sharing one display
+// icon, so labeling by real shuttle name (not by shared-segment geometry)
+// is the correct grouping here.
+export function getShuttleGroups(): ShuttleGroup[] {
+    return SHUTTLE_ROUTE_IDS.map((routeId) => ({
+        routeId,
+        label: SHUTTLE_NAMES[routeId],
+        stops: getStationIdsForRoute(routeId),
+    }));
 }
 
 export function getStationIdsForRoute(routeId: string): string[] {
@@ -239,7 +288,13 @@ export function getEntryStopForTransfer(complexId: string, routeId: string): str
 // down — never a branch-selection step. Direction '0' only, matching every
 // other function in this file that reads branchesForRoute().
 
-export type LineStationGroup = { label: string; stops: string[] };
+// routeId is optional and only ever set for a group that IS itself a
+// separately-navigable line (currently: the S overview page's three shuttle
+// groups, via getShuttleGroups()) — a real geographic branch tail (e.g. one
+// of the 5 train's forks) isn't its own line, so getLineStationLayout()
+// never sets it. line/[lineId].tsx uses its presence to decide whether a
+// group's header is itself tappable.
+export type LineStationGroup = { label: string; stops: string[]; routeId?: string };
 export type LineStationLayout = { trunk: string[]; tails: LineStationGroup[] };
 
 function commonPrefixLen(lists: string[][]): number {

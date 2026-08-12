@@ -30,4 +30,8 @@ export const LINE_ICONS: Record<string, React.FC<{ width?: number; height?: numb
     A: RouteA, B: RouteB, C: RouteC, D: RouteD, E: RouteE, F: RouteF,
     G: RouteG, J: RouteJ, L: RouteL, M: RouteM, N: RouteN, Q: RouteQ,
     R: RouteR, S: RouteS, SI: RouteSI, W: RouteW, Z: RouteZ,
+    // The three real shuttles share S's icon — 'S' stays a pure display
+    // grouping (see subwayData.ts's SHUTTLE_ROUTE_IDS); no MTA signage
+    // distinguishes them visually either.
+    FS: RouteS, GS: RouteS, H: RouteS,
 };

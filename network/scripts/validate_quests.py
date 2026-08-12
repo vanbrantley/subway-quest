@@ -279,9 +279,10 @@ def main():
          "no branching_out quests were generated at all -- expected at least one "
          "(the A train's 3-way fork is a known real branch)")
 
-    check("s_tier" not in quests,
-          "s_tier resolved even though shuttle grouping hasn't shipped -- "
-          "either that's landed and this check is stale, or something's wrong")
+    check("s_tier" in quests,
+          "s_tier did not resolve -- shuttle grouping shipped (blocked flag "
+          "removed) but FS/GS/H aren't resolving as real routes; check "
+          "route_stops.json and real_routes()")
 
     # --- report ---
     print(f"Ran {checks_run} checks against {len(quests)} quests.\n")
