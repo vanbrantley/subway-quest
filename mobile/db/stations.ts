@@ -9,6 +9,7 @@ import * as SQLite from 'expo-sqlite';
 import stationsData from '../data/stations.json';
 import { getDisplayableRoutes } from '../lib/subwayData';
 import { loadRiderHistory } from './quests';
+import { getTripEndpoints, type TripEndpoints } from './trips';
 import {
     computeProfileStatsPure,
     type StationRefLookup,
@@ -72,22 +73,32 @@ export async function getAllStationStatuses(
     return result;
 }
 
-export type StationVisit = { tripId: string; startedAt: string };
+export type StationVisit = { tripId: string; startedAt: string } & TripEndpoints;
 
 /** Dates this rider passed through a given station (entry or exit on any
- *  leg), most recent first -- feeds the Station page's visit history. */
+ *  leg), most recent first -- feeds the Station page's visit history, along
+ *  with the overall trip's start (first leg's line + origin) and end (last
+ *  leg's line + exit), not just this leg, via trips.ts's getTripEndpoints
+ *  (shared with the Profile page's full trip history -- same row shape). */
 export async function getStationVisitHistory(
     db: SQLite.SQLiteDatabase,
     userId: string,
     stationId: string
 ): Promise<StationVisit[]> {
-    const rows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
+    const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
         `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
          WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?)
          ORDER BY t.started_at DESC`,
         [userId, stationId, stationId]
     );
-    return rows.map((r) => ({ tripId: r.trip_id, startedAt: r.started_at }));
+    if (visitRows.length === 0) return [];
+
+    const endpoints = await getTripEndpoints(db, visitRows.map((r) => r.trip_id));
+    return visitRows.map((v) => ({
+        tripId: v.trip_id,
+        startedAt: v.started_at,
+        ...(endpoints.get(v.trip_id) ?? { entryRouteId: null, entryStationId: null, exitRouteId: null, exitStationId: null }),
+    }));
 }
 
 export type SavedStation = { stationId: string; savedAt: string; name: string; visited: boolean };

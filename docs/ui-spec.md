@@ -32,7 +32,7 @@ back-navigation, insights surfaced contextually rather than on one static dashbo
   state appears before the tabs render, while trip history replays from Supabase. Well under a second
   at this project's real scale. See `docs/data-layer.md`'s "Rehydration-on-sign-in" for the full
   mechanism.
-- **Sign out:** Profile tab → menu → Sign Out button.
+- **Sign out:** Profile tab → gear icon → Settings screen (with a back control to Profile) → Sign Out button.
 
 ## Tab: Map
 
@@ -43,6 +43,14 @@ back-navigation, insights surfaced contextually rather than on one static dashbo
   - Green = visited — **overrides saved status.** "Saved" represents a want-to-visit intent; once
     that's fulfilled, showing it as visited is more meaningful than a neutral "still on the list"
     gray. Green wins for any station that's been visited, saved or not.
+  - **Size scales with zoom level (milestone 9)** — small when zoomed out, larger when zoomed in, so
+    markers stay tappable without cluttering a wide view. Recomputed only once a pan/zoom gesture
+    settles (`onRegionChangeComplete`), not continuously mid-gesture, since a continuous recompute
+    across 496 markers would be a real performance cost.
+  - **Tappable area is bigger than the visible dot (follow-up UI pass)** — a small solid circle was
+    genuinely hard to hit precisely, especially zoomed out. Rather than just enlarging the visible dot
+    further (which would clutter a wide view with 496 large circles), each marker gets an invisible
+    padded touch region around the dot, floored at 28pt even at the smallest zoomed-out size.
 - **Tap a marker** → preview card: line icon(s), station name, borough, visited status, a save button.
 - **Tap "View station"** on the card → pushes the canonical Station page. Tapping a line icon *within*
   the card → pushes the canonical Line page directly — no separate "mini line view," per the
@@ -72,17 +80,29 @@ this fuller list back into that doc once this spec is locked**, since it's more 
 currently written there:
 
 - Rides logged, stations visited, % of network visited (overall, and split by borough)
-- Favorite station, favorite line — both **computed** (most-visited/most-ridden), never manually set
-- Least-travelled line(s)
-- Trip history (list; tapping an entry opens that trip's detail page)
+- Favorite station, favorite line — both **computed** (most-visited/most-ridden), never manually set.
+  **Redesigned (follow-up UI pass)**: each shows a single pick, not every tied entry — a tie resolves
+  to the first one in the already-alphabetically-sorted list (the underlying data still computes every
+  tie; the Profile page just renders one). Favorite station shows all of that station's own line
+  icons (same convention as Search results and the Station page's "This platform" group) + name,
+  tappable → Station page. Favorite line shows just its icon, tappable → Line page.
+- Least-travelled line(s) — **redesigned (follow-up UI pass)**: still shows every tied line (unlike
+  favorite station/line above, "least-travelled" genuinely means "these are all equally under-ridden"),
+  as a row of tappable icons → Line page, instead of comma-separated text.
+- Trip history (list; tapping an entry opens that trip's detail page) — **redesigned (follow-up UI
+  pass)** to the same row shape as the Station page's visit history: date, overall origin (first leg's
+  line + station), overall destination (last leg's line + station), via the shared `TripHistoryRow`
+  component (see "Canonical Station page" above).
 - **Saved Stations list** — visiting a saved station does not auto-remove it from this list; it stays,
   now shown as visited (green, per the marker priority above), until the user manually unsaves it.
   Consistent with a pattern already used elsewhere in this project (e.g. `trip_deleted` requiring an
   explicit action rather than silent auto-cleanup) — nothing gets removed on the user's behalf without
   them asking. Also the simpler build: no auto-unsave logic needed. A visited station remaining in this
-  list also has real value as a record ("wanted to go, and did"), not just clutter to prune.
+  list also has real value as a record ("wanted to go, and did"), not just clutter to prune. **Rows now
+  also show that station's line icons (follow-up UI pass)**, not just the name — same convention as
+  the favorite-station row above.
 - Achievements summary (completed / ongoing counts), with a link into the full Achievements page
-- Menu (settings icon) → Sign Out
+- Settings icon → Settings screen (back control to Profile, Sign Out button)
 
 ### Achievements page (reached from Profile)
 
@@ -94,6 +114,9 @@ currently written there:
 Reached from: the map's preview card, search results, or a line page's station list — always the same
 page regardless of entry point.
 
+- **Header row holds only the back control (milestone 9 redesign)** — the station name itself renders
+  in the screen's body content, large and centered, as the first element above the borough line, not
+  in the top bar. Purely a layout move; no data/behavior change.
 - Station name, borough, visited status, a save/unsave button
 - **Lines shown as two visually separated groups (milestone 9 decision), not merged into one row:**
   - **"This platform"** — this stop_id's own lines (its `daytime_routes`). Visited status and the
@@ -110,7 +133,11 @@ page regardless of entry point.
     that already exists (a stop's own `daytime_routes`, plus `getOtherComplexRoutes()` over the
     existing transfer lookup). Save/visited stays scoped to the tapped stop_id regardless of this
     display choice — see `data-layer.md`'s grain note.
-- Visit history (dates ridden through this station, if any)
+- Visit history (dates ridden through this station, if any) — **redesigned, milestone 9:** one row per
+  visit, showing date, that trip's overall origin (first leg's line + station), and overall
+  destination (last leg's line + station), not just a bare date. Tapping a row still opens that trip's
+  Trip Detail page. Built as a shared `TripHistoryRow` component (**follow-up UI pass**) so Profile's
+  Trip history uses the exact same row/layout — see Profile tab section above.
 - Achievements/quests this station contributes to
 
 ## Canonical Line page
@@ -118,7 +145,14 @@ page regardless of entry point.
 Reached from: the Search tab's line grid, or tapping a line icon anywhere else (map preview, station
 page).
 
-- Line info, the user's progress through it (X of Y stations visited)
+- **Header row holds only the back control (milestone 9 redesign)** — the line's icon + route code
+  render in the body content instead, large and centered, as the first element, with the progress
+  bar (see below) directly beneath. No bundled long-form line name exists in this app's data (only the
+  bare route code, e.g. `N`, `6`, `SI`), so icon + route code together is the relocated element.
+- Line info, the user's progress through it — shown as a green horizontal progress bar (shared
+  `ProgressBar` component, milestone 9, reused everywhere else an "X of Y" count appears in the app —
+  Profile's borough/achievements stats, Station/Line/Trip quest rows, achievement detail — rather than
+  plain "X of Y" text)
 - Full ordered station list — trunk first, branch tails grouped below, per the branch-aware design
   already in PROJECT.md — each station showing a checkmark if visited
 - **Transfer points get a lightweight indicator (milestone 9), not the Station page's full two-group
@@ -211,7 +245,10 @@ yet (currently just SIR).
 
 Reached after logging a trip, or from Profile's trip history.
 
-- What was logged — stations, legs, transfers
+- What was logged — stations, legs, transfers. **Everything here is tappable (follow-up UI pass)**,
+  matching the app's standing "everything drills into its own page" model (see Model app note at top
+  of this doc): each leg's line icon → that Line page, each leg's entry/exit station name → that
+  Station page, and the summary line's origin/destination station names too.
 - **Which quest(s) that trip contributed progress toward**, if any — this is the "reward" moment
   discussed earlier in this project, shown here rather than live during logging (see below)
 - X button returns to wherever navigation originated — the map (now showing that station green) if

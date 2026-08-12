@@ -61,7 +61,7 @@ export default function RootLayout() {
     <AuthContext.Provider value={{ session, loading: false }}>
       <DatabaseProvider onReady={handleDbReady}>
         <SyncProvider>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
             <Stack.Protected guard={!!session}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />

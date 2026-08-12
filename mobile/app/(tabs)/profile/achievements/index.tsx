@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../../../contexts/DatabaseContext';
 import { useUserId } from '../../../../contexts/AuthContext';
 import { getAllQuestProgress, type QuestSummary } from '../../../../db/quests';
+import { ProgressBar } from '../../../../components/ui/ProgressBar';
 
 export default function AchievementsListScreen() {
     const db = useDb();
@@ -68,7 +69,7 @@ function QuestRow({ quest }: { quest: QuestSummary }) {
                     state above, matching quests_logic.ts's QuestProgress doc comment:
                     "the UI shows those as a checklist/badge, not a fraction." */}
                 {quest.current !== null && quest.target !== null && (
-                    <Text style={styles.rowProgress}>{quest.current} / {quest.target}</Text>
+                    <ProgressBar current={quest.current} target={quest.target} />
                 )}
             </View>
             <Ionicons name="chevron-forward" size={18} color="#ccc" />
@@ -86,7 +87,6 @@ const styles = StyleSheet.create({
     sectionSpacer: { marginTop: 20 },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-    rowText: { flex: 1 },
+    rowText: { flex: 1, gap: 4 },
     rowTitle: { fontSize: 16, fontWeight: '600', color: '#222' },
-    rowProgress: { fontSize: 13, color: '#888', marginTop: 2 },
 });

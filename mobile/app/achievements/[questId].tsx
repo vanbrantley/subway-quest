@@ -12,6 +12,7 @@ import { useUserId } from '../../contexts/AuthContext';
 import { LINE_ICONS } from '../../constants/lineIcons';
 import { LINE_COLORS } from '../../constants/lineColors';
 import { getQuestDetail, type QuestDetail } from '../../db/quests';
+import { ProgressBar } from '../../components/ui/ProgressBar';
 
 function formatTripsLabel(tripIds: string[], tripDates: Record<string, string>): string | null {
     if (tripIds.length === 0) return null;
@@ -81,9 +82,8 @@ function BreakdownList({ quest }: { quest: QuestDetail }) {
                         // checked the moment just one was visited).
                         return (
                             <View key={item.groupIndex} style={styles.groupBlock}>
-                                <Text style={styles.groupHeader}>
-                                    {item.names[0]} ({item.visitedComplexIds.length} of {item.minRequired} needed)
-                                </Text>
+                                <Text style={styles.groupHeader}>{item.names[0]}</Text>
+                                <ProgressBar current={item.visitedComplexIds.length} target={item.minRequired} />
                                 {item.complexIds.map((cid, i) => (
                                     <ChecklistRow key={cid} visited={item.visitedComplexIds.includes(cid)} label={item.names[i]} sublabel={null} />
                                 ))}
@@ -154,9 +154,10 @@ function BreakdownList({ quest }: { quest: QuestDetail }) {
         case 'counting': {
             const label = formatTripsLabel(breakdown.contributingTripIds, tripDates);
             return (
-                <Text style={styles.emptyText}>
-                    {breakdown.current} of {breakdown.target}{label ? ` — ${label}` : ''}
-                </Text>
+                <View style={styles.countingBlock}>
+                    <ProgressBar current={breakdown.current} target={breakdown.target} />
+                    {label && <Text style={styles.checklistSublabel}>{label}</Text>}
+                </View>
             );
         }
     }
@@ -205,7 +206,9 @@ export default function AchievementDetailScreen() {
                     </View>
 
                     {quest.current !== null && quest.target !== null && (
-                        <Text style={styles.progressText}>{quest.current} of {quest.target}</Text>
+                        <View style={styles.heroProgress}>
+                            <ProgressBar current={quest.current} target={quest.target} size="large" />
+                        </View>
                     )}
                 </View>
 
@@ -233,9 +236,10 @@ const styles = StyleSheet.create({
     statusBadgeText: { fontSize: 13, fontWeight: '700' },
     statusBadgeTextDone: { color: '#8a6d1f' },
     statusBadgeTextPending: { color: '#888' },
-    progressText: { fontSize: 16, color: '#333', fontWeight: '600' },
+    heroProgress: { width: '100%', marginTop: 8 },
     breakdownSection: { gap: 4 },
-    groupBlock: { marginTop: 10, marginBottom: 4 },
+    groupBlock: { marginTop: 10, marginBottom: 4, gap: 6 },
+    countingBlock: { gap: 6, paddingVertical: 8 },
     groupHeader: { fontSize: 13, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 },
     checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     checklistTextWrap: { flex: 1 },

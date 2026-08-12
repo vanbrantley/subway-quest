@@ -10,30 +10,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
 import { useSyncEngine } from '../../contexts/SyncContext';
-import { LINE_ICONS } from '../../constants/lineIcons';
-import { LINE_COLORS } from '../../constants/lineColors';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { saveStation, unsaveStation, writeProductEvent } from '../../db/projection';
 import { getStationStatus, getStationVisitHistory, type StationStatus, type StationVisit } from '../../db/stations';
 import { StationQuestsList } from '../../components/quests/StationQuestsList';
+import { RouteIcon } from '../../components/ui/RouteIcon';
+import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
 import {
     getStation, getBoroughName, getComplexId,
     isNavigableRoute, normalizeRouteIdForIcon, getOtherComplexRoutes,
 } from '../../lib/subwayData';
-
-function RouteIcon({ routeId, onPress }: { routeId: string; onPress: (() => void) | null }) {
-    const iconId = normalizeRouteIdForIcon(routeId);
-    const Icon = LINE_ICONS[iconId];
-    const content = Icon ? (
-        <Icon width={40} height={40} />
-    ) : (
-        <View style={[styles.colorBubble, { backgroundColor: LINE_COLORS[iconId]?.bg ?? '#ccc' }]}>
-            <Text style={[styles.colorBubbleText, { color: LINE_COLORS[iconId]?.text ?? '#000' }]}>{routeId}</Text>
-        </View>
-    );
-    if (!onPress) return <View style={styles.routeIconWrap}>{content}</View>;
-    return <Pressable style={styles.routeIconWrap} onPress={onPress}>{content}</Pressable>;
-}
 
 export default function StationScreen() {
     const { stationId } = useLocalSearchParams<{ stationId: string }>();
@@ -98,11 +84,10 @@ export default function StationScreen() {
                 <Pressable onPress={() => router.back()} accessibilityLabel="Back">
                     <Ionicons name="chevron-back" size={26} color="#111" />
                 </Pressable>
-                <Text style={styles.title} numberOfLines={1}>{station.name}</Text>
-                <View style={{ width: 26 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
+                <Text style={styles.stationNameHeading} numberOfLines={2}>{station.name}</Text>
                 <Text style={styles.borough}>{getBoroughName(station.borough)}</Text>
 
                 <View style={styles.groupSection}>
@@ -151,13 +136,7 @@ export default function StationScreen() {
                     ) : visits.length === 0 ? (
                         <Text style={styles.emptyText}>Not visited yet.</Text>
                     ) : (
-                        visits.map((v) => (
-                            <Pressable key={v.tripId} style={styles.visitRow} onPress={() => router.push({ pathname: '/trip', params: { tripId: v.tripId } })}>
-                                <Ionicons name="time-outline" size={18} color="#999" />
-                                <Text style={styles.visitRowText}>{new Date(v.startedAt).toLocaleDateString()}</Text>
-                                <Ionicons name="chevron-forward" size={16} color="#ccc" />
-                            </Pressable>
-                        ))
+                        visits.map((v) => <TripHistoryRow key={v.tripId} {...v} />)
                     )}
                 </View>
 
@@ -175,16 +154,13 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     label: { fontSize: 15, color: '#444' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
-    title: { flex: 1, fontSize: 17, fontWeight: '600', textAlign: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
     content: { padding: 20, gap: 4 },
-    borough: { fontSize: 14, color: '#888', marginBottom: 16 },
+    stationNameHeading: { fontSize: 26, fontWeight: '700', textAlign: 'center', marginTop: 12, marginBottom: 4 },
+    borough: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 24 },
     groupSection: { marginBottom: 24 },
     groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 10 },
     iconRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    routeIconWrap: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    colorBubble: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-    colorBubbleText: { fontWeight: '700', fontSize: 14 },
     statusLoading: { marginTop: 12 },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
     statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
@@ -198,6 +174,4 @@ const styles = StyleSheet.create({
     saveButtonText: { fontSize: 13, fontWeight: '700', color: '#444' },
     saveButtonTextActive: { color: '#fff' },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
-    visitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-    visitRowText: { flex: 1, fontSize: 15, color: '#333' },
 });

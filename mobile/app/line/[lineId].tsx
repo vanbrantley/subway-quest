@@ -16,6 +16,7 @@ import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { getLineStationLayout, getStationName, getOtherComplexRoutes, type LineStationGroup } from '../../lib/subwayData';
+import { ProgressBar } from '../../components/ui/ProgressBar';
 
 function LineIcon({ routeId, size }: { routeId: string; size: number }) {
     const Icon = LINE_ICONS[routeId];
@@ -102,17 +103,17 @@ export default function LineScreen() {
                 <Pressable onPress={() => router.back()} accessibilityLabel="Back">
                     <Ionicons name="chevron-back" size={26} color="#111" />
                 </Pressable>
-                <View style={styles.headerCenter}>
-                    <LineIcon routeId={lineId} size={28} />
-                </View>
-                <View style={{ width: 26 }} />
             </View>
 
             {!statuses ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content}>
-                    <Text style={styles.progress}>{visitedCount} of {totalStations} stations visited</Text>
+                    <View style={styles.lineHeading}>
+                        <LineIcon routeId={lineId} size={64} />
+                        <Text style={styles.lineNameHeading}>{lineId}</Text>
+                    </View>
+                    <ProgressBar current={visitedCount} target={totalStations} label="Stations visited" />
 
                     {layout.trunk.length > 0 && (
                         <View style={styles.group}>
@@ -135,11 +136,11 @@ export default function LineScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
-    headerCenter: { alignItems: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
     content: { padding: 20, gap: 4 },
-    progress: { fontSize: 15, color: '#444', fontWeight: '600', marginBottom: 12 },
-    group: { marginBottom: 16 },
+    lineHeading: { alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 16 },
+    lineNameHeading: { fontSize: 24, fontWeight: '700' },
+    group: { marginTop: 16, marginBottom: 16 },
     groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     rowText: { flex: 1, fontSize: 15, color: '#222' },

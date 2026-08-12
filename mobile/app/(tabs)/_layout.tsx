@@ -9,7 +9,7 @@ export default function TabsLayout() {
     return (
         <RehydrationGate>
             <View style={styles.container}>
-                <Tabs screenOptions={{ headerShown: false }}>
+                <Tabs screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#fff' } }}>
                     <Tabs.Screen
                         name="map"
                         options={{

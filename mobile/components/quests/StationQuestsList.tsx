@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
 import { getQuestsForStation, type QuestSummary } from '../../db/quests';
+import { ProgressBar } from '../ui/ProgressBar';
 
 export function StationQuestsList({ complexId }: { complexId: number }) {
     const db = useDb();
@@ -49,7 +50,7 @@ export function StationQuestsList({ complexId }: { complexId: number }) {
                     <View style={styles.rowText}>
                         <Text style={styles.rowTitle}>{q.title}</Text>
                         {q.current !== null && q.target !== null && (
-                            <Text style={styles.rowProgress}>{q.current} / {q.target}</Text>
+                            <ProgressBar current={q.current} target={q.target} />
                         )}
                     </View>
                     <Ionicons name="chevron-forward" size={16} color="#ccc" />
@@ -64,7 +65,6 @@ const styles = StyleSheet.create({
     container: { gap: 8 },
     header: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-    rowText: { flex: 1 },
+    rowText: { flex: 1, gap: 4 },
     rowTitle: { fontSize: 15, fontWeight: '600', color: '#222' },
-    rowProgress: { fontSize: 12, color: '#999', marginTop: 1 },
 });

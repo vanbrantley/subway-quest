@@ -38,11 +38,38 @@ function markerColor(status: StationStatus | undefined): string {
     return '#c6c6c6';
 }
 
+// Discrete size buckets keyed off the settled region's latitudeDelta --
+// smaller delta means more zoomed in. Bucketed (not a continuous formula)
+// so a Marker's cache-busting `key` (see markerDot below -- tracksViewChanges
+// is false, same reasoning as the visited/saved state already baked into
+// the key) only changes on a real zoom-level crossing, not on every
+// sub-pixel settle.
+function markerSizeForDelta(latitudeDelta: number): number {
+    if (latitudeDelta >= 0.2) return 9;
+    if (latitudeDelta >= 0.08) return 11;
+    if (latitudeDelta >= 0.03) return 13;
+    if (latitudeDelta >= 0.01) return 16;
+    return 19;
+}
+
+// The tappable area is bigger than the visible dot -- a small solid circle
+// is hard to hit precisely, especially zoomed out, so each marker gets an
+// invisible padded touch region around the dot rather than just making the
+// dot itself bigger (which would clutter a wide zoomed-out view with 496
+// large circles). Floors at 28pt so even the smallest zoomed-out dot has a
+// reasonable target; grows with the dot at closer zoom.
+function markerTouchSizeForDelta(markerSize: number): number {
+    return Math.max(28, markerSize + 16);
+}
+
 export default function MapScreen() {
     const db = useDb();
     const userId = useUserId();
     const [statuses, setStatuses] = useState<Record<string, StationStatus> | null>(null);
     const [selectedStation, setSelectedStation] = useState<Station | null>(null);
+    const [region, setRegion] = useState(INITIAL_REGION);
+    const markerSize = markerSizeForDelta(region.latitudeDelta);
+    const markerTouchSize = markerTouchSizeForDelta(markerSize);
 
     // Refetched on focus, not just mount -- a trip logged elsewhere, or a
     // save/unsave made on the Station page, both happen on a different
@@ -74,7 +101,12 @@ export default function MapScreen() {
 
     return (
         <View style={styles.container}>
-            <MapView style={styles.map} provider={PROVIDER_DEFAULT} initialRegion={INITIAL_REGION}>
+            <MapView
+                style={styles.map}
+                provider={PROVIDER_DEFAULT}
+                initialRegion={INITIAL_REGION}
+                onRegionChangeComplete={setRegion}
+            >
                 {POLYLINE_BRANCHES.map((branch) => (
                     <Polyline
                         key={branch.branch_id}
@@ -88,12 +120,19 @@ export default function MapScreen() {
                     const status = statuses[station.stop_id];
                     return (
                         <Marker
-                            key={`${station.stop_id}:${status?.visited}:${status?.saved}`}
+                            key={`${station.stop_id}:${status?.visited}:${status?.saved}:${markerSize}`}
                             coordinate={{ latitude: station.lat, longitude: station.lon }}
                             onPress={() => setSelectedStation(station)}
                             tracksViewChanges={false}
                         >
-                            <View style={[styles.markerDot, { backgroundColor: markerColor(status) }]} />
+                            <View style={[styles.markerTouchArea, { width: markerTouchSize, height: markerTouchSize }]}>
+                                <View
+                                    style={[
+                                        styles.markerDot,
+                                        { width: markerSize, height: markerSize, borderRadius: markerSize / 2, backgroundColor: markerColor(status) },
+                                    ]}
+                                />
+                            </View>
                         </Marker>
                     );
                 })}
@@ -113,10 +152,8 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     map: { width: '100%', height: '100%' },
+    markerTouchArea: { justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
     markerDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
         borderWidth: 1,
         borderColor: '#fff',
     },

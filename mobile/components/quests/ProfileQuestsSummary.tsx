@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
 import { getAllQuestProgress } from '../../db/quests';
+import { ProgressBar } from '../ui/ProgressBar';
 
 export function ProfileQuestsSummary() {
     const db = useDb();
@@ -35,7 +36,7 @@ export function ProfileQuestsSummary() {
             </View>
             <View style={styles.textWrap}>
                 <Text style={styles.title}>Achievements</Text>
-                <Text style={styles.subtitle}>{counts.completed} of {counts.total} completed</Text>
+                <ProgressBar current={counts.completed} target={counts.total} />
             </View>
             <Ionicons name="chevron-forward" size={18} color="#ccc" />
         </Pressable>
@@ -48,5 +49,4 @@ const styles = StyleSheet.create({
     iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fdf6e8', justifyContent: 'center', alignItems: 'center' },
     textWrap: { flex: 1 },
     title: { fontSize: 16, fontWeight: '700', color: '#222' },
-    subtitle: { fontSize: 13, color: '#888', marginTop: 1 },
 });

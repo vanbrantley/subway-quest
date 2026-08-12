@@ -1,5 +1,3 @@
-<!-- # SubwayQuest -->
-
 <p align="center">
     <img src="./mobile/assets/images/icon.png" width="200" height="200" alt="Subway Quest logo"/>
 </p>

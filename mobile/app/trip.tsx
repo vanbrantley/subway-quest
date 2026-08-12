@@ -6,10 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../contexts/DatabaseContext';
 import { useUserId } from '../contexts/AuthContext';
-import { getStationName } from '../lib/subwayData';
-import { LINE_ICONS } from '../constants/lineIcons';
-import { LINE_COLORS } from '../constants/lineColors';
+import { getStationName, isNavigableRoute, normalizeRouteIdForIcon } from '../lib/subwayData';
 import { computeTripQuestProgress, type QuestTripProgress } from '../db/quests';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { RouteIcon } from '../components/ui/RouteIcon';
 
 type TripRow = { trip_id: string; origin_station_id: string; destination_station_id: string; started_at: string };
 type LegRow = { leg_id: string; sequence: number; route_id: string; entry_station_id: string; exit_station_id: string };
@@ -62,6 +62,12 @@ export default function TripDetailScreen() {
         })();
     }, [tripId, db, userId]);
 
+    function goToLine(routeId: string) {
+        const target = normalizeRouteIdForIcon(routeId);
+        if (!isNavigableRoute(target)) return;
+        router.push(`/line/${target}`);
+    }
+
     if (loading) return <View style={styles.centered}><ActivityIndicator /></View>;
     if (!trip) return <View style={styles.centered}><Text style={styles.label}>Trip not found.</Text></View>;
 
@@ -75,26 +81,35 @@ export default function TripDetailScreen() {
                 <View style={{ width: 28 }} />
             </View>
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.route}>
-                    {getStationName(trip.origin_station_id)} → {getStationName(trip.destination_station_id)}
-                </Text>
+                <View style={styles.routeRow}>
+                    <Pressable onPress={() => router.push(`/station/${trip.origin_station_id}`)}>
+                        <Text style={styles.route}>{getStationName(trip.origin_station_id)}</Text>
+                    </Pressable>
+                    <Text style={styles.route}> → </Text>
+                    <Pressable onPress={() => router.push(`/station/${trip.destination_station_id}`)}>
+                        <Text style={styles.route}>{getStationName(trip.destination_station_id)}</Text>
+                    </Pressable>
+                </View>
                 <Text style={styles.date}>{new Date(trip.started_at).toLocaleDateString()}</Text>
 
-                {legs.map((leg) => {
-                    const Icon = LINE_ICONS[leg.route_id];
-                    return (
-                        <View key={leg.leg_id} style={styles.legRow}>
-                            {Icon ? <Icon width={28} height={28} /> : (
-                                <View style={[styles.colorDot, { backgroundColor: LINE_COLORS[leg.route_id]?.bg ?? '#ccc' }]}>
-                                    <Text style={styles.colorDotText}>{leg.route_id}</Text>
-                                </View>
-                            )}
-                            <Text style={styles.legText}>
-                                {getStationName(leg.entry_station_id)} → {getStationName(leg.exit_station_id)}
-                            </Text>
+                {legs.map((leg) => (
+                    <View key={leg.leg_id} style={styles.legRow}>
+                        <RouteIcon
+                            routeId={leg.route_id}
+                            onPress={isNavigableRoute(normalizeRouteIdForIcon(leg.route_id)) ? () => goToLine(leg.route_id) : null}
+                            size={28}
+                        />
+                        <View style={styles.legTextRow}>
+                            <Pressable onPress={() => router.push(`/station/${leg.entry_station_id}`)}>
+                                <Text style={styles.legText}>{getStationName(leg.entry_station_id)}</Text>
+                            </Pressable>
+                            <Text style={styles.legText}> → </Text>
+                            <Pressable onPress={() => router.push(`/station/${leg.exit_station_id}`)}>
+                                <Text style={styles.legText}>{getStationName(leg.exit_station_id)}</Text>
+                            </Pressable>
                         </View>
-                    );
-                })}
+                    </View>
+                ))}
 
                 {questProgress.length > 0 && (
                     <View style={styles.questsSection}>
@@ -115,10 +130,7 @@ export default function TripDetailScreen() {
                                     <View style={styles.questRowTextWrap}>
                                         <Text style={styles.questRowText}>{q.title}</Text>
                                         {q.currentAfter !== null && q.target !== null && (
-                                            <Text style={styles.questRowProgress}>
-                                                {q.currentAfter} / {q.target}
-                                                {justCompleted ? ' — Completed!' : ''}
-                                            </Text>
+                                            <ProgressBar current={q.currentAfter} target={q.target} completed={justCompleted} />
                                         )}
                                         {q.currentAfter === null && justCompleted && (
                                             <Text style={styles.questRowProgress}>Completed!</Text>
@@ -140,13 +152,13 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
     title: { fontSize: 17, fontWeight: '600' },
     content: { padding: 20, gap: 16 },
+    routeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
     route: { fontSize: 20, fontWeight: '700' },
     date: { fontSize: 14, color: '#888' },
     label: { fontSize: 15, color: '#444' },
     legRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    legTextRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', flex: 1 },
     legText: { fontSize: 15, color: '#333' },
-    colorDot: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    colorDotText: { fontSize: 11, fontWeight: '700' },
     questsSection: { backgroundColor: '#fdf6e8', borderRadius: 14, padding: 16, gap: 12 },
     questsSectionTitle: { fontSize: 15, fontWeight: '700', color: '#8a6d1f' },
     questRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
