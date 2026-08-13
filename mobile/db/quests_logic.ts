@@ -52,15 +52,15 @@ export type ComplexLookup = Record<string, number>;
 export type LifetimeSetCriteria =
     | { type: 'all_stations'; stations: number[] }
     | { type: 'min_count_stations'; stations: number[]; count: number }
-    | { type: 'all_groups'; groups: number[][]; min_per_group?: number }
-    | { type: 'min_count_groups'; groups: number[][]; count: number; min_per_group?: number }
+    | { type: 'all_groups'; groups: number[][]; min_per_group?: number; group_labels?: string[] }
+    | { type: 'min_count_groups'; groups: number[][]; count: number; min_per_group?: number; group_labels?: string[] }
     | { type: 'all_station_route_pairs'; pairs: { station: number; route: string }[] }
     | { type: 'all_routes'; routes?: string[] };
 
 export type PerTripCriteria =
     | { type: 'leg_count_min'; count: number }
     | { type: 'full_line_ride'; route: string } // 'any' or a real route_id
-    | { type: 'route_letters_spell_word'; word: string }
+    | { type: 'route_letters_spell_word'; words: string[] }
     | { type: 'geographic_endpoints'; start: number; end: number };
 
 export type CountingCriteria =
@@ -135,18 +135,30 @@ function legsByTrip(legs: Leg[]): Map<string, Leg[]> {
     return byTrip;
 }
 
-function transferCount(history: RiderHistory): number {
-    // A transfer exists where one leg's exit matches the next leg's entry
-    // station, same trip, consecutive sequence -- mirrors int_transfers'
-    // LAG()-over-sequence logic (see dbt-coverage.md), computed locally.
-    let count = 0;
-    for (const legs of legsByTrip(history.legs).values()) {
-        const ordered = [...legs].sort((a, b) => a.sequence - b.sequence);
-        for (let i = 1; i < ordered.length; i++) {
-            if (ordered[i - 1].exitStationId === ordered[i].entryStationId) count++;
-        }
+// Every leg after a trip's first is a real transfer, by construction: the
+// trip-logging flow's transfer step only ever offers routes other than the
+// one just ridden (see ui-spec.md's "Transfer detection" step), so this
+// never needs a station-id match. Deliberately NOT matching on
+// exitStationId === entryStationId (the old approach, mirrored in
+// int_transfers.sql) -- a transfer's entry is auto-set to "the correct
+// platform at that complex," which is frequently a DIFFERENT stop_id than
+// the prior leg's exit (e.g. Union Sq complex 602: exiting the 6 at stop_id
+// 635, entering the L at stop_id L03 -- same complex, different platforms,
+// both real). Exact stop_id matching silently missed exactly these cases,
+// which are also disproportionately the busy hub stations transfers
+// actually happen at -- see data-layer.md.
+function transferCountPerTrip(history: RiderHistory): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const [tripId, legs] of legsByTrip(history.legs)) {
+        counts.set(tripId, Math.max(0, legs.length - 1));
     }
-    return count;
+    return counts;
+}
+
+function transferCount(history: RiderHistory): number {
+    let total = 0;
+    for (const count of transferCountPerTrip(history).values()) total += count;
+    return total;
 }
 
 function ridesPerRoute(history: RiderHistory): Map<string, number> {
@@ -262,7 +274,7 @@ export function evaluatePerTrip(
         }
 
         case 'route_letters_spell_word':
-            return ordered.map((l) => l.routeId).join('') === criteria.word;
+            return criteria.words.includes(ordered.map((l) => l.routeId).join(''));
 
         case 'geographic_endpoints': {
             const firstEntry = ordered[0].entryStationId;
@@ -452,6 +464,11 @@ export type GroupBreakdownItem = {
     visitedComplexIds: number[]; // every member of this group actually visited (0, 1, or more)
     visited: boolean; // visitedComplexIds.length >= minRequired
     tripIds: string[]; // union of trips across every visited member
+    // Group-level display label (borough/neighborhood/branch-terminal name) for
+    // OR-semantics groups whose members don't share a name -- see criteria's
+    // group_labels. null when the resolver didn't supply one (e.g. same-name
+    // clusters, which already display fine via each member's shared name).
+    label: string | null;
 };
 export type PairBreakdownItem = { station: number; route: string; visited: boolean; tripIds: string[] };
 export type RouteBreakdownItem = { route: string; visited: boolean; tripIds: string[] };
@@ -462,7 +479,12 @@ export type QuestBreakdown =
     | { kind: 'pairs'; items: PairBreakdownItem[] }
     | { kind: 'routes'; items: RouteBreakdownItem[] }
     | { kind: 'per_trip'; qualifyingTripIds: string[] } // every trip that has ever satisfied this quest
-    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[] };
+    // contributingRoute is the specific route_id this count is tracking -- real
+    // for ride_count_route (resolved even when criteria.route is 'any', via
+    // bestRoute()), always null for transfer_count, which has no single-route
+    // concept. Surfaced so a quest like Line Loyalist (route: 'any') can show
+    // WHICH line its number refers to, not just the number.
+    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[]; contributingRoute: string | null };
 
 function tripsVisitingComplex(history: RiderHistory, complexLookup: ComplexLookup): Map<number, Set<string>> {
     const map = new Map<number, Set<string>>();
@@ -545,6 +567,7 @@ export function getQuestBreakdown(
                             visitedComplexIds,
                             visited: visitedComplexIds.length >= minPerGroup,
                             tripIds,
+                            label: c.group_labels?.[groupIndex] ?? null,
                         };
                     }),
                 };
@@ -590,15 +613,14 @@ export function getQuestBreakdown(
         return {
             kind: 'counting', current, target: criteria.count,
             contributingTripIds: routeId ? [...(routeTrips.get(routeId) ?? [])] : [],
+            contributingRoute: routeId ?? null,
         };
     }
-    // transfer_count -- contributing trips = trips with at least one detected transfer
-    const contributing = new Set<string>();
-    for (const [tripId, legs] of legsByTrip(history.legs)) {
-        const ordered = [...legs].sort((a, b) => a.sequence - b.sequence);
-        for (let i = 1; i < ordered.length; i++) {
-            if (ordered[i - 1].exitStationId === ordered[i].entryStationId) { contributing.add(tripId); break; }
-        }
-    }
-    return { kind: 'counting', current: transferCount(history), target: criteria.count, contributingTripIds: [...contributing] };
+    // transfer_count -- contributing trips = trips with 2+ legs (at least one transfer).
+    // No single route applies to a transfer count, unlike ride_count_route.
+    const perTrip = transferCountPerTrip(history);
+    const contributing = [...perTrip.entries()].filter(([, count]) => count > 0).map(([tripId]) => tripId);
+    let current = 0;
+    for (const count of perTrip.values()) current += count;
+    return { kind: 'counting', current, target: criteria.count, contributingTripIds: contributing, contributingRoute: null };
 }

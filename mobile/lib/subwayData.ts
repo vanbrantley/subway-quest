@@ -36,6 +36,15 @@ const BOROUGH_NAMES: Record<string, string> = {
     SI: 'Staten Island',
 };
 
+// Real GTFS route_ids for rush-hour express variants of an already-real
+// local route (6X = Pelham Bay Park Express, 7X = Flushing Express, FX =
+// Brooklyn F Express — confirmed against routes.txt's route_long_name, not
+// assumed). These fold into their local counterpart for display/navigation
+// purposes — see DISPLAY_ROUTE_ALIASES below — mirrored on the network-build
+// side by build_quests.py's EXPRESS_ROUTE_IDS, which excludes them from
+// quest generation entirely (no separate line_completion_6X/7X/FX quest).
+export const EXPRESS_ROUTE_IDS = ['6X', '7X', 'FX'];
+
 // The station data's daytime_routes uses raw GTFS-ish display labels that
 // don't always match route_stops.json's/LINE_ICONS'/LINE_COLORS' keys —
 // specifically 'SIR' (station data) vs 'SI' (everywhere else). Normalizing
@@ -43,8 +52,10 @@ const BOROUGH_NAMES: Record<string, string> = {
 // grouping" item — a separately-tracked, pre-existing bug, not this
 // milestone's job). Bare 'S' (generic shuttle) has no real routable
 // route_id and is deliberately left unmapped — isNavigableRoute() below is
-// what keeps a bare 'S' icon from being treated as tappable.
-const DISPLAY_ROUTE_ALIASES: Record<string, string> = { SIR: 'SI' };
+// what keeps a bare 'S' icon from being treated as tappable. 6X/7X/FX map to
+// their local counterpart's existing icon/color — no new assets, same
+// pattern as SIR->SI.
+const DISPLAY_ROUTE_ALIASES: Record<string, string> = { SIR: 'SI', '6X': '6', '7X': '7', FX: 'F' };
 
 const ROUTE_STOPS = routeStops as unknown as RouteStops;
 const STATIONS = stations as unknown as Stations;

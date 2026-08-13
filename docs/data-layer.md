@@ -74,9 +74,24 @@ imply false precision.
 | `leg_boarded` | `{ trip_id, leg_id, station_id, route_id, sequence }` | Once per leg, on boarding. `sequence` added in `event_version: 2` — needed to reconstruct leg order during rehydration replay, not derivable from timestamps (see "Rehydration-on-sign-in"). |
 | `leg_alighted` | `{ trip_id, leg_id, station_id }` | Once per leg, on alighting. Unchanged, `event_version: 1` — its leg is already identified via `leg_id`. |
 
-**Transfers are not a separate event type.** A transfer is `leg_alighted` → `leg_boarded` at the same
-`station_id`/`trip_id` with no `trip_ended` between — computed downstream (`stg_transfers` dbt
-model), not stored, since the two leg events already carry every fact a `transfer_made` event would.
+**Transfers are not a separate event type.** A transfer is every `leg_alighted` → `leg_boarded` pair
+within the same `trip_id` after the first leg — computed downstream (`int_transfers` dbt model), not
+stored, since the two leg events already carry every fact a `transfer_made` event would.
+
+**Not matched on `station_id`.** An earlier version of this definition required the prior leg's exit
+`station_id` to equal the next leg's entry `station_id` ("same station, no `trip_ended` between"). That
+undercounted real transfers: per `ui-spec.md`'s trip-logging spec, a transfer leg's entry is auto-set
+to "the correct platform at that complex," which is frequently a *different* `station_id` than the
+prior leg's exit — e.g. Union Sq (complex 602, see the grain note above): exiting the 6 at station_id
+`635`, entering the L at station_id `L03`. Same real-world complex, different platforms, both real, and
+the old exact-match logic silently missed it. 35 complexes system-wide have 2+ distinct station_ids,
+disproportionately the busy hub stations where transfers actually happen most.
+
+No station/complex matching is needed at all, instead: the trip-logging flow's transfer step only ever
+offers routes other than the one just ridden (`ui-spec.md`'s "Transfer detection" step), so every leg
+after a trip's first is a real transfer **by construction**, guaranteed at commit time. `trip_ended`
+firing once per commit bundle, after every leg, is what makes "no `trip_ended` between" automatic —
+any two legs sharing a `trip_id` are already structurally before it.
 
 ## Draft-session events (product domain)
 
@@ -510,8 +525,9 @@ grain change plus real business logic, not cleanup:**
   event group includes a `trip_deleted` — see "Deleted trips at the dbt layer" below for the full
   reasoning and the required test. Every mart model reads `int_trips`, never raw/staged events
   directly, and gets that exclusion for free.
-- Transfer detection — `leg_alighted` → `leg_boarded`, same `station_id`/`trip_id`, no `trip_ended`
-  between. A derived business rule, never stored, per "Leg-grain events" above.
+- Transfer detection (`int_transfers`) — every leg after a trip's first, by construction (no
+  `station_id` match — see "Leg-grain events" above for why that undercounted). A derived business
+  rule, never stored.
 - `int_draft_sessions` — one row per `draft_id`, only for drafts with a matching
   `trip_draft_committed` (an abandoned draft has no such row, so it drops out of this model by the
   join itself, not a filter). `duration = committed_at − started_at`

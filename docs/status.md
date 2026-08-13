@@ -550,9 +550,9 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
       `network/processed/quests.json` at the time; `dbt/seeds/quest_definitions.csv` (built by
       `network/scripts/build_quest_seed.py`, the actual last step before `dbt seed`) was left stale
       and missing `s_tier` until caught in conversation and regenerated — now 53 rows, `s_tier`
-      present with its `{FS, GS, H}` criteria. `dbt seed` needs a real run to pick this up in
-      BigQuery; not yet done (no `dbt` CLI in this environment — see the deletion-metric note above
-      for the same limitation).
+      present with its `{FS, GS, H}` criteria. Picked up by BigQuery via the same `pipeline.yml`
+      manual trigger that verified the deletion metric (below) — `dbt seed` ran clean as part of
+      that same green run, so `s_tier` is now a real seeded quest in the warehouse too.
 - [x] Station tap → station info drill-down — `app/station/[stationId].tsx`, milestone 9. Mounts
       `StationQuestsList` per `docs/mobile-quests-integration.md`. Shows lines as two groups
       ("This platform" / "Transfer here" — see `ui-spec.md`'s Canonical Station page section), visit
@@ -702,24 +702,17 @@ runs dbt (seed/run/test) immediately after — see data-layer.md.
       `docs/bigquery-min-n.md`. `mart_quest_completion_histogram` and 3 new `mart_global_summary`
       columns (milestone 8) are exempt — magnitudes/headcounts, same category as the existing
       exempt histograms and total-signups metrics, no location content.
-- [x] **"% of trips deleted after being logged" — already built, verified by inspection.** Turns out
-      this was built during an earlier pass and the doc had gone stale: `int_committed_trips.sql`
-      (deletion-inclusive trip reconstruction, exists specifically as this metric's denominator),
-      `mart_global_summary.sql`'s `deletion_rate` CTE → `pct_trips_deleted` column, and three tests
-      (`assert_deleted_trips_excluded_from_int_trips.sql`, the inverse
+- [x] **"% of trips deleted after being logged" — built and now verified live, end to end.**
+      `int_committed_trips.sql` (deletion-inclusive trip reconstruction, exists specifically as this
+      metric's denominator), `mart_global_summary.sql`'s `deletion_rate` CTE → `pct_trips_deleted`
+      column, and three tests (`assert_deleted_trips_excluded_from_int_trips.sql`, the inverse
       `assert_deleted_trips_present_in_int_committed_trips.sql`, and a range check in
-      `assert_global_summary_rates_valid.sql`) all exist and match `data-layer.md`'s design exactly.
-      Confirmed correct by direct reading — `dbt` isn't installed in this environment (no CLI, only
-      a `~/.dbt/profiles.yml`), so `dbt build`/`dbt test` haven't been run live against this change;
-      worth a real run once BigQuery access is available. Real trip-deletion data will start flowing
-      now that the UI above ships. **The KPI card for this already exists on the Power BI dashboard**
-      (confirmed by Van — correcting this doc's earlier assumption that no visual existed) — nothing
-      further needed there; it'll start showing real data once the pipeline (EL job, then `dbt run`)
-      picks up a real `trip_deleted` event and Power BI refreshes. Testing note: `dbt run` alone
-      won't see a new deletion — it only transforms what's already landed in BigQuery's raw dataset;
-      the Python EL job (`el/sync_to_bigquery.py`) has to pull the event from Supabase first. Easiest
-      one-shot test: manually trigger `pipeline.yml` via `workflow_dispatch` (runs the EL job and the
-      full `dbt seed`/`run`/`test` chain back to back), then refresh Power BI.
+      `assert_global_summary_rates_valid.sql`) all exist and match `data-layer.md`'s design.
+      **Verified for real by Van**, not just by inspection: deleted a test trip on-device, manually
+      triggered `pipeline.yml` (EL job → `dbt seed` → `dbt run` → `dbt test`, all green, no failures),
+      refreshed Power BI — the existing KPI card correctly showed **13% trips deleted**, matching
+      expectations. Full chain (mobile delete → Supabase sync → EL job → dbt → Power BI refresh)
+      confirmed working end to end.
 
 **Dev/test data exclusion (decided, not yet implemented):** Dev/testing happens signed in with the
 same Apple ID that'll be used for real post-launch — so `user_id` can't separate test rows from real
@@ -746,10 +739,9 @@ a filter like this.
 - [x] **Achievements page visual polish — done.** Along with the rest of the full dashboard polish
       pass: KPI styling, intro page, axis labels/tooltips, conditional subtitles for min-N suppressed
       charts, across all 4 pages.
-- [x] **"% of trips deleted" visual** — KPI card already exists on the dashboard (confirmed by Van);
-      the mart/metric it reads (`mart_global_summary.pct_trips_deleted`) is confirmed built too (see
-      Python EL job / BigQuery / dbt section). Will show real data once the pipeline runs against a
-      real deletion and Power BI refreshes — see that section's testing note.
+- [x] **"% of trips deleted" visual — live-verified.** KPI card confirmed showing real data
+      (13% on first real test) after a full pipeline run + Power BI refresh — see the Python EL job
+      / BigQuery / dbt section for the verification detail.
 - **Note on authoring environment:** Power BI Desktop has no native Mac version (confirmed current,
   not a legacy gap). Resolved for this project — author on the Windows Dell already owned for
   Windows-only analysis tools; develop/EL job work continues on Mac as before. No VM/Parallels setup
@@ -796,6 +788,92 @@ reference for every new seed/model). Summary:
       per_trip and counting mechanism quest completions specifically — only a lifetime_set quest
       (Roosevelt Island) was explicitly triggered and confirmed on-device this milestone. Not blocked
       on anything, just hasn't happened yet.
+
+**Achievements detail page rework, plus four real bugs found and fixed along the way:**
+
+- [x] `achievements/[questId].tsx` brought in line with Station/Line pages' established visual
+      language — back-only header (title moved into the body as a heading, matching
+      `stationNameHeading`/`lineNameHeading`), a new shared `components/ui/SectionHeader.tsx`
+      (previously reimplemented per-page as `groupLabel`/`sectionHeader`/`sectionTitle`), and the
+      `'routes'` breakdown case now uses the shared `RouteIcon` component instead of a local
+      icon-with-fallback reimplementation. Station/pairs/routes rows are now tappable, drilling into
+      that station's/route's own page, per the app's Fotmob-style "everything drills into its own
+      page" model — previously only `per_trip` rows navigated anywhere.
+- [x] **OR-semantics group breakdown bug fixed** — a group where nothing's visited yet used to
+      collapse into one row with every member's name joined by `" or "` (unreadable for large groups
+      like Five Boroughs/Neighborhood Native). Now matches the AND-semantics branch's treatment
+      exactly: group header, progress bar, one row per member. All three OR-group families (boroughs,
+      Manhattan neighborhoods, and the auto-generated `branching_out_*` quests) now carry a real
+      `group_labels` array plumbed from `build_quests.py` through `quest_definitions.csv`/
+      `mobile/data/quests.json` — boroughs use their real name, neighborhoods use the
+      `final_neighborhoods.json` name (previously discarded the moment it was grouped by), and
+      branching-out groups use their branch's terminal station name (the one real, always-available
+      fact — no branch-name data exists anywhere in the pipeline).
+- [x] **Transfer Master undercounting, fixed at the definition level.** The mobile evaluator and
+      `int_transfers.sql` already agreed with each other and with the *documented* definition
+      (exact `station_id` match between adjacent legs) — but that definition itself was wrong. A
+      transfer's entry is auto-set to "the correct platform at that complex" (`ui-spec.md`), often a
+      *different* `station_id` than the prior leg's exit (confirmed on real data: Union Sq, complex
+      602, has 3 distinct station_ids for its 4/5/6, N/Q/R/W, and L platforms). Redefined as "every
+      leg after a trip's first" — guaranteed a real transfer by construction, since the trip-logging
+      flow's transfer step only ever offers a different route than the one just ridden. Fixed
+      identically in `quests_logic.ts` (deduped two copies of the counting loop into one
+      `transferCountPerTrip()` helper) and `int_transfers.sql`. Confirmed `int_transfers`'s only
+      other consumer, `mart_station_pairs`, derives independently from `int_legs` and needed no
+      change. See `data-layer.md`'s "Leg-grain events" for the full writeup.
+- [x] **Wordsmith no longer pinned to one hardcoded word.** The mobile evaluator and resolver were
+      already fully data-driven (`criteria.word`); only the *data* pinned it to "JAM." Changed the
+      criteria shape to a curated `words: string[]` list (still an exact ordered-letter match, not an
+      open dictionary check) — `JAM, CAB, BAG, LAB, CRAB, GRAB, DRAG, FLAG, BAND, HAND, FARM, WARM`,
+      all real words spellable from real single-letter route_ids. Description text no longer
+      enumerates the list.
+- [x] **Express routes (6X/7X/FX) folded into their local counterpart, not a separate identity.**
+      These are real GTFS route_ids (confirmed via `routes.txt`: 6X = Pelham Bay Park Express, 7X =
+      Flushing Express, FX = Brooklyn F Express) that `build_quests.py` was auto-generating
+      `line_completion_*` quests for — but the trip-logging route picker has no icon/color for them,
+      so a leg could never actually be logged with one of these route_ids, making those three quests
+      (and the unrestricted "Every Line" quest, which fell back to the same unfiltered route list)
+      permanently uncompletable. Excluded from quest generation (`build_quests.py`'s
+      `EXPRESS_ROUTE_IDS`) and from the mobile fallback route list (`quests.ts`'s `ALL_REAL_ROUTES`);
+      added `6X→6`/`7X→7`/`FX→F` to `subwayData.ts`'s `DISPLAY_ROUTE_ALIASES` (same pattern as the
+      existing `SIR→SI` entry) so icon/color/navigation resolve to the local line everywhere, with no
+      new assets.
+
+**Real bug found on-device: 4 Av-9 St (served only by F/G/R) was showing up in the D/N/W
+line_completion quests** — traced to `route_stops.json`'s own generation, not a mobile/quest-layer bug.
+`build_static_data.py` used to take the raw union of every distinct GTFS trip pattern per
+route+direction as that route's station list (`stop_times.txt` has no `pickup_type`/`drop_off_type`
+columns to distinguish "really stops here" from "passes through"). That union silently included two
+different real problems: a genuine raw-data mislabeling (5 trips with `route_id='W'` in `trips.txt`
+whose `trip_id`, `shape_id`, and headsign all say "N" throughout — real N destinations like "Bay Pkwy,"
+never a W one) and real-but-rare weekend/GO reroute patterns baked into the feed (2 via 1's tracks, 4/5
+via 6's, N/Q/W via R's, etc.). Auditing the whole system the same way found 293 (route, stop) pairs like
+this, not just the one station — same root cause throughout.
+
+- [x] **Fixed at the source, not patched downstream.** `build_route_branches()` now cross-validates
+      every (route, stop) pair against MTA's own "Daytime Routes" station reference
+      (`stations.json`'s `daytime_routes`, sourced from `stations.csv` — independent of schedule data
+      entirely) before a trip's stops ever reach branch/pattern detection. Seven route_ids are recorded
+      under a different letter in that reference than their real route_id (shuttles all as generic "S",
+      Staten Island Railway as "SIR", express variants under their local counterpart) — confirmed
+      empirically (100% mismatch for exactly these seven vs. a partial mismatch for every real
+      irregularity elsewhere) and handled via a small `DAYTIME_ROUTES_ALIAS` map, mirrored in
+      `validate_quests.py`. Verified safe before shipping: checked the reverse direction first (zero
+      cases where Daytime Routes claims a route serves a station but the raw trip data disagreed), so
+      the filter can only trim, never drop something legitimate — confirmed after, too (W's station list
+      now correctly ends at Whitehall St/Astoria-Ditmars Blvd with zero Brooklyn stations, matching real
+      service; route_shapes.json's polylines stayed single, continuous branches per direction, no
+      fragmentation from the fix).
+- [x] **Regression check added to `validate_quests.py`**, deliberately independent of
+      `route_stops.json`'s own correctness — cross-checks every `all_station_route_pairs` pair (
+      `line_completion_*`, `crossroads`) against `daytime_routes_at_complex` directly, so a future
+      regression in `build_static_data.py`'s fix (or a raw-data refresh reintroducing a similar
+      mislabeling) gets caught even if the source-level fix itself is ever reverted or incomplete.
+- **Side effect worth knowing about, not a regression:** the `branching_out_*` auto-generated quest set
+  changed (`2`/`E`/`F`/`N`/`R` → `5` only, alongside `A` which was already there and still is) — the
+  underlying branch-detection logic is unchanged, but it now runs on the corrected station data, and
+  several of the previously-detected "branches" turn out to have been the same reroute-pattern
+  contamination as the main bug, not real, everyday branch structure.
 
 ## Release
 

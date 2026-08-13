@@ -192,11 +192,11 @@
     },
     "wordsmith": {
         "title": "Wordsmith",
-        "description": "Log a trip whose ridden line letters spell J-A-M, in order.",
+        "description": "Ride a sequence of lines, in order, that spells a real word from our list.",
         "mechanism": "per_trip",
         "criteria": {
             "type": "route_letters_spell_word",
-            "word": "JAM"
+            "words": ["JAM", "CAB", "BAG", "LAB", "CRAB", "GRAB", "DRAG", "FLAG", "BAND", "HAND", "FARM", "WARM"]
         }
     },
     "top_to_bottom": {

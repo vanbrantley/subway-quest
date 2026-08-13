@@ -63,6 +63,25 @@ ROUTE_STOPS_PATH = BASE_DIR / "processed" / "route_stops.json"
 NEIGHBORHOODS_PATH = BASE_DIR / "processed" / "final_neighborhoods.json"
 OUTPUT_PATH = BASE_DIR / "processed" / "quests.json"
 
+# Real GTFS route_ids for rush-hour express variants of an already-real local
+# route (6X = Pelham Bay Park Express, 7X = Flushing Express, FX = Brooklyn F
+# Express -- confirmed against routes.txt's route_long_name, not assumed).
+# These fold into their local counterpart everywhere quest-relevant -- no
+# separate line_completion quest, no separate "ride every real route"
+# requirement -- since the trip-logging flow can never log a leg with one of
+# these route_ids in the first place (mobile/lib/subwayData.ts's
+# DISPLAYABLE_ROUTES has no icon/color for them), which made
+# line_completion_6X/7X/FX permanently-uncompletable phantom quests and made
+# the unrestricted "Every Line" quest itself uncompletable. Mirrored on the
+# mobile side by mobile/lib/subwayData.ts's EXPRESS_ROUTE_IDS.
+EXPRESS_ROUTE_IDS = {"6X", "7X", "FX"}
+
+# Borough GTFS code -> display name, mirroring
+# build_neighborhood_mapping.py's BORO_MAP (not imported from there to avoid
+# a script-to-script import for one small dict; keep both in sync if the
+# borough set ever changes, which it won't).
+BORO_NAMES = {"M": "Manhattan", "Bk": "Brooklyn", "Q": "Queens", "Bx": "Bronx", "SI": "Staten Island"}
+
 
 def load_json(path):
     with open(path) as f:
@@ -84,11 +103,13 @@ def dedupe_by_complex(stations):
 
 
 def real_routes(route_stops):
-    """Every real, displayable route_id -- the keys of route_stops.json.
+    """Every real, displayable, separately-completable route_id -- the keys
+    of route_stops.json, minus the express variants (see EXPRESS_ROUTE_IDS)
+    that fold into their local counterpart instead of being their own thing.
     Includes the real FS/GS/H shuttle routes (no bare 'S' key exists here --
     'S' is a pure mobile-app display grouping, never a route_stops.json key
     or a written route_id, see mobile/lib/subwayData.ts)."""
-    return sorted(route_stops.keys())
+    return sorted(r for r in route_stops.keys() if r not in EXPRESS_ROUTE_IDS)
 
 
 def resolve_line_completion_quests(route_stops, stations):
@@ -113,15 +134,29 @@ def resolve_line_completion_quests(route_stops, stations):
     station with the specific route being completed via
     'all_station_route_pairs' -- the exact mechanism 'crossroads' (the Times
     Sq hub quest) already uses correctly; no new evaluator logic needed,
-    just the right existing criteria type."""
+    just the right existing criteria type.
+
+    REAL BUG FIXED (found via on-device testing, F Completionist): station
+    order used to be a bare `sorted()` of complex_id numbers, which has
+    nothing to do with the line's real travel order (complex_ids are
+    assigned system-wide, not per-line). Fixed by walking each branch's own
+    `stops` list in the order it's already in (real GTFS stop_sequence
+    order, see build_static_data.py) and keeping first-seen order per
+    complex_id -- trunk stations appear once, from whichever branch reaches
+    them first, then each subsequent branch contributes its own tail in
+    sequence."""
     stop_to_complex = {stop_id: int(s["complex_id"]) for stop_id, s in stations.items()}
     quests = {}
-    for route_id in route_stops:
+    for route_id in real_routes(route_stops):
         branches = branches_for_route(route_stops, route_id)
-        all_stops = set()
+        complexes = []
+        seen = set()
         for b in branches:
-            all_stops.update(b["stops"])
-        complexes = sorted({stop_to_complex[s] for s in all_stops if s in stop_to_complex})
+            for stop_id in b["stops"]:
+                cid = stop_to_complex.get(stop_id)
+                if cid is not None and cid not in seen:
+                    seen.add(cid)
+                    complexes.append(cid)
         if not complexes:
             continue
         quests[f"line_completion_{route_id}"] = {
@@ -139,48 +174,58 @@ def resolve_line_completion_quests(route_stops, stations):
 
 def resolve_boroughs_group(complexes):
     """group_ref: 'boroughs' -- one group per real borough, straight off the
-    existing borough field. No hand data needed."""
+    existing borough field. No hand data needed. Returns (groups, labels) --
+    label = the borough's real display name (BORO_NAMES), since group
+    members have different station names and can't derive a header label
+    from themselves the way same-name clusters can."""
     groups = defaultdict(list)
     for cid, s in complexes.items():
         groups[s["borough"]].append(int(cid))
-    return list(groups.values())
+    boroughs = list(groups.keys())
+    return [groups[b] for b in boroughs], [BORO_NAMES.get(b, b) for b in boroughs]
 
 
 def resolve_same_name_clusters(complexes, exclude_names):
     """group_ref: 'same_name_station_clusters' -- group by exact station name,
     drop anything in exclude_names, keep only groups with 2+ remaining.
     exclude_names comes from the quest's own criteria in quests_source.json --
-    a real, editable list, not a judgment call buried in a comment."""
+    a real, editable list, not a judgment call buried in a comment. Returns
+    (groups, None) -- no group_labels needed, every member already shares
+    one name, which the mobile app already displays as the group header."""
     by_name = defaultdict(list)
     for cid, s in complexes.items():
         if s["name"] in exclude_names:
             continue
         by_name[s["name"]].append(int(cid))
-    return [ids for ids in by_name.values() if len(ids) >= 2]
+    return [ids for ids in by_name.values() if len(ids) >= 2], None
 
 
 def resolve_manhattan_neighborhoods(path):
     """group_ref: 'manhattan_neighborhoods' -- reads final_neighborhoods.json.
-    Returns None (not an empty list) if the file doesn't exist yet, so the
-    caller can skip the quest loudly instead of silently shipping an
-    empty/wrong one.
+    Returns (None, None) if the file doesn't exist yet, so the caller can
+    skip the quest loudly instead of silently shipping an empty/wrong one.
 
     REAL SHAPE (confirmed against the notebook's actual output): flat, keyed
     by complex_id, one row per station -- {"<complex_id>": {"name": ...,
     "borough": ..., "neighborhood": ..., "lat": ..., "lon": ...}, ...}. Same
     shape as complex_to_neighborhood.json, just with the finalized/tweaked
     neighborhood values from the notebook pass. Group by filtering to
-    borough == "Manhattan" and clustering on the neighborhood field.
+    borough == "Manhattan" and clustering on the neighborhood field --
+    label = that same neighborhood field, since it's already the real
+    display name (the notebook's MERGE_MAP already collapsed DCP's
+    directional NTA splits into colloquial names before this file was
+    written), not just a grouping key.
     """
     if not path.exists():
-        return None
+        return None, None
     data = load_json(path)
     groups = defaultdict(list)
     for cid, s in data.items():
         if s.get("borough") != "Manhattan":
             continue
         groups[s["neighborhood"]].append(int(cid))
-    return list(groups.values())
+    neighborhoods = list(groups.keys())
+    return [groups[n] for n in neighborhoods], neighborhoods
 
 
 def branches_for_route(route_stops, route_id):
@@ -212,11 +257,16 @@ def resolve_route_branches(route_stops, stations):
     anything shared by 2+ branches (not just all of them) handles both simple
     and tree-shaped forks correctly.
 
-    Returns: {route_id: [tail_group, tail_group, ...]} for every route with
-    2+ real branches. Routes with 0 or 1 branch are omitted -- nothing to
-    branch between.
+    Returns: {route_id: [(label, tail_group), ...]} for every route with 2+
+    real branches. Routes with 0 or 1 branch are omitted -- nothing to branch
+    between. `label` is that branch's terminal station name (the last stop
+    of its own full stop list) -- no branch name/id data exists anywhere in
+    this pipeline (only synthetic branch_ids like 'A-0-2'), so the terminal
+    is the one real, always-available fact that differentiates one branch
+    from another for display purposes.
     """
     stop_to_complex = {stop_id: int(s["complex_id"]) for stop_id, s in stations.items()}
+    stop_to_name = {stop_id: s["name"] for stop_id, s in stations.items()}
 
     result = {}
     for route_id in route_stops:
@@ -238,7 +288,24 @@ def resolve_route_branches(route_stops, stations):
                 continue  # a branch with no exclusive stations shouldn't happen; guard anyway
             tail_complexes = sorted({stop_to_complex[s] for s in tail_stops if s in stop_to_complex})
             if tail_complexes:
-                tails.append(tail_complexes)
+                # The branch's real terminus is always one of its own list's two
+                # endpoints -- but WHICH end depends on which side the branches
+                # diverge on (varies per route: some share their northern/first
+                # endpoint and diverge at the south/last, others the reverse), so
+                # pick whichever endpoint is actually exclusive to this branch
+                # rather than assuming a fixed side. Confirmed necessary on real
+                # data -- the 2 train's branches share stops[-1] (both end at the
+                # same trunk stop) and diverge at stops[0], the opposite of a
+                # blind "always use the last stop" assumption, which produced
+                # identical, wrong labels for every branch.
+                if occurrence_count[stops[0]] == 1:
+                    terminal_stop = stops[0]
+                elif occurrence_count[stops[-1]] == 1:
+                    terminal_stop = stops[-1]
+                else:
+                    terminal_stop = tail_stops[-1]  # neither endpoint exclusive; fall back to a real exclusive stop
+                terminal_name = stop_to_name.get(terminal_stop, "unknown terminal")
+                tails.append((f"via {terminal_name}", tail_complexes))
 
         if len(tails) >= 2:
             result[route_id] = tails
@@ -252,13 +319,15 @@ def resolve_branching_out_quests(route_stops, stations):
     generated fresh every run, never hand-authored in quests_source.json."""
     branch_groups = resolve_route_branches(route_stops, stations)
     quests = {}
-    for route_id, groups in branch_groups.items():
+    for route_id, tails in branch_groups.items():
+        labels = [label for label, _ in tails]
+        groups = [complexes for _, complexes in tails]
         quests[f"branching_out_{route_id}"] = {
             "title": f"{route_id} Branching Out",
             "description": f"Visit a station on every branch of the {route_id} line.",
             "mechanism": "lifetime_set",
             "source": "auto_generated",
-            "criteria": {"type": "all_groups", "groups": groups},
+            "criteria": {"type": "all_groups", "groups": groups, "group_labels": labels},
         }
     return quests
 
@@ -291,13 +360,15 @@ def resolve_quest(quest_id, quest, complexes, route_stops):
     ctype = criteria["type"]
 
     if ctype in ("all_groups", "min_count_groups"):
-        groups = resolve_group_ref(criteria["group_ref"], criteria, complexes)
+        groups, labels = resolve_group_ref(criteria["group_ref"], criteria, complexes)
         if groups is None:
             print(f"  [skipped] {quest_id} -- {criteria['group_ref']} data not available yet")
             return None
         resolved = dict(quest)
         resolved["criteria"] = {k: v for k, v in criteria.items() if k != "group_ref"}
         resolved["criteria"]["groups"] = groups
+        if labels is not None:
+            resolved["criteria"]["group_labels"] = labels
         return resolved
 
     if ctype == "all_routes":

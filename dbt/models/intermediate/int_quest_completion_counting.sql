@@ -1,15 +1,10 @@
 -- One row per (user_id, quest_id, completed) for every counting quest.
 -- SQL equivalent of quests_logic.ts's evaluateCounting().
 --
--- ASSUMPTION FLAGGED: transfer_count reuses {{ ref('int_transfers') }}
--- rather than re-deriving transfer detection here -- same "one place owns
--- this" principle as everything else in this project (int_transfers already
--- does the LAG()-over-sequence detection per dbt-coverage.md). This assumes
--- int_transfers has a trip_id column to join against int_trips for
--- user_id -- I haven't seen int_transfers.sql directly this session, so
--- confirm that join works before trusting this model; if int_transfers only
--- carries leg_id references, this join needs adjusting to go through
--- int_legs instead.
+-- transfer_count reuses {{ ref('int_transfers') }} rather than re-deriving
+-- transfer detection here -- same "one place owns this" principle as
+-- everything else in this project. int_transfers carries a trip_id column
+-- (confirmed directly), so the join below to int_trips for user_id is valid.
 
 with counting_quests as (
 

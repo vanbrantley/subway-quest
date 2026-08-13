@@ -11,6 +11,8 @@ import * as SQLite from 'expo-sqlite';
 import questsData from '../data/quests.json';
 import stationsData from '../data/stations.json';
 import routeStopsData from '../data/route_stops.json';
+import transfersData from '../data/transfers.json';
+import { EXPRESS_ROUTE_IDS } from '../lib/subwayData';
 import {
     RiderHistory, ComplexLookup, QuestsFile, Quest,
     QuestProgress, QuestTripProgress, QuestBreakdown,
@@ -26,29 +28,93 @@ const QUESTS = questsData as unknown as QuestsFile;
 // ---- stop_id -> complex_id, built once from the bundled stations.json.
 // See quests_logic.ts's ComplexLookup doc comment for why this translation is
 // non-optional. ----
-type StationsFile = Record<string, { complex_id: string; name: string }>;
+type StationsFile = Record<string, { complex_id: string; name: string; daytime_routes: string[] }>;
 const STATIONS = stationsData as unknown as StationsFile;
 const COMPLEX_LOOKUP: ComplexLookup = Object.fromEntries(
     Object.entries(STATIONS).map(([stopId, s]) => [stopId, Number(s.complex_id)])
 );
 
-// complex_id -> display name, for enriching breakdown items with real station
-// names -- the pure module only knows complex_ids (numbers), and screens
-// shouldn't have to import stations.json separately just to label them.
-// First name seen per complex_id wins (a physical complex is served by
-// multiple stop_ids, occasionally with tiny naming variants -- not worth
-// reconciling here, matches build_quests.py's own dedupe-by-complex pattern).
+// ---- complex_id -> transfer-complex info, for enriching breakdown items
+// with real station names/navigation targets. Deliberately NOT built by
+// picking "whichever stop_id comes first" out of stations.json (the
+// previous approach here) -- Object.entries() on a JSON object reorders
+// purely-numeric string keys (e.g. a complex's IRT-numbered stop_id like
+// '630') to the front, ascending, ahead of alphanumeric ones (e.g. 'F11'),
+// regardless of the source file's real order. That's a JS iteration quirk,
+// not a meaningful choice, and it's what caused a real on-device bug: the F
+// Completionist quest showed "51 St" (the unrelated 6 stop sharing that
+// complex) instead of "Lexington Av/53 St" (the actual F/E stop), and
+// tapping it opened the wrong Station page entirely. transfers.json is the
+// authoritative source instead -- it already has a clean display_name per
+// complex_id (e.g. "Lexington Av/51-53 Sts (6,E,F)" for exactly this
+// complex) and covers every complex_id (verified 445/445, zero gaps).
+type TransferComplex = { complex_id: string; display_name: string; gtfs_stop_ids: string[]; routes: string[]; is_complex: boolean; borough: string };
+type TransfersFile = Record<string, TransferComplex>;
+const TRANSFERS = transfersData as unknown as TransfersFile;
+
+// transfers.json's display_name always ends in a "(routes served)"
+// parenthetical (e.g. "Roosevelt Island (M)", "4 Av-9 St (F,G,R)") -- useful
+// context on its own, but redundant once a row already has its own trailing
+// route icon(s) (see achievements/[questId].tsx's ChecklistRow), so it's
+// stripped here rather than displayed twice. Confirmed every one of the 445
+// complexes' display_name follows this exact "Name (Routes)" shape, so a
+// plain trailing-parenthetical strip is safe, not a fragile guess.
 const COMPLEX_NAMES: Record<number, string> = {};
-for (const s of Object.values(STATIONS)) {
-    const cid = Number(s.complex_id);
-    if (!(cid in COMPLEX_NAMES)) COMPLEX_NAMES[cid] = s.name;
+const COMPLEX_REPRESENTATIVE_STOP: Record<number, string> = {};
+for (const [cid, t] of Object.entries(TRANSFERS)) {
+    COMPLEX_NAMES[Number(cid)] = t.display_name.replace(/\s*\([^)]*\)$/, '');
+    COMPLEX_REPRESENTATIVE_STOP[Number(cid)] = t.gtfs_stop_ids[0];
+}
+
+// A handful of routes are recorded under a different letter in each
+// station's daytime_routes than their real route_id -- mirrors
+// build_static_data.py's/validate_quests.py's DAYTIME_ROUTES_ALIAS exactly
+// (shuttles are all generic "S" there, Staten Island Railway is "SIR",
+// express variants aren't broken out at all). Needed below so a pairs-kind
+// breakdown item's route can be matched against a station's real
+// daytime_routes.
+const DAYTIME_ROUTES_ALIAS: Record<string, string> = {
+    '6X': '6', '7X': '7', FX: 'F',
+    FS: 'S', GS: 'S', H: 'S',
+    SI: 'SIR',
+};
+
+// The specific stop_id/name for a (complex, route) pair -- e.g. for the F
+// Completionist quest's pair at Lexington Av/53 St's complex, this returns
+// the F11 stop ("Lexington Av/53 St"), never the unrelated 6 stop ("51 St")
+// sharing that complex. Falls back to the complex-level representative
+// stop/name only if no member's daytime_routes actually matches (shouldn't
+// happen given route_stops.json is already cross-validated against
+// daytime_routes at generation time -- see build_static_data.py -- but
+// staying defensive rather than returning null).
+function stopForComplexRoute(complexId: number, route: string): { stopId: string | null; name: string } {
+    const transfer = TRANSFERS[String(complexId)];
+    const checkRoute = DAYTIME_ROUTES_ALIAS[route] ?? route;
+    if (transfer) {
+        for (const stopId of transfer.gtfs_stop_ids) {
+            const station = STATIONS[stopId];
+            if (station?.daytime_routes.includes(checkRoute)) {
+                return { stopId, name: station.name };
+            }
+        }
+    }
+    return {
+        stopId: COMPLEX_REPRESENTATIVE_STOP[complexId] ?? null,
+        name: COMPLEX_NAMES[complexId] ?? `Unknown station (${complexId})`,
+    };
 }
 
 // ---- every real route_id, for all_routes criteria with no explicit list ----
+// Excludes express variants (6X/7X/FX) -- they fold into their local
+// counterpart rather than being separately-completable, mirroring
+// build_quests.py's real_routes() exclusion. Without this, "Every Line"
+// (all_routes with no explicit list) would require riding 6X/7X/FX
+// specifically, which the trip-logging flow can never produce (see
+// subwayData.ts's EXPRESS_ROUTE_IDS) -- permanently uncompletable otherwise.
 type Branch = { branch_id: string; stops: string[] };
 type RouteStopsFile = Record<string, Record<string, Branch[]>>;
 const ROUTE_STOPS = routeStopsData as unknown as RouteStopsFile;
-const ALL_REAL_ROUTES: string[] = Object.keys(ROUTE_STOPS);
+const ALL_REAL_ROUTES: string[] = Object.keys(ROUTE_STOPS).filter((r) => !EXPRESS_ROUTE_IDS.includes(r));
 
 // ---- full station span per route (all branches flattened, deduped), for
 // full_line_ride. Mirrors resolve_route_branches' branch-reading approach on
@@ -137,17 +203,22 @@ export type QuestDetail = QuestSummary & {
 // Same shapes as quests_logic.ts's QuestBreakdown, with real station names
 // substituted for bare complex_ids -- built here, not in the pure module,
 // since names are display content (mirrors the title/description pattern).
-export type EnrichedStationBreakdownItem = { complexId: number; name: string; visited: boolean; tripIds: string[] };
+// stopId fields are a representative stop_id per complex_id (see
+// COMPLEX_REPRESENTATIVE_STOP), for navigating to that complex's canonical
+// Station page, which is keyed by stop_id.
+export type EnrichedStationBreakdownItem = { complexId: number; name: string; stopId: string | null; visited: boolean; tripIds: string[] };
 export type EnrichedGroupBreakdownItem = {
     groupIndex: number;
-    complexIds: number[]; // parallel to names -- complexIds[i] is the id for names[i]
+    complexIds: number[]; // parallel to names/stopIds -- complexIds[i] is the id for names[i]/stopIds[i]
     names: string[];
+    stopIds: (string | null)[];
     minRequired: number;
     visitedComplexIds: number[];
     visited: boolean;
     tripIds: string[];
+    label: string | null; // group-level display label (borough/neighborhood/branch name) -- see quests_logic.ts
 };
-export type EnrichedPairBreakdownItem = { station: number; stationName: string; route: string; visited: boolean; tripIds: string[] };
+export type EnrichedPairBreakdownItem = { station: number; stationName: string; stopId: string | null; route: string; visited: boolean; tripIds: string[] };
 export type EnrichedRouteBreakdownItem = { route: string; visited: boolean; tripIds: string[] };
 
 export type EnrichedQuestBreakdown =
@@ -156,15 +227,16 @@ export type EnrichedQuestBreakdown =
     | { kind: 'pairs'; items: EnrichedPairBreakdownItem[] }
     | { kind: 'routes'; items: EnrichedRouteBreakdownItem[] }
     | { kind: 'per_trip'; qualifyingTripIds: string[] }
-    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[] };
+    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[]; contributingRoute: string | null };
 
 function enrichBreakdown(breakdown: QuestBreakdown): EnrichedQuestBreakdown {
     const nameOf = (cid: number) => COMPLEX_NAMES[cid] ?? `Unknown station (${cid})`;
+    const stopIdOf = (cid: number) => COMPLEX_REPRESENTATIVE_STOP[cid] ?? null;
     switch (breakdown.kind) {
         case 'stations':
             return {
                 kind: 'stations',
-                items: breakdown.items.map((i) => ({ complexId: i.complexId, name: nameOf(i.complexId), visited: i.visited, tripIds: i.tripIds })),
+                items: breakdown.items.map((i) => ({ complexId: i.complexId, name: nameOf(i.complexId), stopId: stopIdOf(i.complexId), visited: i.visited, tripIds: i.tripIds })),
             };
         case 'groups':
             return {
@@ -173,16 +245,21 @@ function enrichBreakdown(breakdown: QuestBreakdown): EnrichedQuestBreakdown {
                     groupIndex: i.groupIndex,
                     complexIds: i.complexIds,
                     names: i.complexIds.map(nameOf),
+                    stopIds: i.complexIds.map(stopIdOf),
                     minRequired: i.minRequired,
                     visitedComplexIds: i.visitedComplexIds,
                     visited: i.visited,
                     tripIds: i.tripIds,
+                    label: i.label,
                 })),
             };
         case 'pairs':
             return {
                 kind: 'pairs',
-                items: breakdown.items.map((i) => ({ station: i.station, stationName: nameOf(i.station), route: i.route, visited: i.visited, tripIds: i.tripIds })),
+                items: breakdown.items.map((i) => {
+                    const { stopId, name } = stopForComplexRoute(i.station, i.route);
+                    return { station: i.station, stationName: name, stopId, route: i.route, visited: i.visited, tripIds: i.tripIds };
+                }),
             };
         case 'routes':
         case 'per_trip':

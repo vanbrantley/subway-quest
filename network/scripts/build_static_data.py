@@ -33,6 +33,22 @@ RAW = DATA_DIR / "raw"
 OUT = DATA_DIR / "processed"
 OUT.mkdir(parents=True, exist_ok=True)
 
+# Routes recorded under a different letter in MTA's own "Daytime Routes"
+# station reference than their real route_id -- shuttles are all recorded
+# generically as "S" there (never GS/FS/H individually), Staten Island
+# Railway as "SIR" (not "SI"), and express variants aren't broken out at all
+# (recorded under their local counterpart's letter). Confirmed empirically
+# (see build_route_branches' docstring): every one of these seven route_ids'
+# own stops shows a 100% mismatch against Daytime Routes without this
+# mapping, vs. a partial mismatch for every other route -- a naming
+# difference, not a data problem, so these get translated before comparing
+# rather than excluded outright.
+DAYTIME_ROUTES_ALIAS = {
+    "6X": "6", "7X": "7", "FX": "F",
+    "FS": "S", "GS": "S", "H": "S",
+    "SI": "SIR",
+}
+
 
 def strip_direction_suffix(stop_id: str) -> str:
     """Convert a platform-level stop_id (e.g. '101N') to its parent station id ('101')."""
@@ -87,17 +103,53 @@ def build_transfers_json(complexes: pd.DataFrame) -> dict:
     return out
 
 
-def build_route_branches(trips: pd.DataFrame, stop_times: pd.DataFrame, shapes: pd.DataFrame, routes: pd.DataFrame):
+def build_route_branches(trips: pd.DataFrame, stop_times: pd.DataFrame, shapes: pd.DataFrame, routes: pd.DataFrame, stations_json: dict):
     """
     Returns:
       route_stops: { route_id: { direction_id: [ { branch_id, stops: [stop_id,...] }, ... ] } }
       route_shapes: { route_id: [ { branch_id, direction_id, color, points: [[lat,lon],...] }, ... ] }
+
+    REAL BUG FIXED (found investigating why 4 Av-9 St -- served only by F/G/R --
+    showed up in the D/N/W line_completion quests): stop_times.txt has no
+    pickup_type/drop_off_type columns to distinguish "really stops here" from
+    "passes through," so this used to take the raw union of every distinct
+    trip pattern per route+direction as that route's station list. That
+    union included two different real problems: (1) a genuine raw-data
+    mislabeling -- 5 trips with route_id='W' in trips.txt whose trip_id,
+    shape_id, and headsign all say 'N' throughout (e.g. trip_id
+    'BSP26GEN-N102-Weekday-..._N..N70R', headsign 'Bay Pkwy', a real N
+    destination W never serves) -- and (2) real but rare weekend/GO reroute
+    patterns baked into this GTFS feed (2 via 1's tracks, 4/5 via 6's,
+    N/Q/W via R's, etc.). Both produce the same bad outcome for a
+    completionist quest or the trip-logging station picker: a station the
+    route doesn't serve as normal, plannable service. Fixed by cross-
+    validating every (route, stop) pair against MTA's own "Daytime Routes"
+    station reference (stations.json's daytime_routes, sourced from
+    stations.csv, not derived from schedule data at all) before a trip's
+    stops ever reach the pattern-matching below -- confirmed safe by
+    checking the reverse direction first: zero cases where Daytime Routes
+    claims a route serves a station but the raw trip data disagreed, so this
+    filter can only trim, never drop something legitimate.
     """
     stop_times = stop_times.copy()
     stop_times["parent_stop_id"] = stop_times["stop_id"].map(strip_direction_suffix)
+
+    trip_to_route = dict(zip(trips["trip_id"], trips["route_id"]))
+    daytime_routes_by_stop = {sid: set(s["daytime_routes"]) for sid, s in stations_json.items()}
+    route_ids = stop_times["trip_id"].map(trip_to_route)
+    check_routes = route_ids.map(lambda r: DAYTIME_ROUTES_ALIAS.get(r, r))
+    valid = [
+        check_route in daytime_routes_by_stop.get(stop_id, set())
+        for check_route, stop_id in zip(check_routes, stop_times["parent_stop_id"])
+    ]
+    stop_times = stop_times[valid]
+
     stop_times = stop_times.sort_values(["trip_id", "stop_sequence"])
 
-    # trip_id -> ordered tuple of parent stop ids
+    # trip_id -> ordered tuple of parent stop ids (now with reroute-only /
+    # mislabeled stops already excluded -- a trip whose real pattern is
+    # trimmed down to under 2 stops just gets dropped below, same as any
+    # other too-short pattern).
     trip_stop_seq = stop_times.groupby("trip_id")["parent_stop_id"].apply(tuple)
 
     trips_idx = trips.set_index("trip_id")
@@ -197,7 +249,7 @@ def main():
     transfers_json = build_transfers_json(complexes)
 
     print("Building route_stops.json and route_shapes.json...")
-    route_stops_json, route_shapes_json = build_route_branches(trips, stop_times, shapes, routes)
+    route_stops_json, route_shapes_json = build_route_branches(trips, stop_times, shapes, routes, stations_json)
 
     (OUT / "stations.json").write_text(json.dumps(stations_json, indent=2))
     (OUT / "transfers.json").write_text(json.dumps(transfers_json, indent=2))

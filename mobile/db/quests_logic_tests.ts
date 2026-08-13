@@ -105,12 +105,16 @@ function trip(tripId: string, origin: string, dest: string): Trip {
 }
 
 {
+    const words = ['JAM', 'CAB', 'BAG'];
     const legs = [leg('t1', 1, 'J', 'x', 'y'), leg('t1', 2, 'A', 'y', 'z'), leg('t1', 3, 'M', 'z', 'w')];
-    check('route_letters_spell_word: J-A-M in order -> true',
-        evaluatePerTrip({ type: 'route_letters_spell_word', word: 'JAM' }, legs, { complexLookup, fullRouteSpans: {} }) === true);
+    check('route_letters_spell_word: J-A-M in order, "JAM" in word list -> true',
+        evaluatePerTrip({ type: 'route_letters_spell_word', words }, legs, { complexLookup, fullRouteSpans: {} }) === true);
     const wrongOrder = [leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'J', 'y', 'z'), leg('t1', 3, 'M', 'z', 'w')];
-    check('route_letters_spell_word: wrong order -> false',
-        evaluatePerTrip({ type: 'route_letters_spell_word', word: 'JAM' }, wrongOrder, { complexLookup, fullRouteSpans: {} }) === false);
+    check('route_letters_spell_word: wrong order still not a match even though letters overlap "CAB" -> false',
+        evaluatePerTrip({ type: 'route_letters_spell_word', words }, wrongOrder, { complexLookup, fullRouteSpans: {} }) === false);
+    const notInList = [leg('t1', 1, 'R', 'x', 'y'), leg('t1', 2, 'A', 'y', 'z'), leg('t1', 3, 'M', 'z', 'w')];
+    check('route_letters_spell_word: spells a real word ("RAM") not in the curated list -> false',
+        evaluatePerTrip({ type: 'route_letters_spell_word', words }, notInList, { complexLookup, fullRouteSpans: {} }) === false);
 }
 
 {
@@ -136,16 +140,25 @@ function trip(tripId: string, origin: string, dest: string): Trip {
 }
 
 {
-    // t1: leg1 exits R16, leg2 enters R16 -- a real transfer. t2: no matching exit/entry -- not a transfer.
+    // Every leg after a trip's first counts as a transfer, regardless of whether
+    // entry/exit stop_ids literally match -- a transfer's entry is auto-set to
+    // "the correct platform at that complex," which is frequently a different
+    // stop_id (e.g. Union Sq complex 602: exiting the 6 at stop_id 635, entering
+    // the L at stop_id L03). t1 has a same-stop_id transfer (635 -> 635, the old
+    // test's shape); t2 has a different-stop_id transfer at the same real-world
+    // complex (635 -> L03) -- both must count, since the old exact-match logic
+    // silently missed cases like t2.
     const history: RiderHistory = {
         trips: [],
         legs: [
             leg('t1', 1, 'A', 'x', 'R16'), leg('t1', 2, 'N', 'R16', 'y'),
-            leg('t2', 1, 'A', 'x', 'y'), leg('t2', 2, 'N', 'z', 'w'),
+            leg('t2', 1, '6', 'x', '635'), leg('t2', 2, 'L', 'L03', 'w'),
+            leg('t3', 1, 'A', 'x', 'y'), // single-leg trip, no transfer
         ],
     };
-    const r = evaluateCounting({ type: 'transfer_count', count: 1 }, history);
-    check('transfer_count: exactly 1 real transfer detected across 2 trips', r.current === 1 && r.completed === true);
+    const r = evaluateCounting({ type: 'transfer_count', count: 2 }, history);
+    check('transfer_count: 1 transfer per 2-leg trip, including different-stop_id transfers, single-leg trip contributes 0',
+        r.current === 2 && r.completed === true);
 }
 
 // ---- getAllQuestProgressPure ----
@@ -337,6 +350,35 @@ function trip(tripId: string, origin: string, dest: string): Trip {
     check('getQuestBreakdown (counting): current/target correct, both contributing trips listed',
         b.kind === 'counting' && b.current === 2 && b.target === 3
         && b.contributingTripIds.sort().join(',') === 't1,t2');
+    check('getQuestBreakdown (counting, ride_count_route explicit): contributingRoute is the explicit route',
+        b.kind === 'counting' && b.contributingRoute === 'A');
+}
+
+{
+    // route: 'any' -- contributingRoute must resolve to the actual best route
+    // (N, ridden twice), not stay unresolved, so a quest like Line Loyalist
+    // can say WHICH line its count refers to.
+    const quest = {
+        title: 'Line Loyalist', description: 'x', mechanism: 'counting' as const,
+        criteria: { type: 'ride_count_route' as const, route: 'any', count: 2 },
+    };
+    const history: RiderHistory = {
+        trips: [],
+        legs: [leg('t1', 1, 'N', 'x', 'y'), leg('t2', 1, 'N', 'x', 'y'), leg('t3', 1, 'A', 'x', 'y')],
+    };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (counting, ride_count_route "any"): contributingRoute resolves to the best route',
+        b.kind === 'counting' && b.contributingRoute === 'N');
+}
+
+{
+    // transfer_count has no single-route concept -- contributingRoute must
+    // stay null, unlike ride_count_route.
+    const quest = { title: 'Transfer Master', description: 'x', mechanism: 'counting' as const, criteria: { type: 'transfer_count' as const, count: 1 } };
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'N', 'y', 'z')] };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (counting, transfer_count): contributingRoute is null',
+        b.kind === 'counting' && b.contributingRoute === null);
 }
 
 // ---- questIdsForStation ----

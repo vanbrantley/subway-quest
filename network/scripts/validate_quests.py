@@ -40,6 +40,25 @@ VALID_CRITERIA_TYPES = {
 # ever unavailable when this runs standalone).
 KNOWN_LETTER_ROUTES = set("ABCDEFGJLMNQRSWZ")
 
+# Real express route_ids that fold into their local counterpart instead of
+# getting their own line_completion quest -- mirrors build_quests.py's
+# EXPRESS_ROUTE_IDS. Still real, valid route_ids everywhere else (they stay
+# in valid_route_ids), just not required to have their own line_completion_*.
+EXPRESS_ROUTE_IDS = {"6X", "7X", "FX"}
+
+# Routes recorded under a different letter in MTA's own "Daytime Routes"
+# station reference than their real route_id -- mirrors
+# build_static_data.py's DAYTIME_ROUTES_ALIAS exactly (see that file for the
+# full reasoning: shuttles are all "S" there, Staten Island Railway is
+# "SIR", express variants aren't broken out at all). Needed here so this
+# check stays independent of route_stops.json's own correctness -- see the
+# REGRESSION CHECK below for why that independence is the whole point.
+DAYTIME_ROUTES_ALIAS = {
+    "6X": "6", "7X": "7", "FX": "F",
+    "FS": "S", "GS": "S", "H": "S",
+    "SI": "SIR",
+}
+
 
 def load_json(path):
     with open(path) as f:
@@ -99,6 +118,20 @@ def main():
                     if s:
                         cid = int(s["complex_id"])
                         routes_at_complex.setdefault(cid, set()).add(route_id)
+
+    # daytime_routes_at_complex is INDEPENDENT of route_stops.json on purpose
+    # -- built straight from stations.json's daytime_routes (itself sourced
+    # from stations.csv, not schedule data), through DAYTIME_ROUTES_ALIAS for
+    # the seven routes recorded under a different letter there. See the
+    # REGRESSION CHECK below for why routes_at_complex above isn't enough by
+    # itself: it's derived from route_stops.json, the exact same file a raw
+    # GTFS mislabeling or reroute pattern could corrupt, so checking a pair
+    # against it can only catch build_quests.py-level bugs, never a
+    # regression in route_stops.json's own generation (build_static_data.py).
+    daytime_routes_at_complex = {}
+    for stop_id, s in stations.items():
+        cid = int(s["complex_id"])
+        daytime_routes_at_complex.setdefault(cid, set()).update(s["daytime_routes"])
 
     check(len(quests) > 0, "quests.json is empty")
 
@@ -201,7 +234,27 @@ def main():
                 if cid in valid_complex_ids and route in valid_route_ids:
                     check(route in routes_at_complex.get(cid, set()),
                           f"{prefix} claims route '{route}' serves complex {cid}, "
-                          f"but stations.json says it doesn't")
+                          f"but route_stops.json says it doesn't")
+                    # REGRESSION CHECK for the real bug found on-device: 4 Av-9 St
+                    # (served only by F/G/R) showed up in the D/N/W line_completion
+                    # quests because route_stops.json's own generation used to take
+                    # the raw union of every distinct GTFS trip pattern per route,
+                    # which silently included a genuine raw-data mislabeling (5
+                    # trips with route_id='W' that are really N trips by every
+                    # other signal) and real but rare weekend/GO reroute patterns
+                    # (2 via 1's tracks, N/Q/W via R's, etc.) -- neither of which
+                    # belongs in a completionist quest. Fixed at the source in
+                    # build_static_data.py, but checking against
+                    # daytime_routes_at_complex here too, independent of
+                    # route_stops.json, catches it even if that source-level fix
+                    # ever regresses.
+                    if cid in valid_complex_ids:
+                        check_route = DAYTIME_ROUTES_ALIAS.get(route, route)
+                        check(check_route in daytime_routes_at_complex.get(cid, set()),
+                              f"{prefix} claims route '{route}' serves complex {cid}, "
+                              f"but Daytime Routes ({sorted(daytime_routes_at_complex.get(cid, set()))}) "
+                              f"disagrees -- likely a reroute-pattern or mislabeled-trip leak into "
+                              f"route_stops.json, see build_static_data.py's DAYTIME_ROUTES_ALIAS")
 
         elif ctype == "all_routes":
             routes = criteria.get("routes")
@@ -221,11 +274,13 @@ def main():
                   f"{prefix} full_line_ride route '{route}' is neither 'any' nor a real route")
 
         elif ctype == "route_letters_spell_word":
-            word = criteria.get("word", "")
-            check(len(word) > 0, f"{prefix} route_letters_spell_word has an empty word")
-            for letter in word:
-                check(letter in valid_route_ids or letter in KNOWN_LETTER_ROUTES,
-                      f"{prefix} word '{word}' contains '{letter}', which isn't a real route_id")
+            words = criteria.get("words", [])
+            check(len(words) > 0, f"{prefix} route_letters_spell_word has an empty word list")
+            for word in words:
+                check(len(word) > 0, f"{prefix} route_letters_spell_word contains an empty word")
+                for letter in word:
+                    check(letter in valid_route_ids or letter in KNOWN_LETTER_ROUTES,
+                          f"{prefix} word '{word}' contains '{letter}', which isn't a real route_id")
 
         elif ctype == "geographic_endpoints":
             start, end = criteria.get("start"), criteria.get("end")
@@ -250,7 +305,7 @@ def main():
     line_completion_ids = {qid for qid in quests if qid.startswith("line_completion_")}
     branching_out_ids = {qid for qid in quests if qid.startswith("branching_out_")}
     covered_routes = {qid.removeprefix("line_completion_") for qid in line_completion_ids}
-    missing_routes = valid_route_ids - covered_routes
+    missing_routes = valid_route_ids - covered_routes - EXPRESS_ROUTE_IDS
     check(not missing_routes,
           f"missing line_completion quests for real route(s): {sorted(missing_routes)} "
           f"-- every real route should resolve to at least one station")
