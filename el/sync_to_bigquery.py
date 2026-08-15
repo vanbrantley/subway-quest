@@ -47,6 +47,10 @@ SCHEMA = [
     bigquery.SchemaField("trip_id", "STRING", mode="NULLABLE"),
     bigquery.SchemaField("leg_id", "STRING", mode="NULLABLE"),
     bigquery.SchemaField("payload", "JSON", mode="REQUIRED"),
+    bigquery.SchemaField("is_test", "BOOLEAN", mode="REQUIRED"),  # true for dev-mode-build rows --
+                                                                    # stg_events filters these out,
+                                                                    # see docs/data-layer.md's
+                                                                    # "Dev/prod data separation"
     bigquery.SchemaField("loaded_at", "TIMESTAMP", mode="REQUIRED"),  # this job's own run time,
                                                                         # not received_at — useful
                                                                         # for debugging EL lag
@@ -117,7 +121,7 @@ def to_bq_row(event: dict, loaded_at: str) -> dict:
     row = {k: event[k] for k in (
         "event_id", "event_type", "event_domain", "event_version",
         "occurred_at", "recorded_at", "received_at", "device_id",
-        "user_id", "trip_id", "leg_id",
+        "user_id", "trip_id", "leg_id", "is_test",
     )}
     # payload comes back from Supabase as a parsed dict already (jsonb).
     # Leave it as a real dict — load_table_from_json serializes the whole

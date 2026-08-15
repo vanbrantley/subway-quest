@@ -714,16 +714,16 @@ runs dbt (seed/run/test) immediately after — see data-layer.md.
       expectations. Full chain (mobile delete → Supabase sync → EL job → dbt → Power BI refresh)
       confirmed working end to end.
 
-**Dev/test data exclusion (decided, not yet implemented):** Dev/testing happens signed in with the
-same Apple ID that'll be used for real post-launch — so `user_id` can't separate test rows from real
-ones. **Decided:** exclude by launch-date cutoff, not row identity — `stg_events.sql` (milestone 5)
-filters `occurred_at >= <launch date>`, hardcoded once the actual launch date is known. Don't pick
-the date now; picking too early risks excluding a real trip, too late risks leaking test data in. No
-new column, no `is_test` flag, no app-side plumbing — same reasoning as the `user_id NOT IN (...)`
-dev-account filter this replaced (`user_id` was ruled out once dev/test sessions started using the
-same real Apple ID that'll be used post-launch — see conversation history if the "why not user_id"
-reasoning is ever needed in full): computed once, upstream, in the staging layer that already needs
-a filter like this.
+**Dev/test data exclusion — done, `is_test` flag (supersedes the earlier launch-date-cutoff plan).**
+The launch-date approach (`stg_events.sql` filtering `occurred_at >= <launch date>`, once the real
+date was known) turned out unworkable in practice: dev/testing continues signed in with the same
+Apple ID used for real post-launch usage, right through and past whatever date got picked — a date
+alone can no longer tell test from real once both happen on/after the same cutoff. Replaced with a
+real `is_test` column, set at write time from `EXPO_PUBLIC_DEV_MODE` (a build-time flag — `.env`
+locally, `eas.json`'s per-profile `env` block for EAS builds; production is always `false`, baked in,
+not a runtime toggle). Threads through the local SQLite projection (`trips`/`saved_stations`),
+Supabase's `raw_events.events`, the BigQuery EL job's schema, and `stg_events.sql`'s filter. Full
+design in `docs/data-layer.md`'s "Dev/prod data separation" — not duplicated here.
 
 ## Dashboard
 
@@ -905,8 +905,6 @@ this, not just the one station — same root cause throughout.
   rejected when building rehydration-on-sign-in; disproportionate to this project's real scale (brief
   local replay is well under a second), same category of over-infrastructure mistake as the original
   S3/RDS design and `direction_id` storage. See `data-layer.md`'s "Rehydration-on-sign-in".
-- **A dedicated `is_test` flag/column for dev-data exclusion** — see "Dev/test data exclusion" above;
-  launch-date cutoff in dbt staging does the same job with no new schema surface.
 - **(Milestone 8) Ordered/sequence-based quests** ("Conquistador," ride through every tunnel/bridge
   crossing) — a genuinely different, fourth criteria mechanism; would need building twice (dbt SQL
   and TypeScript) and kept in sync forever, and nothing else on the quest list needs it. Full

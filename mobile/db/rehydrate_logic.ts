@@ -18,6 +18,7 @@ export type RemoteEventRow = {
     trip_id: string | null;
     leg_id: string | null;
     payload: Record<string, unknown>;
+    is_test: boolean;
 };
 
 export type RehydratedTrip = {
@@ -31,6 +32,7 @@ export type RehydratedTrip = {
     legIds: string[];
     deviceId: string;
     occurredAt: string;
+    isTest: boolean;
 };
 
 export type RehydrationPlan = {
@@ -105,13 +107,14 @@ export function planRehydration(events: RemoteEventRow[]): RehydrationPlan {
             legIds: legs.map((l) => l.legId),
             deviceId: tripStarted.device_id,
             occurredAt: tripStarted.occurred_at,
+            isTest: tripStarted.is_test,
         });
     }
 
     return { restore, skippedDeleted, skippedIncomplete };
 }
 
-export type RehydratedSavedStation = { stationId: string; savedAt: string };
+export type RehydratedSavedStation = { stationId: string; savedAt: string; isTest: boolean };
 
 /** Pure — folds a user's station_saved/station_unsaved event history into a
  *  final saved-set. Last-write-wins per station_id, ordered by recorded_at
@@ -119,9 +122,11 @@ export type RehydratedSavedStation = { stationId: string; savedAt: string };
  *  backdated for these events anyway). Only stations whose most recent
  *  event is station_saved survive in the result. Same "replay the event log
  *  into a final projection" shape as planRehydration, just a simpler
- *  binary-toggle fold instead of trip reconstruction. */
+ *  binary-toggle fold instead of trip reconstruction. isTest is carried
+ *  from whichever event determined the final state -- same "latest wins"
+ *  event already tracked for the rest of the row. */
 export function planSavedStations(events: RemoteEventRow[]): RehydratedSavedStation[] {
-    const latest = new Map<string, { action: 'saved' | 'unsaved'; recordedAt: string; occurredAt: string }>();
+    const latest = new Map<string, { action: 'saved' | 'unsaved'; recordedAt: string; occurredAt: string; isTest: boolean }>();
 
     for (const row of events) {
         if (row.event_type !== 'station_saved' && row.event_type !== 'station_unsaved') continue;
@@ -132,13 +137,14 @@ export function planSavedStations(events: RemoteEventRow[]): RehydratedSavedStat
                 action: row.event_type === 'station_saved' ? 'saved' : 'unsaved',
                 recordedAt: row.recorded_at,
                 occurredAt: row.occurred_at,
+                isTest: row.is_test,
             });
         }
     }
 
     const result: RehydratedSavedStation[] = [];
     for (const [stationId, v] of latest) {
-        if (v.action === 'saved') result.push({ stationId, savedAt: v.occurredAt });
+        if (v.action === 'saved') result.push({ stationId, savedAt: v.occurredAt, isTest: v.isTest });
     }
     return result;
 }

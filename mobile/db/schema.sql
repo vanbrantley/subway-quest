@@ -34,8 +34,16 @@ CREATE TABLE events (
 
     payload         TEXT NOT NULL,              -- JSON; shape defined per (event_type, event_version) in the taxonomy doc
 
+    is_test         INTEGER NOT NULL DEFAULT 0, -- 1 for events written by a dev-mode build
+                                                 -- (EXPO_PUBLIC_DEV_MODE=true -- see lib/devMode.ts and
+                                                 -- docs/data-layer.md's "Dev/prod data separation").
+                                                 -- SQLite has no native boolean; 0/1 INTEGER is this
+                                                 -- schema's first boolean-shaped column, no prior
+                                                 -- convention to match.
+
     CHECK (event_version >= 1),
     CHECK (json_valid(payload)),
+    CHECK (is_test IN (0, 1)),
 
     -- occurred_at's date can never be later than the date it was actually recorded —
     -- backdating to the past is allowed, backdating to the future is not.
@@ -155,7 +163,14 @@ CREATE TABLE trips (
     destination_station_id   TEXT NOT NULL,
 
     started_at               TEXT NOT NULL,
-    ended_at                  TEXT NOT NULL
+    ended_at                  TEXT NOT NULL,
+
+    is_test                  INTEGER NOT NULL DEFAULT 0,  -- mirrors the originating trip_started
+                                                           -- event's is_test -- see events table above
+                                                           -- and docs/data-layer.md's "Dev/prod data
+                                                           -- separation"
+
+    CHECK (is_test IN (0, 1))
 );
 
 CREATE TABLE legs (
@@ -211,6 +226,14 @@ CREATE TABLE saved_stations (
     station_id   TEXT NOT NULL,
     user_id      TEXT NOT NULL,
     saved_at     TEXT NOT NULL,
+    is_test      INTEGER NOT NULL DEFAULT 0,  -- mirrors the originating station_saved event's is_test --
+                                               -- see events table above and docs/data-layer.md's
+                                               -- "Dev/prod data separation". Not part of the primary key
+                                               -- -- re-saving a station under a different build's mode
+                                               -- just flips this on the existing row (see
+                                               -- projection.ts's saveStation ON CONFLICT), same as
+                                               -- saved_at already does.
 
-    PRIMARY KEY (station_id, user_id)
+    PRIMARY KEY (station_id, user_id),
+    CHECK (is_test IN (0, 1))
 );

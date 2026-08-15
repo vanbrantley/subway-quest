@@ -14,6 +14,7 @@ type LocalEventRow = {
     trip_id: string | null;
     leg_id: string | null;
     payload: string; // JSON text locally; raw_events.events wants jsonb
+    is_test: number; // SQLite has no boolean type -- 0/1, converted below
 };
 
 function toRemoteRow(row: LocalEventRow) {
@@ -29,6 +30,13 @@ function toRemoteRow(row: LocalEventRow) {
         trip_id: row.trip_id,
         leg_id: row.leg_id,
         payload: JSON.parse(row.payload),
+        is_test: row.is_test === 1, // REAL BUG FIXED: this field list is an explicit pluck, not a
+        // passthrough -- is_test was added to the local schema and to insertEvent()'s write, but
+        // never added here, so every synced row silently landed in Supabase as is_test=false
+        // (the column's default) regardless of what was actually logged locally. Same class of
+        // gap as el/sync_to_bigquery.py's to_bq_row() field tuple, caught there at the time this
+        // shipped but missed here -- see docs/data-layer.md's schema-change checklist, which this
+        // is now itself an example of ("if the column is on raw_events.events specifically...").
         // received_at deliberately omitted — server-stamped by
         // raw_events.stamp_received_at(), never client-set.
     };

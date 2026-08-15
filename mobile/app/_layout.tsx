@@ -5,6 +5,7 @@
 // running in the right context; this file is what makes that assumption true.
 
 import { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import type { Session } from '@supabase/supabase-js';
@@ -12,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { AuthContext } from '../contexts/AuthContext';
 import { DatabaseProvider } from '../contexts/DatabaseContext';
 import { SyncProvider } from '../contexts/SyncContext';
+import { DevModeBadge } from '../components/DevModeBadge';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -61,18 +63,25 @@ export default function RootLayout() {
     <AuthContext.Provider value={{ session, loading: false }}>
       <DatabaseProvider onReady={handleDbReady}>
         <SyncProvider>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
-            <Stack.Protected guard={!!session}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
-            </Stack.Protected>
+          <View style={styles.container}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
+              <Stack.Protected guard={!!session}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
+              </Stack.Protected>
 
-            <Stack.Protected guard={!session}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
+              <Stack.Protected guard={!session}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+            </Stack>
+            <DevModeBadge />
+          </View>
         </SyncProvider>
       </DatabaseProvider>
     </AuthContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+});

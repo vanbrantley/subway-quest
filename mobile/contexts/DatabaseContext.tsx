@@ -23,7 +23,7 @@ const DatabaseContext = createContext<SQLite.SQLiteDatabase | null>(null);
 // `run` rather than a plain SQL string, deliberately — migration 3 below
 // needs more than one statement plus a specific ordering, and a future
 // migration might too.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promise<void> }[] = [
     {
         // Adds saved_stations — see schema.sql's own comment on this table
@@ -146,6 +146,25 @@ const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promi
                 saved_at     TEXT NOT NULL,
                 PRIMARY KEY (station_id, user_id)
             );`);
+        },
+    },
+    {
+        // Dev/prod data separation: adds is_test to events, trips, and
+        // saved_stations, so the same Apple ID/Supabase account can be used
+        // for ongoing dev-mode testing and real personal use without the
+        // two ever mixing (see lib/devMode.ts and docs/data-layer.md's
+        // "Dev/prod data separation"). Plain ADD COLUMN is safe here (no
+        // drop/recreate needed, unlike migration 4's saved_stations
+        // primary-key change) since every column has a NOT NULL DEFAULT.
+        // Existing local rows default to 0 (not test) -- fine, since local
+        // data on an existing device predates this feature and its own
+        // account-scoping is already correct; the meaningful flagging
+        // starts from whatever a build writes going forward.
+        toVersion: 5,
+        run: async (db) => {
+            await db.execAsync(`ALTER TABLE events ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1));`);
+            await db.execAsync(`ALTER TABLE trips ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1));`);
+            await db.execAsync(`ALTER TABLE saved_stations ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1));`);
         },
     },
     // A future migration slots in here as { toVersion: N, run: ... } — bump

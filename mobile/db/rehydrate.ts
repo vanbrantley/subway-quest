@@ -9,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../lib/supabase';
 import { writeProjectionRows, type CommitContext } from './projection';
 import { planRehydration, planSavedStations, type RemoteEventRow } from './rehydrate_logic';
+import { IS_DEV_MODE } from '../lib/devMode';
 
 const LAST_SEEN_USER_KEY = 'subwayquest_last_seen_user_id';
 
@@ -74,21 +75,33 @@ export async function rehydrateFromRemote(
     db: SQLite.SQLiteDatabase,
     userId: string
 ): Promise<{ tripsRestored: number; tripsSkippedDeleted: number; savedStationsRestored: number }> {
+    // is_test filter -- a dev-mode build restores everything (including its
+    // own test data); a production build only ever restores real (is_test
+    // = false) rows, even though it's pulling from the exact same Supabase
+    // account a dev-mode build also writes to. This is the actual mechanism
+    // that keeps dev-mode test data from ever reaching a production
+    // install's local database -- see docs/data-layer.md's "Dev/prod data
+    // separation".
+    let tripQuery = supabase
+        .schema('raw_events')
+        .from('events')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('event_domain', 'trip');
+    let savedQuery = supabase
+        .schema('raw_events')
+        .from('events')
+        .select('*')
+        .eq('user_id', userId)
+        .in('event_type', ['station_saved', 'station_unsaved']);
+    if (!IS_DEV_MODE) {
+        tripQuery = tripQuery.eq('is_test', false);
+        savedQuery = savedQuery.eq('is_test', false);
+    }
+
     const [tripEventsResult, savedEventsResult] = await Promise.all([
-        supabase
-            .schema('raw_events')
-            .from('events')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('event_domain', 'trip')
-            .order('recorded_at', { ascending: true }),
-        supabase
-            .schema('raw_events')
-            .from('events')
-            .select('*')
-            .eq('user_id', userId)
-            .in('event_type', ['station_saved', 'station_unsaved'])
-            .order('recorded_at', { ascending: true }),
+        tripQuery.order('recorded_at', { ascending: true }),
+        savedQuery.order('recorded_at', { ascending: true }),
     ]);
 
     if (tripEventsResult.error) {
@@ -104,12 +117,15 @@ export async function rehydrateFromRemote(
     await db.withTransactionAsync(async () => {
         for (const trip of plan.restore) {
             const ctx: CommitContext = { deviceId: trip.deviceId, userId };
-            await writeProjectionRows(db, trip.tripId, trip.legIds, trip.draft, ctx, trip.occurredAt);
+            // trip.isTest -- each restored trip keeps whatever it was
+            // originally tagged as (a dev-mode rehydrate can restore a mix
+            // of true/false trips), not the current build's IS_DEV_MODE.
+            await writeProjectionRows(db, trip.tripId, trip.legIds, trip.draft, ctx, trip.occurredAt, trip.isTest);
         }
         for (const station of savedStations) {
             await db.runAsync(
-                `INSERT OR REPLACE INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)`,
-                [station.stationId, userId, station.savedAt]
+                `INSERT OR REPLACE INTO saved_stations (station_id, user_id, saved_at, is_test) VALUES (?, ?, ?, ?)`,
+                [station.stationId, userId, station.savedAt, station.isTest ? 1 : 0]
             );
         }
     });

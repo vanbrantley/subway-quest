@@ -4,7 +4,8 @@ models:
   - name: stg_events
     description: >
       One row per event_id, deduped on the received_at watermark boundary, dev/test rows
-      excluded by launch-date cutoff. Payload left as raw JSON — see model file for why.
+      excluded by is_test (set at write time from EXPO_PUBLIC_DEV_MODE, not by when the row
+      occurred). Payload left as raw JSON — see model file for why.
     columns:
       - name: event_id
         description: Sync idempotency key. Unique here (unlike the raw source) because of the dedup step.

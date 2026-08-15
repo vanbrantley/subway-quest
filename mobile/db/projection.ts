@@ -12,6 +12,7 @@
 
 import * as SQLite from 'expo-sqlite';
 import { randomUUID } from 'expo-crypto';
+import { IS_DEV_MODE } from '../lib/devMode';
 
 export type DraftLeg = {
     sequence: number; // 1-based, contiguous — the draft screen is responsible for
@@ -87,15 +88,21 @@ async function insertEvent(
         payload: object;
     }
 ): Promise<void> {
+    // is_test = IS_DEV_MODE for every event this function ever writes -- the
+    // single point every locally-created event (trip AND product domain
+    // alike) passes through, so nothing else needs to know or pass this in.
+    // Rehydration never calls this function (it replays already-synced
+    // remote events straight into the projection, see rehydrate.ts), so
+    // there's no second caller with a different correct answer here.
     await db.runAsync(
         `INSERT INTO events
        (event_id, event_type, event_domain, event_version,
-        occurred_at, recorded_at, device_id, user_id, trip_id, leg_id, payload)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        occurred_at, recorded_at, device_id, user_id, trip_id, leg_id, payload, is_test)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             randomUUID(), params.eventType, params.eventDomain, params.eventVersion ?? EVENT_VERSION,
             params.occurredAt, params.recordedAt, params.ctx.deviceId, params.ctx.userId,
-            params.tripId, params.legId, JSON.stringify(params.payload),
+            params.tripId, params.legId, JSON.stringify(params.payload), IS_DEV_MODE ? 1 : 0,
         ]
     );
 }
@@ -155,7 +162,10 @@ export async function commitTrip(
 
         // Projection write — shared with rehydrate.ts's replay path, one
         // implementation of "what a trip's projection rows look like."
-        await writeProjectionRows(db, tripId, legIds, draft, ctx, occurredAt);
+        // isTest = IS_DEV_MODE here (a brand-new trip, committed right now)
+        // -- rehydrate.ts's call instead passes each restored trip's own
+        // is_test value, since a dev-mode rehydrate can restore a mix.
+        await writeProjectionRows(db, tripId, legIds, draft, ctx, occurredAt, IS_DEV_MODE);
     });
 
     return tripId;
@@ -208,10 +218,14 @@ export async function saveStation(
             eventType: 'station_saved', eventDomain: 'product', occurredAt, recordedAt, ctx,
             tripId: null, legId: null, payload: { station_id: stationId },
         });
+        // is_test also updates on conflict, not just saved_at -- re-saving a
+        // station under a different build's mode should flip its
+        // visibility to match, not stay stuck at whichever mode first
+        // created the row.
         await db.runAsync(
-            `INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)
-             ON CONFLICT(station_id, user_id) DO UPDATE SET saved_at = excluded.saved_at`,
-            [stationId, ctx.userId, occurredAt]
+            `INSERT INTO saved_stations (station_id, user_id, saved_at, is_test) VALUES (?, ?, ?, ?)
+             ON CONFLICT(station_id, user_id) DO UPDATE SET saved_at = excluded.saved_at, is_test = excluded.is_test`,
+            [stationId, ctx.userId, occurredAt, IS_DEV_MODE ? 1 : 0]
         );
     });
 }
@@ -261,13 +275,14 @@ export async function writeProjectionRows(
     legIds: string[],
     draft: TripDraft,
     ctx: CommitContext,
-    occurredAt: string
+    occurredAt: string,
+    isTest: boolean
 ): Promise<void> {
     await db.runAsync(
         `INSERT INTO trips
-        (trip_id, device_id, user_id, origin_station_id, destination_station_id, started_at, ended_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [tripId, ctx.deviceId, ctx.userId, draft.originStationId, draft.destinationStationId, occurredAt, occurredAt]
+        (trip_id, device_id, user_id, origin_station_id, destination_station_id, started_at, ended_at, is_test)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [tripId, ctx.deviceId, ctx.userId, draft.originStationId, draft.destinationStationId, occurredAt, occurredAt, isTest ? 1 : 0]
     );
 
     for (let i = 0; i < draft.legs.length; i++) {

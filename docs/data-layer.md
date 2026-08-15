@@ -19,6 +19,7 @@ Companion to `mobile/db/schema.sql` (local), `supabase/schema.sql` (server), and
 | `trip_id` | UUID (text), nullable | Real column for `CHECK` enforcement + filtering. `NOT NULL` for trip-domain rows, `NULL` for product. Must be a collision-safe client-generated UUID — many independent users write into the same shared Supabase table. |
 | `leg_id` | UUID (text), nullable | Same reasoning as `trip_id`. `NOT NULL` only for `leg_boarded`/`leg_alighted`. |
 | `payload` | JSON (text/jsonb) | Everything else, per event type. `trip_id`/`leg_id` are pulled into real columns because they need enforcement/filtering; the rest varies too much per type to force into columns. |
+| `is_test` | boolean, NOT NULL, default `false` | Set at write time from the build's `IS_DEV_MODE` — see "Dev/prod data separation" below. |
 
 Sync status (`pending`/`synced`) lives in a separate local-only `sync_status` table keyed by
 `event_id` — operational metadata about the outbox, not a fact about the event itself.
@@ -26,6 +27,55 @@ Sync status (`pending`/`synced`) lives in a separate local-only `sync_status` ta
 This app is multi-user by design (TestFlight, then the App Store) — the shared Supabase/BigQuery
 layers need real indexing on `user_id`/`trip_id` from day one, and every client-generated ID must be
 collision-safe across independent phones, not just internally consistent on one device.
+
+## Dev/prod data separation
+
+Dev/testing signs in with the same Apple ID (same Supabase `user_id`) that's used for real
+post-launch usage — so `user_id` can't separate test rows from real ones, and neither can a date
+cutoff, since ongoing dev testing continues right through and past any chosen launch date. (An
+earlier design tried exactly the date-cutoff approach — `stg_events.sql` filtering
+`occurred_at >= <launch date>` — before this was built; see git history / `docs/status.md` if that
+reasoning is ever needed. It didn't survive contact with "I need to keep testing on the same account
+after real usage starts.")
+
+**`IS_DEV_MODE`** (`mobile/lib/devMode.ts`) is the single source of truth:
+```ts
+export const IS_DEV_MODE = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+```
+Every other file reads `IS_DEV_MODE` from here — nothing else reads `process.env.EXPO_PUBLIC_DEV_MODE`
+directly. It's a **build-time** flag, not a runtime toggle:
+- Locally, `mobile/.env` sets `EXPO_PUBLIC_DEV_MODE=true` (gitignored, never committed — every
+  developer/tester sets their own).
+- Per EAS build, `eas.json`'s `env` block sets it per profile: `development`/`preview` → `"true"`,
+  `production` → `"false"`. This is baked into the JS bundle at build time by Expo's env-var
+  handling — a production build cannot accidentally run with dev mode on; there is no code path that
+  flips it after the bundle is built.
+
+**Write path:** `mobile/db/projection.ts`'s `insertEvent()` is the one place every locally-created
+event (trip domain and product domain alike — `station_saved`/`station_unsaved` go through the exact
+same function) gets written, and it sets `is_test = IS_DEV_MODE` unconditionally. No other call site
+needs to pass anything.
+
+**Read path, two layers:**
+1. **Local SQLite** — `trips` and `saved_stations` both carry `is_test` (copied from the event that
+   created/last-touched them). `mobile/db/testDataFilter.ts`'s `testDataFilterSql()` is the one shared
+   SQL fragment every query joining to either table uses — a dev-mode build adds no filter (sees
+   everything); a production build appends `AND is_test = 0`. Deliberately NOT applied to the dev-only
+   raw-dump debug screen (`mobile/app/debug.tsx`), whose whole purpose is showing unfiltered ground
+   truth, or to `needsRehydration`'s existence check (see below).
+2. **Rehydration** (`mobile/db/rehydrate.ts`) — the mechanism that actually keeps a production
+   install from ever pulling a dev-mode tester's fake data down from the *same* Supabase account in
+   the first place. `rehydrateFromRemote`'s two Supabase queries add `.eq('is_test', false)` when
+   `!IS_DEV_MODE`; a dev-mode build fetches everything. Each restored trip/saved-station keeps
+   whichever `is_test` value it was originally written with (not the current build's `IS_DEV_MODE`) —
+   a dev-mode rehydrate can restore a mix of real and test rows from earlier sessions.
+
+**Warehouse:** `raw_events.events` (Supabase) and `subwayquest_raw.events` (BigQuery, via
+`el/sync_to_bigquery.py`'s explicit schema) both carry `is_test`. `stg_events.sql` filters
+`where is_test = false` and does not carry the column into its own output (every row downstream is
+already guaranteed `false` by that filter, so exposing a column that can only ever hold one value
+would be redundant) — every mart/intermediate model downstream is automatically test-data-free for
+free, with no per-model filtering needed.
 
 ## Sync policy
 
@@ -278,6 +328,67 @@ change needed.
    test (same rigor standard as `schema_tests.py`) that runs the exact migration SQL against a
    simulated already-migrated-to-version-2 device and asserts data survives, the new event types are
    accepted, and — specifically — that `sync_status`'s FK text still resolves to `events`.
+3. **A new `MIGRATIONS` entry was added (`toVersion: 5`, adding `is_test`) without bumping
+   `SCHEMA_VERSION` to match.** `initSchema`'s gate is `if (currentVersion >= SCHEMA_VERSION) return`
+   — with `SCHEMA_VERSION` left at `4`, a device already at version 4 read `4 >= 4` as "already
+   current" and skipped the migrations array entirely, `is_test` and all, with no error at migration
+   time. The failure only surfaced later and indirectly: `table events has no column named is_test`
+   the moment any code tried to insert into it. **Same root cause as bug 1, in a different shape: a
+   fresh install never exercises this bug at all** — `user_version = 0` skips `MIGRATIONS` entirely
+   and runs the current `schema.sql` (which already has `is_test`) once, landing straight on whatever
+   `SCHEMA_VERSION` says. Only a device that's *already partway through the migration history* (i.e.
+   an existing test device, not a clean simulator) actually exercises the gate that was broken — which
+   is exactly why testing on a fresh install alone isn't sufficient signal that a migration is
+   correct, and why the checklist below makes this an explicit, separate check.
+
+## Making a schema change — checklist
+
+Written after the third real on-device bug above, all three variations on the same theme: a fresh
+install papers over the exact class of mistake that breaks an already-migrated device. Go through
+this whenever a table gains/loses a column, changes a constraint, or changes its key.
+
+**Local SQLite (`mobile/db/schema.sql` / `mobile/contexts/DatabaseContext.tsx`):**
+1. Add the new DDL to `schema.sql` itself — this is what a *fresh* install runs, once, so it must
+   already reflect the full current shape.
+2. Add a new entry to `DatabaseContext.tsx`'s `MIGRATIONS` array (`{ toVersion: N, run: ... }`) — this
+   is what an *existing* install runs to catch up. `run` can't just repeat `schema.sql`'s DDL verbatim
+   if the change touches an existing table's constraints/primary key — SQLite's `ALTER TABLE` can't
+   modify a `CHECK`/`PRIMARY KEY` in place; that needs the build-new-table-under-a-temp-name-then-
+   rename-into-place recipe (bug 2 above), never rename the live table away first.
+3. **Bump `SCHEMA_VERSION` to the same `N`.** This is the step bug 3 above forgot — it lives as a
+   separate constant a few lines above the array, nothing enforces the two agree, and getting it
+   wrong produces no error at migration time, only a downstream failure the first time the
+   never-added column gets touched. Grep both `SCHEMA_VERSION = ` and `toVersion:` after editing and
+   confirm the highest `toVersion` in the file matches `SCHEMA_VERSION` exactly.
+4. Add coverage to `mobile/db/schema-tests.py` for the new column/constraint (or a dedicated
+   `migration_vN_tests.py` if the migration itself does more than a plain `ADD COLUMN` — see
+   `migration_v3_tests.py` for the pattern: simulate a device already on the *previous* version, run
+   the migration, assert the result).
+5. Audit every existing query in `mobile/db/*.ts` that touches the changed table — a new `NOT NULL`
+   column needs adding to every `INSERT`; a changed primary key needs every `ON CONFLICT` target
+   updated to match.
+6. `python3 mobile/db/schema-tests.py`, `npx tsc --noEmit`, and every `*_tests.ts` file that touches
+   the changed table.
+7. **Test on a real already-migrated device, not just a fresh simulator install.** A fresh install
+   only ever exercises `schema.sql`'s direct-run path (`user_version = 0`), never the `MIGRATIONS`
+   array — a bug in the migration list itself (steps 2-3 above) is invisible there, as all three bugs
+   in this section prove. And remember the migration only runs once per app *process* — a Metro Fast
+   Refresh doesn't re-trigger `DatabaseProvider`'s mount effect; fully close and relaunch the app.
+
+**Remote (Supabase / BigQuery / dbt), if the change also touches a column that's synced:**
+1. `supabase/schema.sql`'s `create table` — same "fresh-setup reference" role as the local file. There
+   is no migrations framework here either (see the file's own header) — this file documents the
+   shape, it doesn't apply anything by itself.
+2. The live table already exists, so also write out the actual `alter table` (+ backfill, if needed)
+   for the developer to run once by hand in the Supabase SQL Editor — and actually run it; editing the
+   file alone changes nothing live, same lesson as the local side.
+3. If the column is on `raw_events.events` specifically: `el/sync_to_bigquery.py`'s `SCHEMA` list
+   *and* `to_bq_row`'s explicit field tuple both need the new field named — this script plucks named
+   fields rather than a blind passthrough, so a column can exist in Supabase and silently never reach
+   BigQuery if only one of the two is updated.
+4. `dbt/models/staging/_sources.yml` — document the new column on the source.
+5. If any dbt model reads/filters on the new column, update it and run `dbt parse`/`dbt compile` (no
+   live warehouse connection needed to catch reference/config errors — see `dbt-coverage.md`).
 
 ## Full pipeline (local → warehouse → dashboard)
 

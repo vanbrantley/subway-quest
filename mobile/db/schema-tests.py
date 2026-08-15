@@ -158,6 +158,53 @@ def test_saved_stations_table():
     conn.close()
 
 
+def test_is_test_column():
+    """Dev/prod data separation -- events, trips, and saved_stations all
+    carry is_test, defaulting to 0 (not test) so every existing insert
+    statement in this file keeps working unchanged. See schema.sql's
+    comments on this column and docs/data-layer.md's "Dev/prod data
+    separation"."""
+    conn = fresh_db()
+    cur = conn.cursor()
+
+    insert_event(cur, True, "events: is_test defaults to 0 when not specified",
+        event_id="e1", event_type="trip_started", event_domain="trip", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-10T09:00:00Z",
+        device_id="dev1", trip_id="trip1", payload="{}")
+    cur.execute("SELECT is_test FROM events WHERE event_id = 'e1'")
+    check("events: is_test default is 0", cur.fetchone()[0] == 0)
+
+    insert_event(cur, True, "events: is_test accepts 1",
+        event_id="e2", event_type="trip_started", event_domain="trip", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-10T09:00:00Z",
+        device_id="dev1", trip_id="trip2", is_test=1, payload="{}")
+    cur.execute("SELECT is_test FROM events WHERE event_id = 'e2'")
+    check("events: is_test=1 accepted", cur.fetchone()[0] == 1)
+
+    insert_event(cur, False, "events: is_test=2 rejected (CHECK)",
+        event_id="e3", event_type="trip_started", event_domain="trip", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-10T09:00:00Z",
+        device_id="dev1", trip_id="trip3", is_test=2, payload="{}")
+
+    cur.execute("""INSERT INTO trips (trip_id, device_id, user_id, origin_station_id,
+                                       destination_station_id, started_at, ended_at)
+                   VALUES ('trip1', 'dev1', 'user1', 'L08', '631', '2026-07-10T09:00:00Z', '2026-07-10T09:22:00Z')""")
+    cur.execute("SELECT is_test FROM trips WHERE trip_id = 'trip1'")
+    check("trips: is_test default is 0", cur.fetchone()[0] == 0)
+
+    cur.execute("""INSERT INTO trips (trip_id, device_id, user_id, origin_station_id,
+                                       destination_station_id, started_at, ended_at, is_test)
+                   VALUES ('trip2', 'dev1', 'user1', 'L08', '631', '2026-07-10T09:00:00Z', '2026-07-10T09:22:00Z', 1)""")
+    cur.execute("SELECT is_test FROM trips WHERE trip_id = 'trip2'")
+    check("trips: is_test=1 accepted", cur.fetchone()[0] == 1)
+
+    cur.execute("INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES ('L08', 'user1', '2026-07-10T09:00:00Z')")
+    cur.execute("SELECT is_test FROM saved_stations WHERE station_id = 'L08' AND user_id = 'user1'")
+    check("saved_stations: is_test default is 0", cur.fetchone()[0] == 0)
+
+    conn.close()
+
+
 def test_json_validity():
     conn = fresh_db()
     cur = conn.cursor()
@@ -278,6 +325,7 @@ if __name__ == "__main__":
     test_sync_status_trigger()
     test_full_trip_lifecycle()
     test_saved_stations_table()
+    test_is_test_column()
 
     print()
     if failures:

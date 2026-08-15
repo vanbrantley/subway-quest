@@ -9,6 +9,7 @@ import * as SQLite from 'expo-sqlite';
 import stationsData from '../data/stations.json';
 import { loadRiderHistory } from './quests';
 import { getTripEndpoints, type TripEndpoints } from './trips';
+import { testDataFilterSql } from './testDataFilter';
 import {
     computeProfileStatsPure,
     type StationRefLookup,
@@ -27,9 +28,9 @@ const STATION_REFS: StationRefLookup = Object.fromEntries(
 
 async function loadVisitedSet(db: SQLite.SQLiteDatabase, userId: string): Promise<Set<string>> {
     const rows = await db.getAllAsync<{ station_id: string }>(
-        `SELECT entry_station_id AS station_id FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ?
+        `SELECT entry_station_id AS station_id FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ? ${testDataFilterSql('t.')}
          UNION
-         SELECT exit_station_id AS station_id FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ?`,
+         SELECT exit_station_id AS station_id FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ? ${testDataFilterSql('t.')}`,
         [userId, userId]
     );
     return new Set(rows.map((r) => r.station_id));
@@ -37,7 +38,7 @@ async function loadVisitedSet(db: SQLite.SQLiteDatabase, userId: string): Promis
 
 async function loadSavedSet(db: SQLite.SQLiteDatabase, userId: string): Promise<Set<string>> {
     const rows = await db.getAllAsync<{ station_id: string }>(
-        `SELECT station_id FROM saved_stations WHERE user_id = ?`,
+        `SELECT station_id FROM saved_stations WHERE user_id = ? ${testDataFilterSql()}`,
         [userId]
     );
     return new Set(rows.map((r) => r.station_id));
@@ -51,11 +52,11 @@ export async function getStationStatus(
 ): Promise<StationStatus> {
     const row = await db.getFirstAsync<{ c: number }>(
         `SELECT COUNT(*) as c FROM legs l JOIN trips t ON l.trip_id = t.trip_id
-         WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?)`,
+         WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?) ${testDataFilterSql('t.')}`,
         [userId, stationId, stationId]
     );
     const saved = await db.getFirstAsync<{ station_id: string }>(
-        `SELECT station_id FROM saved_stations WHERE station_id = ? AND user_id = ?`,
+        `SELECT station_id FROM saved_stations WHERE station_id = ? AND user_id = ? ${testDataFilterSql()}`,
         [stationId, userId]
     );
     return { visited: (row?.c ?? 0) > 0, saved: !!saved };
@@ -89,7 +90,7 @@ export async function getStationVisitHistory(
 ): Promise<StationVisit[]> {
     const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
         `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
-         WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?)
+         WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?) ${testDataFilterSql('t.')}
          ORDER BY t.started_at DESC`,
         [userId, stationId, stationId]
     );
@@ -113,7 +114,7 @@ export async function getSavedStations(
     userId: string
 ): Promise<SavedStation[]> {
     const rows = await db.getAllAsync<{ station_id: string; saved_at: string }>(
-        `SELECT station_id, saved_at FROM saved_stations WHERE user_id = ? ORDER BY saved_at DESC`,
+        `SELECT station_id, saved_at FROM saved_stations WHERE user_id = ? ${testDataFilterSql()} ORDER BY saved_at DESC`,
         [userId]
     );
     if (rows.length === 0) return [];

@@ -35,5 +35,7 @@ sources:
             description: NOT NULL only for leg_boarded/leg_alighted.
           - name: payload
             description: Per-event-type fields, genuine BigQuery JSON column. Shape varies enough by event_type that it's left untouched in staging.
+          - name: is_test
+            description: True for events written by a dev-mode build (EXPO_PUBLIC_DEV_MODE=true). stg_events filters these out -- see that model's own docs.
           - name: loaded_at
             description: The EL job's own run timestamp (when sync_to_bigquery.py executed), not when the row landed in Supabase. Distinct from received_at deliberately — lets EL batch lag and sync-worker lag be debugged separately. Not used in staging's dedup logic; received_at remains the tiebreaker.

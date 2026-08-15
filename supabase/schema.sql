@@ -1,7 +1,8 @@
 -- supabase/schema.sql
 -- Run once in the Supabase SQL Editor. Creates raw_events.events (server mirror of the local
--- events log) and operational.trips/legs (server mirror of the local projection), with RLS.
--- Companion to mobile/db/schema.sql (local) and docs/data-layer/erd.md (RLS design reasoning).
+-- events log), with RLS. Companion to mobile/db/schema.sql (local) and docs/data-layer/erd.md
+-- (RLS design reasoning). (No operational.trips/legs schema exists -- that was removed early on,
+-- see docs/status.md's milestone 4 log; this file's header used to still mention it.)
 
 create schema if not exists raw_events;
 
@@ -36,6 +37,15 @@ create table raw_events.events (
     payload         jsonb not null,             -- native jsonb here — Postgres has real JSON support,
                                                  -- unlike SQLite locally, so no json_valid() CHECK needed
 
+    is_test         boolean not null default false,  -- true for events written by a dev-mode build
+                                                       -- (EXPO_PUBLIC_DEV_MODE=true, see
+                                                       -- docs/data-layer.md's "Dev/prod data separation"
+                                                       -- section). Lets the same Apple ID/Supabase
+                                                       -- account be used for both ongoing dev testing
+                                                       -- and real personal use without the two ever
+                                                       -- mixing — production builds never write true,
+                                                       -- and never rehydrate/read rows where it's true.
+
     check (event_version >= 1),
     check (occurred_at::date <= recorded_at::date),
 
@@ -47,7 +57,17 @@ create table raw_events.events (
     -- the live table via the Supabase SQL Editor, done once alongside this
     -- edit. See docs/data-layer.md's "Supabase RLS design" section context
     -- for the reasoning on why this table needs hand-applied migrations
-    -- rather than a migration framework at this project's scale.
+    -- rather than a migration framework at this project's scale. is_test
+    -- (above) is the same situation: added here for a fresh database, but
+    -- the live table needed
+    --   alter table raw_events.events add column is_test boolean not null default false;
+    --   update raw_events.events set is_test = true;
+    -- run once by hand in the SQL Editor (as a privileged role -- this
+    -- table has no UPDATE grant for `authenticated`, by design, see the
+    -- append-only-by-omission note below). The unconditional backfill is
+    -- deliberate: every row that existed before this column was added
+    -- predates any real usage of the app, so it's all test data by
+    -- definition, not just this developer's.
     check (
         (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
                                    and trip_id is not null and leg_id is null)

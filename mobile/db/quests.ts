@@ -13,6 +13,7 @@ import stationsData from '../data/stations.json';
 import routeStopsData from '../data/route_stops.json';
 import transfersData from '../data/transfers.json';
 import { EXPRESS_ROUTE_IDS } from '../lib/subwayData';
+import { testDataFilterSql } from './testDataFilter';
 import {
     RiderHistory, ComplexLookup, QuestsFile, Quest,
     QuestProgress, QuestTripProgress, QuestBreakdown,
@@ -152,14 +153,14 @@ export async function loadRiderHistory(
 ): Promise<{ history: RiderHistory; tripDates: Record<string, string> }> {
     const trips = await db.getAllAsync<{
         trip_id: string; origin_station_id: string; destination_station_id: string; started_at: string;
-    }>(`SELECT trip_id, origin_station_id, destination_station_id, started_at FROM trips WHERE user_id = ?`, [userId]);
+    }>(`SELECT trip_id, origin_station_id, destination_station_id, started_at FROM trips WHERE user_id = ? ${testDataFilterSql()}`, [userId]);
 
     const legs = await db.getAllAsync<{
         leg_id: string; trip_id: string; sequence: number; route_id: string;
         entry_station_id: string; exit_station_id: string;
     }>(
         `SELECT l.leg_id, l.trip_id, l.sequence, l.route_id, l.entry_station_id, l.exit_station_id
-         FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ?`,
+         FROM legs l JOIN trips t ON l.trip_id = t.trip_id WHERE t.user_id = ? ${testDataFilterSql('t.')}`,
         [userId]
     );
 

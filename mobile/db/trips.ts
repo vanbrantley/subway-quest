@@ -5,6 +5,7 @@
 // page's full trip history (every trip), and neither is really "about
 // stations."
 import type * as SQLite from 'expo-sqlite';
+import { testDataFilterSql } from './testDataFilter';
 
 export type TripEndpoints = {
     entryRouteId: string | null;
@@ -69,7 +70,7 @@ export type TripHistoryEntry = { tripId: string; startedAt: string } & TripEndpo
  *  getTripEndpoints) as the Station page's per-station visit history. */
 export async function getTripHistory(db: SQLite.SQLiteDatabase, userId: string): Promise<TripHistoryEntry[]> {
     const tripRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
-        'SELECT trip_id, started_at FROM trips WHERE user_id = ? ORDER BY started_at DESC',
+        `SELECT trip_id, started_at FROM trips WHERE user_id = ? ${testDataFilterSql()} ORDER BY started_at DESC`,
         [userId]
     );
     if (tripRows.length === 0) return [];

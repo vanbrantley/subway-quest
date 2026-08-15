@@ -21,6 +21,7 @@ function ev(overrides: Partial<RemoteEventRow>): RemoteEventRow {
         trip_id: overrides.trip_id ?? 'trip1',
         leg_id: overrides.leg_id ?? null,
         payload: overrides.payload ?? {},
+        is_test: overrides.is_test ?? false,
     };
 }
 
@@ -129,6 +130,24 @@ function savedEv(overrides: Partial<RemoteEventRow>): RemoteEventRow {
     ];
     const plan = planSavedStations(events);
     check('only station_saved/station_unsaved events are folded', plan.length === 1 && plan[0].stationId === 'Z1');
+}
+
+// --- Dev/prod data separation: is_test carries through both plans ---
+{
+    const events = [
+        ev({ event_type: 'trip_started', trip_id: 'tripG', payload: { origin_station_id: 'L08' }, is_test: true }),
+        ev({ event_type: 'leg_boarded', trip_id: 'tripG', leg_id: 'legG1', payload: { station_id: 'L08', route_id: 'L', sequence: 1 }, is_test: true }),
+        ev({ event_type: 'leg_alighted', trip_id: 'tripG', leg_id: 'legG1', payload: { station_id: 'L03' }, is_test: true }),
+        ev({ event_type: 'trip_ended', trip_id: 'tripG', payload: { destination_station_id: 'L03' }, is_test: true }),
+    ];
+    const plan = planRehydration(events);
+    const restored = plan.restore.find((t) => t.tripId === 'tripG');
+    check('planRehydration: isTest carried from trip_started.is_test', restored?.isTest === true);
+}
+{
+    const events = [savedEv({ event_type: 'station_saved', payload: { station_id: 'R11' }, is_test: true })];
+    const plan = planSavedStations(events);
+    check('planSavedStations: isTest carried from the deciding event', plan.find((s) => s.stationId === 'R11')?.isTest === true);
 }
 
 console.log();
