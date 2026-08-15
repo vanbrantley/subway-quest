@@ -182,9 +182,20 @@ CREATE INDEX idx_legs_trip_id ON legs (trip_id);
 -- =============================================================================
 -- saved_stations — a projection off the event log (station_saved/
 -- station_unsaved), same relationship to events as trips/legs: derived and
--- rebuildable, never a second source of truth. No user_id column — this
--- local database only ever holds one device's/account's own rows, same
--- reasoning already applied to not indexing events.device_id locally.
+-- rebuildable, never a second source of truth.
+--
+-- HAS a user_id column (schema v4+) — an earlier version of this table
+-- didn't, on the assumption "this local database only ever holds one
+-- device's/account's own rows." That assumption is false: the whole app
+-- shares one local SQLite file regardless of which account is signed in
+-- (see DatabaseContext.tsx), and confirmed on-device that a second account
+-- signing in on the same device saw the first account's saved stations.
+-- trips/legs avoided this because they've always carried user_id and
+-- filtered every query on it; saved_stations now does the same. Primary key
+-- is composite (station_id, user_id), not station_id alone, so two
+-- different accounts can independently save the same real station without
+-- colliding — see DatabaseContext.tsx's migration 4 and RehydrationGate.tsx's
+-- wipe-on-account-switch for the rest of the fix.
 --
 -- Grain is station_id (GTFS stop_id, same field as leg_boarded's payload /
 -- legs.entry_station_id/exit_station_id) — DELIBERATELY NOT complex_id.
@@ -197,6 +208,9 @@ CREATE INDEX idx_legs_trip_id ON legs (trip_id);
 -- different concerns, not an inconsistency.
 -- =============================================================================
 CREATE TABLE saved_stations (
-    station_id   TEXT PRIMARY KEY,
-    saved_at     TEXT NOT NULL
+    station_id   TEXT NOT NULL,
+    user_id      TEXT NOT NULL,
+    saved_at     TEXT NOT NULL,
+
+    PRIMARY KEY (station_id, user_id)
 );

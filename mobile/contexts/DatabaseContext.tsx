@@ -23,7 +23,7 @@ const DatabaseContext = createContext<SQLite.SQLiteDatabase | null>(null);
 // `run` rather than a plain SQL string, deliberately — migration 3 below
 // needs more than one statement plus a specific ordering, and a future
 // migration might too.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promise<void> }[] = [
     {
         // Adds saved_stations — see schema.sql's own comment on this table
@@ -114,6 +114,38 @@ const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promi
                     INSERT INTO sync_status (event_id, status) VALUES (NEW.event_id, 'pending');
                 END;
             `);
+        },
+    },
+    {
+        // REAL BUG FIXED (found via on-device testing with a second account):
+        // saved_stations had no user_id column, on the incorrect assumption
+        // that this local database only ever holds one account's rows — it
+        // actually shares one physical SQLite file across every account
+        // that's ever signed in on this device (see DatabaseContext.tsx's
+        // own DB_NAME). Every saved_stations query was consequently
+        // unscoped, so one account's saved stations showed up under the
+        // next account that signed in. Dropping and recreating rather than
+        // ALTER TABLE ... ADD COLUMN — there's no reliable way to backfill
+        // which account an existing row actually belongs to from local data
+        // alone, and RehydrationGate's wipe-on-account-switch (added
+        // alongside this fix) plus normal rehydration will repopulate each
+        // account's real saved stations from Supabase, which already has
+        // them correctly scoped by user_id. One-time cost: any saved
+        // stations for the CURRENTLY signed-in account at the moment this
+        // migration runs are lost locally (not in Supabase) and need a
+        // manual re-save; this predates the fix, not a gap in it. Primary
+        // key becomes composite (station_id, user_id) — station_id alone
+        // can't be the key anymore now that two different accounts can each
+        // legitimately save the same real station.
+        toVersion: 4,
+        run: async (db) => {
+            await db.execAsync(`DROP TABLE IF EXISTS saved_stations;`);
+            await db.execAsync(`CREATE TABLE saved_stations (
+                station_id   TEXT NOT NULL,
+                user_id      TEXT NOT NULL,
+                saved_at     TEXT NOT NULL,
+                PRIMARY KEY (station_id, user_id)
+            );`);
         },
     },
     // A future migration slots in here as { toVersion: N, run: ... } — bump

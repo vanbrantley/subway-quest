@@ -36,7 +36,6 @@ const stationRefs: StationRefLookup = {
     C1: { name: 'Crown Hts', borough: 'Bk' },
 };
 const allStationIds = ['A1', 'A2', 'B1', 'B2', 'C1']; // 2 Q, 2 M, 1 Bk
-const displayableRoutes = ['N', 'W', 'L', '4'];
 
 // ---- getVisitedStationIdsPure ----
 {
@@ -55,7 +54,7 @@ const displayableRoutes = ['N', 'W', 'L', '4'];
         trips: [trip('t1', 'A1', 'B1'), trip('t2', 'A1', 'A2')],
         legs: [leg('t1', 1, 'N', 'A1', 'B1'), leg('t2', 1, 'W', 'A1', 'A2')],
     };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds, displayableRoutes);
+    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
     check('ridesLogged counts trips, not legs', stats.ridesLogged === 2);
     check('stationsVisited counts distinct stop_ids (A1, B1, A2)', stats.stationsVisited === 3);
     check('pctVisitedOverall = 3/5 = 60', stats.pctVisitedOverall === 60);
@@ -67,13 +66,13 @@ const displayableRoutes = ['N', 'W', 'L', '4'];
         trips: [trip('t1', 'A1', 'B1'), trip('t2', 'B1', 'A1')],
         legs: [leg('t1', 1, 'N', 'A1', 'B1'), leg('t2', 1, 'N', 'B1', 'A1')],
     };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds, displayableRoutes);
+    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
     // A1 and B1 each appear twice (once as entry, once as exit, across the two trips)
     check('favorite station is a tie between A1 and B1', stats.favoriteStations.length === 2);
     check('tie sorted by name', stats.favoriteStations[0].stationId === 'A1'); // "Astoria-Ditmars Blvd" < "Union Sq"
 }
 
-// ---- favorite line / least-travelled line ----
+// ---- favorite line ----
 {
     const history: RiderHistory = {
         trips: [trip('t1', 'A1', 'B1'), trip('t2', 'A1', 'B1'), trip('t3', 'B1', 'B2')],
@@ -83,9 +82,8 @@ const displayableRoutes = ['N', 'W', 'L', '4'];
             leg('t3', 1, 'L', 'B1', 'B2'),
         ],
     };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds, displayableRoutes);
+    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
     check('favorite line is N (ridden twice)', stats.favoriteLines.length === 1 && stats.favoriteLines[0].routeId === 'N');
-    check('least-travelled line is L (ridden once) — never an unridden line like W or 4', stats.leastTravelledLines.length === 1 && stats.leastTravelledLines[0].routeId === 'L');
 }
 
 // ---- % visited by borough ----
@@ -94,7 +92,7 @@ const displayableRoutes = ['N', 'W', 'L', '4'];
         trips: [trip('t1', 'A1', 'A1')],
         legs: [leg('t1', 1, 'N', 'A1', 'A1')],
     };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds, displayableRoutes);
+    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
     const queens = stats.pctVisitedByBorough.find((b) => b.borough === 'Q');
     const manhattan = stats.pctVisitedByBorough.find((b) => b.borough === 'M');
     check('Queens: 1 of 2 visited = 50%', queens?.visited === 1 && queens?.total === 2 && queens?.pct === 50);
@@ -104,10 +102,9 @@ const displayableRoutes = ['N', 'W', 'L', '4'];
 // ---- empty history doesn't crash, everything zeroed ----
 {
     const history: RiderHistory = { trips: [], legs: [] };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds, displayableRoutes);
+    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
     check('empty history: no favorite stations', stats.favoriteStations.length === 0);
     check('empty history: no favorite lines', stats.favoriteLines.length === 0);
-    check('empty history: no least-travelled lines (nothing ridden at all)', stats.leastTravelledLines.length === 0);
     check('empty history: 0% overall', stats.pctVisitedOverall === 0);
 }
 

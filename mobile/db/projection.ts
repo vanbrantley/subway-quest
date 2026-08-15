@@ -209,9 +209,9 @@ export async function saveStation(
             tripId: null, legId: null, payload: { station_id: stationId },
         });
         await db.runAsync(
-            `INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)
-             ON CONFLICT(station_id) DO UPDATE SET saved_at = excluded.saved_at`,
-            [stationId, occurredAt]
+            `INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)
+             ON CONFLICT(station_id, user_id) DO UPDATE SET saved_at = excluded.saved_at`,
+            [stationId, ctx.userId, occurredAt]
         );
     });
 }
@@ -228,7 +228,11 @@ export async function unsaveStation(
             eventType: 'station_unsaved', eventDomain: 'product', occurredAt, recordedAt, ctx,
             tripId: null, legId: null, payload: { station_id: stationId },
         });
-        await db.runAsync(`DELETE FROM saved_stations WHERE station_id = ?`, [stationId]);
+        // user_id in the WHERE clause matters -- station_id alone is a
+        // shared GTFS stop id, not per-user, so without it one account
+        // unsaving a station could delete another account's save of the
+        // same real station (both share this one local SQLite file).
+        await db.runAsync(`DELETE FROM saved_stations WHERE station_id = ? AND user_id = ?`, [stationId, ctx.userId]);
     });
 }
 

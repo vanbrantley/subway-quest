@@ -4,6 +4,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useDb } from './DatabaseContext';
 import { syncPendingEvents } from '../lib/sync';
+import { withDbLock } from '../lib/dbLock';
 
 type SyncContextValue = {
     triggerSync: () => void;
@@ -38,7 +39,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         runningRef.current = true;
         setIsSyncing(true);
         try {
-            await syncPendingEvents(db);
+            // withDbLock -- RehydrationGate's wipe-check/rehydrate opens its
+            // own transactions on mount too, with no awareness of this
+            // provider (which sits above it in the tree). Without this,
+            // this call could open a transaction while that one's still in
+            // flight on the same SQLite connection, which expo-sqlite
+            // doesn't support (confirmed on-device: see dbLock.ts).
+            await withDbLock(() => syncPendingEvents(db));
             setLastSyncAt(new Date());
             setLastSyncError(null);
         } catch (err) {

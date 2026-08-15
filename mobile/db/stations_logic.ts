@@ -29,7 +29,6 @@ export type ProfileStats = {
     pctVisitedByBorough: BoroughCoverage[];
     favoriteStations: FavoriteStation[]; // most-visited, ties included
     favoriteLines: RouteRideCount[]; // most-ridden, ties included
-    leastTravelledLines: RouteRideCount[]; // fewest rides among lines actually ridden at least once, ties included
 };
 
 /** Every distinct GTFS stop_id this rider has ever entered or exited at --
@@ -51,8 +50,7 @@ function round1(n: number): number {
 export function computeProfileStatsPure(
     history: RiderHistory,
     stationRefs: StationRefLookup,
-    allStationIds: string[], // every real station, for the "total" denominator
-    displayableRouteIds: string[] // every route shown anywhere -- the universe least-travelled draws from
+    allStationIds: string[] // every real station, for the "total" denominator
 ): ProfileStats {
     const visited = getVisitedStationIdsPure(history);
 
@@ -88,18 +86,6 @@ export function computeProfileStatsPure(
             .sort((a, b) => a.routeId.localeCompare(b.routeId))
         : [];
 
-    // "Least-travelled" is only meaningful among lines actually ridden at
-    // least once -- a wholly-unridden line isn't "least travelled," it's
-    // just unridden, which would otherwise be a long tie at zero covering
-    // most of the system for a new rider.
-    const riddenRouteCounts = displayableRouteIds
-        .map((routeId) => ({ routeId, rideCount: routeRideCounts.get(routeId) ?? 0 }))
-        .filter((r) => r.rideCount > 0);
-    const minRouteCount = riddenRouteCounts.length > 0 ? Math.min(...riddenRouteCounts.map((r) => r.rideCount)) : 0;
-    const leastTravelledLines = riddenRouteCounts
-        .filter((r) => r.rideCount === minRouteCount)
-        .sort((a, b) => a.routeId.localeCompare(b.routeId));
-
     // % visited by borough.
     const boroughTotals = new Map<string, number>();
     const boroughVisited = new Map<string, number>();
@@ -124,6 +110,5 @@ export function computeProfileStatsPure(
         pctVisitedByBorough,
         favoriteStations,
         favoriteLines,
-        leastTravelledLines,
     };
 }

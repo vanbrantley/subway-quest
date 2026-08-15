@@ -117,22 +117,43 @@ def test_domain_grain_check():
 def test_saved_stations_table():
     """saved_stations is a projection off station_saved/station_unsaved events,
     same relationship as trips/legs — grain is station_id (GTFS stop_id),
-    deliberately not complex_id. See schema.sql's comment on this table."""
+    deliberately not complex_id. See schema.sql's comment on this table.
+
+    user_id + composite (station_id, user_id) primary key confirmed here
+    directly -- schema v3 and earlier had no user_id column at all, which is
+    exactly what let one account's saved stations leak into another
+    account's view on the same device (both share one local SQLite file).
+    Two different accounts must be able to independently save the same real
+    station without colliding; the same account saving the same station
+    twice must still be rejected."""
     conn = fresh_db()
     cur = conn.cursor()
 
-    cur.execute("INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)",
-                ("L08", "2026-07-10T09:00:00Z"))
+    cur.execute("INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)",
+                ("L08", "user1", "2026-07-10T09:00:00Z"))
     cur.execute("SELECT COUNT(*) FROM saved_stations")
     check("saved_stations: accepts a row", cur.fetchone()[0] == 1)
 
     try:
-        cur.execute("INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)",
-                    ("L08", "2026-07-11T09:00:00Z"))
+        cur.execute("INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)",
+                    ("L08", "user1", "2026-07-11T09:00:00Z"))
         ok = True
     except sqlite3.IntegrityError:
         ok = False
-    check("saved_stations: duplicate station_id rejected (PRIMARY KEY)", ok is False)
+    check("saved_stations: duplicate (station_id, user_id) rejected (PRIMARY KEY)", ok is False)
+
+    cur.execute("INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES (?, ?, ?)",
+                ("L08", "user2", "2026-07-12T09:00:00Z"))
+    cur.execute("SELECT COUNT(*) FROM saved_stations WHERE station_id = 'L08'")
+    check("saved_stations: a different user_id can save the same station_id", cur.fetchone()[0] == 2)
+
+    try:
+        cur.execute("INSERT INTO saved_stations (station_id, saved_at) VALUES (?, ?)",
+                    ("R01", "2026-07-10T09:00:00Z"))
+        ok = True
+    except sqlite3.IntegrityError:
+        ok = False
+    check("saved_stations row with NULL user_id: rejected", ok is False)
 
     conn.close()
 

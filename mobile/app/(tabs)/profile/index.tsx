@@ -29,9 +29,9 @@ function SectionHeader({ title }: { title: string }) {
     return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-// Shared across favorite station/favorite line/least-travelled so the three
-// sit together as one visually consistent unit rather than each picking its
-// own size in isolation.
+// Shared across favorite station/favorite line so the two sit together as
+// one visually consistent unit rather than each picking its own size in
+// isolation.
 const FAVORITES_ICON_SIZE = 32;
 
 // Tappable line icon, guarded by isNavigableRoute the same way
@@ -137,15 +137,6 @@ export default function ProfileScreen() {
                     <Text style={styles.emptyText}>—</Text>
                 )}
 
-                <Text style={[styles.favoritesLabel, styles.favoritesLabelSpaced]}>Least-travelled</Text>
-                {stats.leastTravelledLines.length > 0 ? (
-                    <View style={styles.iconRow}>
-                        {stats.leastTravelledLines.map((l) => <LineIconLink key={l.routeId} routeId={l.routeId} />)}
-                    </View>
-                ) : (
-                    <Text style={styles.emptyText}>—</Text>
-                )}
-
                 <SectionHeader title={`Trip history (${trips.length})`} />
                 {trips.length === 0 ? (
                     <Text style={styles.emptyText}>No trips logged yet.</Text>
@@ -200,7 +191,6 @@ const styles = StyleSheet.create({
     boroughPct: { fontSize: 14, color: '#888' },
     favoritesLabel: { fontSize: 12, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
     favoritesLabelSpaced: { marginTop: 16 },
-    iconRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
     rowIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flexShrink: 0 },

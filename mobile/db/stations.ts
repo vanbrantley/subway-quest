@@ -7,7 +7,6 @@
 
 import * as SQLite from 'expo-sqlite';
 import stationsData from '../data/stations.json';
-import { getDisplayableRoutes } from '../lib/subwayData';
 import { loadRiderHistory } from './quests';
 import { getTripEndpoints, type TripEndpoints } from './trips';
 import {
@@ -36,8 +35,11 @@ async function loadVisitedSet(db: SQLite.SQLiteDatabase, userId: string): Promis
     return new Set(rows.map((r) => r.station_id));
 }
 
-async function loadSavedSet(db: SQLite.SQLiteDatabase): Promise<Set<string>> {
-    const rows = await db.getAllAsync<{ station_id: string }>(`SELECT station_id FROM saved_stations`);
+async function loadSavedSet(db: SQLite.SQLiteDatabase, userId: string): Promise<Set<string>> {
+    const rows = await db.getAllAsync<{ station_id: string }>(
+        `SELECT station_id FROM saved_stations WHERE user_id = ?`,
+        [userId]
+    );
     return new Set(rows.map((r) => r.station_id));
 }
 
@@ -53,8 +55,8 @@ export async function getStationStatus(
         [userId, stationId, stationId]
     );
     const saved = await db.getFirstAsync<{ station_id: string }>(
-        `SELECT station_id FROM saved_stations WHERE station_id = ?`,
-        [stationId]
+        `SELECT station_id FROM saved_stations WHERE station_id = ? AND user_id = ?`,
+        [stationId, userId]
     );
     return { visited: (row?.c ?? 0) > 0, saved: !!saved };
 }
@@ -65,7 +67,7 @@ export async function getAllStationStatuses(
     db: SQLite.SQLiteDatabase,
     userId: string
 ): Promise<Record<string, StationStatus>> {
-    const [visitedSet, savedSet] = await Promise.all([loadVisitedSet(db, userId), loadSavedSet(db)]);
+    const [visitedSet, savedSet] = await Promise.all([loadVisitedSet(db, userId), loadSavedSet(db, userId)]);
     const result: Record<string, StationStatus> = {};
     for (const stationId of ALL_STATION_IDS) {
         result[stationId] = { visited: visitedSet.has(stationId), saved: savedSet.has(stationId) };
@@ -111,7 +113,8 @@ export async function getSavedStations(
     userId: string
 ): Promise<SavedStation[]> {
     const rows = await db.getAllAsync<{ station_id: string; saved_at: string }>(
-        `SELECT station_id, saved_at FROM saved_stations ORDER BY saved_at DESC`
+        `SELECT station_id, saved_at FROM saved_stations WHERE user_id = ? ORDER BY saved_at DESC`,
+        [userId]
     );
     if (rows.length === 0) return [];
     const visitedSet = await loadVisitedSet(db, userId);
@@ -124,9 +127,8 @@ export async function getSavedStations(
 }
 
 /** Profile mini-dashboard aggregate stats -- rides logged, stations visited,
- *  % of network (overall + by borough), favorite station/line,
- *  least-travelled line(s). */
+ *  % of network (overall + by borough), favorite station/line. */
 export async function getProfileStats(db: SQLite.SQLiteDatabase, userId: string): Promise<ProfileStats> {
     const { history } = await loadRiderHistory(db, userId);
-    return computeProfileStatsPure(history, STATION_REFS, ALL_STATION_IDS, getDisplayableRoutes());
+    return computeProfileStatsPure(history, STATION_REFS, ALL_STATION_IDS);
 }

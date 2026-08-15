@@ -40,10 +40,10 @@ function markerColor(status: StationStatus | undefined): string {
 
 // Discrete size buckets keyed off the settled region's latitudeDelta --
 // smaller delta means more zoomed in. Bucketed (not a continuous formula)
-// so a Marker's cache-busting `key` (see markerDot below -- tracksViewChanges
-// is false, same reasoning as the visited/saved state already baked into
-// the key) only changes on a real zoom-level crossing, not on every
-// sub-pixel settle.
+// so a Marker's cache-busting `key` (see markerDot below -- most native
+// re-snapshots only happen while tracksViewChanges is true, see forceTrack,
+// same reasoning as the visited/saved state already baked into the key)
+// only changes on a real zoom-level crossing, not on every sub-pixel settle.
 function markerSizeForDelta(latitudeDelta: number): number {
     if (latitudeDelta >= 0.2) return 9;
     if (latitudeDelta >= 0.08) return 11;
@@ -71,6 +71,18 @@ export default function MapScreen() {
     const markerSize = markerSizeForDelta(region.latitudeDelta);
     const markerTouchSize = markerTouchSizeForDelta(markerSize);
 
+    // forceTrack: briefly true right after a statuses refetch, then back to
+    // false. Markers use tracksViewChanges={false} for performance (496 of
+    // them) -- react-native-maps only re-snapshots a marker's native bitmap
+    // while tracksViewChanges is true, so a key-remount alone (below) isn't
+    // always enough to force an IMMEDIATE visual update on every platform;
+    // confirmed on-device that a freshly-visited station's dot stayed gray
+    // until an unrelated zoom gesture forced the map to redraw. Flipping
+    // this true for one render pass after every refetch forces a real
+    // native re-snapshot of every marker, then flips back off to keep the
+    // normal panning/zooming performance win.
+    const [forceTrack, setForceTrack] = useState(false);
+
     // Refetched on focus, not just mount -- a trip logged elsewhere, or a
     // save/unsave made on the Station page, both happen on a different
     // screen and need to be reflected here when navigating back.
@@ -79,7 +91,10 @@ export default function MapScreen() {
             let cancelled = false;
             (async () => {
                 const result = await getAllStationStatuses(db, userId);
-                if (!cancelled) setStatuses(result);
+                if (cancelled) return;
+                setStatuses(result);
+                setForceTrack(true);
+                setTimeout(() => setForceTrack(false), 100);
             })();
             return () => { cancelled = true; };
         }, [db, userId])
@@ -123,7 +138,7 @@ export default function MapScreen() {
                             key={`${station.stop_id}:${status?.visited}:${status?.saved}:${markerSize}`}
                             coordinate={{ latitude: station.lat, longitude: station.lon }}
                             onPress={() => setSelectedStation(station)}
-                            tracksViewChanges={false}
+                            tracksViewChanges={forceTrack}
                         >
                             <View style={[styles.markerTouchArea, { width: markerTouchSize, height: markerTouchSize }]}>
                                 <View
