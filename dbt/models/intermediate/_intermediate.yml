@@ -87,10 +87,10 @@ models:
   
   - name: int_transfers
     description: >
-      One row per detected transfer (a leg_alighted -> leg_boarded pair at the same station,
-      within one trip). Built on int_legs — deleted-trip exclusion inherited, not re-derived.
-      Ordering relies on sequence; pre-event_version-2 legs (NULL sequence) are a known,
-      accepted gap in transfer ordering, not tested as a hard failure.
+      One row per real transfer (every leg after a trip's first, within one trip — no station
+      match required, see int_transfers.sql's header for why). Built on int_legs — deleted-trip
+      exclusion inherited, not re-derived. Ordering relies on sequence; pre-event_version-2 legs
+      (NULL sequence) are a known, accepted gap in transfer ordering, not tested as a hard failure.
     columns:
       - name: to_leg_id
         description: Each leg can only be the destination of one transfer (it has exactly one immediate predecessor), so this is unique.
@@ -100,6 +100,11 @@ models:
       - name: from_leg_id
         tests:
           - not_null
-      - name: station_id
+      - name: from_station_id
+        description: The departing leg's exit station -- may differ from to_station_id (different platform, same complex).
+        tests:
+          - not_null
+      - name: to_station_id
+        description: The arriving leg's entry station -- may differ from from_station_id (different platform, same complex).
         tests:
           - not_null
