@@ -400,6 +400,22 @@ this whenever a table gains/loses a column, changes a constraint, or changes its
    load job to additively evolve the destination table, so this is now self-healing for any future
    additive column, no manual `bq`/console `ALTER` step needed each time (unlike Supabase's live table,
    which genuinely has no such self-service path and still needs the manual step in item 2).
+   **Second half of this same bug, caught by the very next CI run:** `ALLOW_FIELD_ADDITION` still
+   refused the load with `Cannot add required fields to an existing schema`. A new column added to an
+   *existing* table can only be `NULLABLE` — a `REQUIRED` field has no value to backfill onto rows that
+   already exist, so BigQuery won't add one via a load job no matter what `schema_update_options` says.
+   **New columns on `el/sync_to_bigquery.py`'s `SCHEMA` must be declared `NULLABLE`, full stop, even if
+   the same column is `NOT NULL` on Supabase/local SQLite** — those two support a real default applied
+   at the DDL level (`ALTER TABLE ADD COLUMN ... NOT NULL DEFAULT ...`), which is exactly what BigQuery
+   schema evolution via a load job has no equivalent for. In practice this only means BigQuery's small
+   batch of pre-existing rows (loaded before the column existed) read `NULL` for it forever — every row
+   loaded from that point on always carries a real value, since `to_bq_row` populates it unconditionally
+   and Supabase's own column stays genuinely `NOT NULL`. For `is_test` specifically, `NULL` reading as
+   "not real" is the correct outcome anyway, not just a tolerated side effect: every one of those
+   pre-existing rows predates the column and is definitionally test data from before this feature
+   shipped, and `stg_events.sql`'s `where is_test = false` already excludes `NULL` for free (SQL's
+   three-valued logic treats `NULL = false` as not-true) — no special-casing needed. Won't be this
+   convenient for every future column; check each one's own default-value semantics on its own merits.
 5. `dbt/models/staging/_sources.yml` — document the new column on the source.
 6. If any dbt model reads/filters on the new column, update it and run `dbt parse`/`dbt compile` (no
    live warehouse connection needed to catch reference/config errors — see `dbt-coverage.md`).

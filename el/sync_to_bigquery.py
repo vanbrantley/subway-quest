@@ -47,7 +47,17 @@ SCHEMA = [
     bigquery.SchemaField("trip_id", "STRING", mode="NULLABLE"),
     bigquery.SchemaField("leg_id", "STRING", mode="NULLABLE"),
     bigquery.SchemaField("payload", "JSON", mode="REQUIRED"),
-    bigquery.SchemaField("is_test", "BOOLEAN", mode="REQUIRED"),  # true for dev-mode-build rows --
+    # NULLABLE, not REQUIRED, deliberately -- this table already existed when this column was added,
+    # and BigQuery's ALLOW_FIELD_ADDITION (see job_config below) refuses to add a new REQUIRED field to
+    # an existing table (a required field has no value to backfill onto the table's pre-existing rows).
+    # Supabase/local SQLite don't have this problem (ALTER TABLE ADD COLUMN ... NOT NULL DEFAULT false
+    # works fine there, since both apply a real default at the DDL level) -- this is a genuine BigQuery-
+    # specific asymmetry, not an inconsistency. to_bq_row always populates a real boolean for every row
+    # it writes, so in practice only this table's small batch of pre-existing (pre-is_test) rows will
+    # ever actually read NULL -- and treating those as "not real" is correct anyway, since every one of
+    # them predates this column and is from this session's testing (stg_events.sql's `is_test = false`
+    # filter already excludes NULL via SQL's three-valued logic, no special-casing needed there).
+    bigquery.SchemaField("is_test", "BOOLEAN", mode="NULLABLE"),  # true for dev-mode-build rows --
                                                                     # stg_events filters these out,
                                                                     # see docs/data-layer.md's
                                                                     # "Dev/prod data separation"
