@@ -2,7 +2,7 @@
 -- Single row of global rates/totals — no suppression, nothing here is a small segment.
 
 with avg_trips as (
-    select safe_divide(count(distinct trip_id), count(distinct user_id)) as avg_trips_per_user
+    select coalesce(safe_divide(count(distinct trip_id), count(distinct user_id)), 0) as avg_trips_per_user
     from {{ ref('int_trips') }}
 ),
 lines_ridden as (
