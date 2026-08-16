@@ -162,6 +162,16 @@ def main():
         schema=SCHEMA,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        # REAL BUG FIXED (caught by CI, not just theorized): SCHEMA/ensure_table only ever apply to a
+        # table being created fresh -- the live table already exists in every real run, so adding a
+        # field to SCHEMA alone doesn't change it, and a load job defaults to requiring the load's
+        # schema match the live table's exactly. Without this, adding any new column here fails with
+        # "Cannot add fields" the moment a row carrying it tries to load, even though Supabase, this
+        # script's own SCHEMA, and to_bq_row all agree the field should exist. ALLOW_FIELD_ADDITION is
+        # BigQuery's own mechanism for a load job to additively evolve the destination table's schema
+        # (requires WRITE_APPEND, already the case here) -- makes this self-healing for any future
+        # additive column the same way, no manual `bq` / console ALTER step needed each time.
+        schema_update_options=[bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION],
     )
 
     # A single load job is one atomic operation — either the whole batch

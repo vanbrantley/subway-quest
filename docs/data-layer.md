@@ -385,9 +385,23 @@ this whenever a table gains/loses a column, changes a constraint, or changes its
 3. If the column is on `raw_events.events` specifically: `el/sync_to_bigquery.py`'s `SCHEMA` list
    *and* `to_bq_row`'s explicit field tuple both need the new field named — this script plucks named
    fields rather than a blind passthrough, so a column can exist in Supabase and silently never reach
-   BigQuery if only one of the two is updated.
-4. `dbt/models/staging/_sources.yml` — document the new column on the source.
-5. If any dbt model reads/filters on the new column, update it and run `dbt parse`/`dbt compile` (no
+   BigQuery if only one of the two is updated. Also update `mobile/lib/sync.ts`'s `LocalEventRow` type
+   and `toRemoteRow()` — the same explicit-pluck shape exists on the device→Supabase leg too, and it's
+   easy to fix the BigQuery side (caught by CI) while missing this one (only shows up as silently
+   wrong *values* already synced, not an error — see bug 4 below for exactly this happening).
+4. **`SCHEMA` in `el/sync_to_bigquery.py` only takes effect for a table being created fresh
+   (`ensure_table`'s `except` branch) — the live table already exists on every real run, so adding a
+   field to `SCHEMA` alone does nothing to it.** A `LoadJobConfig` with no `schema_update_options`
+   requires the load's schema to match the live table's exactly; the first CI run after adding
+   `is_test` failed with `Cannot add fields (field: is_test)`, since Supabase, this script's `SCHEMA`,
+   and `to_bq_row` all agreed the field should exist but the live BigQuery table had never been told.
+   Fixed by adding `schema_update_options=[bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION]` to the
+   `LoadJobConfig` (requires `WRITE_APPEND`, already the case here) — BigQuery's own mechanism for a
+   load job to additively evolve the destination table, so this is now self-healing for any future
+   additive column, no manual `bq`/console `ALTER` step needed each time (unlike Supabase's live table,
+   which genuinely has no such self-service path and still needs the manual step in item 2).
+5. `dbt/models/staging/_sources.yml` — document the new column on the source.
+6. If any dbt model reads/filters on the new column, update it and run `dbt parse`/`dbt compile` (no
    live warehouse connection needed to catch reference/config errors — see `dbt-coverage.md`).
 
 ## Full pipeline (local → warehouse → dashboard)
