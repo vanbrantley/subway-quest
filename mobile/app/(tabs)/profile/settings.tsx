@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../lib/supabase';
+import { IS_DEV_MODE } from '../../../lib/devMode';
 
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
@@ -22,6 +23,12 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.content}>
+                {IS_DEV_MODE && (
+                    <Pressable style={styles.debugButton} onPress={() => router.push('/debug')}>
+                        <Ionicons name="bug-outline" size={20} color="#111" />
+                        <Text style={styles.debugText}>Debug</Text>
+                    </Pressable>
+                )}
                 <Pressable style={styles.signOutButton} onPress={() => supabase.auth.signOut()}>
                     <Ionicons name="log-out-outline" size={20} color="#c0392b" />
                     <Text style={styles.signOutText}>Sign Out</Text>
@@ -36,6 +43,8 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
     title: { flex: 1, fontSize: 17, fontWeight: '600', textAlign: 'center' },
     content: { padding: 20 },
+    debugButton: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+    debugText: { fontSize: 16, fontWeight: '600', color: '#111' },
     signOutButton: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
     signOutText: { fontSize: 16, fontWeight: '600', color: '#c0392b' },
 });

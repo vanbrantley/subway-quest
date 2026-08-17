@@ -22,9 +22,15 @@ Requires env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_APPLICATION_C
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
+from dotenv import load_dotenv
 from supabase import create_client
 from google.cloud import bigquery
+
+load_dotenv(Path(__file__).parent / ".env")
+
+print("SUPABASE_URL:", repr(os.environ.get("SUPABASE_URL")))
 
 BQ_PROJECT = os.environ["GCP_PROJECT_ID"]
 BQ_DATASET = "subwayquest_raw"

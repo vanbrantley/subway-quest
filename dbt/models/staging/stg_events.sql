@@ -43,7 +43,7 @@ filtered as (
 
     select *
     from deduped
-    where is_test = false
+    -- where is_test = false
 
 )
 
