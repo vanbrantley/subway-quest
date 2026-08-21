@@ -1,6 +1,6 @@
 // mobile/app/log-trip.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { Alert, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -45,6 +45,7 @@ export default function LogTripModal() {
     const [legs, setLegs] = useState<DraftLeg[]>([]);
     const [active, setActive] = useState<ActiveField>({ step: 'line', legIndex: 0 });
     const [transferExpanded, setTransferExpanded] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const today = new Date();
 
     useEffect(() => {
@@ -144,6 +145,9 @@ export default function LogTripModal() {
     }
 
     async function finishTrip() {
+        if (isSubmitting) return; // guard against a double-tap committing the trip twice
+        setIsSubmitting(true);
+
         const draft: TripDraft = {
             originStationId: legs[0].entryStationId!,
             destinationStationId: legs[legs.length - 1].exitStationId!,
@@ -155,12 +159,19 @@ export default function LogTripModal() {
                 exitStationId: leg.exitStationId!,
             })),
         };
-        const deviceId = await getOrCreateDeviceId();
-        const ctx = { deviceId, userId };
-        const tripId = await commitTrip(db, draft, ctx);
-        await writeProductEvent(db, 'trip_draft_committed', { draft_id: draftId, trip_id: tripId }, ctx);
-        triggerSync();
-        router.replace({ pathname: '/trip', params: { tripId } });
+
+        try {
+            const deviceId = await getOrCreateDeviceId();
+            const ctx = { deviceId, userId };
+            const tripId = await commitTrip(db, draft, ctx);
+            await writeProductEvent(db, 'trip_draft_committed', { draft_id: draftId, trip_id: tripId }, ctx);
+            triggerSync();
+            router.replace({ pathname: '/trip', params: { tripId } });
+        } catch (err) {
+            console.error('Failed to commit trip:', err);
+            setIsSubmitting(false);
+            Alert.alert('Something went wrong', "We couldn't save your trip. Please try again.");
+        }
     }
 
     async function discardDraft() {
@@ -168,6 +179,17 @@ export default function LogTripModal() {
         await writeProductEvent(db, 'trip_draft_abandoned', { draft_id: draftId }, { deviceId, userId });
         triggerSync();
         router.back();
+    }
+
+    function handleClosePress() {
+        if (legs.length === 0) {
+            discardDraft();
+            return;
+        }
+        Alert.alert('Discard trip?', "You'll lose the trip you're currently logging.", [
+            { text: 'Keep Editing', style: 'cancel' },
+            { text: 'Discard', style: 'destructive', onPress: discardDraft },
+        ]);
     }
 
     const currentLeg = legs[active.legIndex];
@@ -183,7 +205,7 @@ export default function LogTripModal() {
     return (
         <View style={styles.container}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-                <Pressable onPress={discardDraft} accessibilityLabel="Discard and close">
+                <Pressable onPress={handleClosePress} accessibilityLabel="Discard and close">
                     <Ionicons name="close" size={28} color="#111" />
                 </Pressable>
                 <Text style={styles.title}>Log Trip</Text>
@@ -269,7 +291,11 @@ export default function LogTripModal() {
                                     <Ionicons name="add" size={20} color="#444" />
                                     <Text style={styles.addTransferButtonText}>Add Transfer</Text>
                                 </Pressable>
-                                <Pressable style={styles.finishButton} onPress={finishTrip}>
+                                <Pressable
+                                    style={[styles.finishButton, isSubmitting && styles.finishButtonDisabled]}
+                                    onPress={finishTrip}
+                                    disabled={isSubmitting}
+                                >
                                     <Text style={styles.finishButtonText}>Log Trip</Text>
                                 </Pressable>
                             </View>
@@ -301,7 +327,11 @@ export default function LogTripModal() {
                                         <Text style={styles.noTransfersText}>No transfers available here</Text>
                                     );
                                 })()}
-                                <Pressable style={[styles.finishButton, styles.finishButtonSpaced]} onPress={finishTrip}>
+                                <Pressable
+                                    style={[styles.finishButton, styles.finishButtonSpaced, isSubmitting && styles.finishButtonDisabled]}
+                                    onPress={finishTrip}
+                                    disabled={isSubmitting}
+                                >
                                     <Text style={styles.finishButtonText}>Log Trip</Text>
                                 </Pressable>
                             </>
@@ -353,6 +383,7 @@ const styles = StyleSheet.create({
     },
     addTransferButtonText: { fontWeight: '600', color: '#444', fontSize: 16 },
     finishButton: { paddingVertical: 14, paddingHorizontal: 36, backgroundColor: '#111', borderRadius: 26 },
+    finishButtonDisabled: { opacity: 0.5 },
     finishButtonSpaced: { marginTop: 24 },
     finishButtonText: { fontWeight: '600', color: '#fff', fontSize: 16 },
 });

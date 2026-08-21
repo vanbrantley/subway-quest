@@ -7,7 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_DEV_MODE": "true" }
+      "env": { "EXPO_PUBLIC_DEV_MODE": "true", "APP_VARIANT": "development" }
     },
     "preview": {
       "distribution": "internal",

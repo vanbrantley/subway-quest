@@ -5,7 +5,7 @@
 // running in the right context; this file is what makes that assumption true.
 
 import { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Appearance, View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import type { Session } from '@supabase/supabase-js';
@@ -16,6 +16,11 @@ import { SyncProvider } from '../contexts/SyncContext';
 import { DevModeBadge } from '../components/DevModeBadge';
 
 SplashScreen.preventAutoHideAsync();
+
+// The app only has light-palette styling defined anywhere (no dark variants),
+// so force light appearance rather than letting Dark Mode desync native
+// controls (e.g. the station Picker) from our hardcoded-light custom views.
+Appearance.setColorScheme('light');
 
 export default function RootLayout() {
 

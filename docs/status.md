@@ -152,6 +152,40 @@ before the real Station/Profile pages existed to host them. All three temporary 
 ("Open Debug Dump", "Open Debug Quest Components", "Open Achievements (temp)") are gone; `app/debug.tsx`
 itself stays (per the same checklist) — just unreached from any button now.
 
+## Local dev/testing — two separate apps on one phone
+
+Dev-client and TestFlight builds used to share one bundle identifier (`com.transitapps.subwayquest`),
+so installing whichever one you touched last silently overwrote the other on-device — installing the
+TestFlight build for testers wiped out the local dev client, and `npx expo start --dev-client` had
+nothing of its own left to connect to. Fixed by splitting into two app variants that coexist as
+separate icons:
+
+- **`Subway Quest`** — production identity: bundle ID `com.transitapps.subwayquest`, scheme
+  `subwayquest`. Built via `eas build --profile production --platform ios` + `eas submit`. This is
+  the TestFlight build testers install; unaffected by anything below.
+- **`Subway Quest (Dev)`** — bundle ID `com.transitapps.subwayquest.dev`, scheme `subwayquest-dev`.
+  Built via `eas build --profile development --platform ios` (an `eas.json` profile that already had
+  `developmentClient: true`).
+
+The variant switch lives in `mobile/app.config.js`, which wraps `app.json` (still the base config) and
+overrides `name`/`scheme`/`ios.bundleIdentifier` when `process.env.APP_VARIANT === 'development'`.
+`eas.json`'s `development` profile sets `APP_VARIANT=development` for EAS builds; `mobile/.env` sets
+the same locally (gitignored) so `npx expo start --dev-client -c` and `npx expo run:ios` resolve the
+dev variant too.
+
+**Sign in with Apple needed a second registration**, since it's checked per bundle ID:
+- Apple Developer portal: a second App ID (`com.transitapps.subwayquest.dev`) with the Sign In with
+  Apple capability — `eas build`'s automatic credential management creates and provisions this on
+  first build against the new bundle ID, no manual portal step needed in practice.
+- Supabase: Authentication → Providers → Apple → **Client IDs** needs *both* bundle IDs
+  (comma-separated) — this is the one step EAS doesn't touch, has to be done by hand in the dashboard.
+
+**Everyday workflow:** `cd mobile && npx expo start --dev-client -c`, open the **Subway Quest (Dev)**
+icon (not the TestFlight one) — JS/TSX changes hot-reload with no rebuild. Only re-run
+`eas build --profile development --platform ios` when something native changes (new native module,
+`app.config.js`/plugin/entitlement change, icon, permissions — same "needs a fresh `eas build`" native
+modules already required before this split, see the router-rules bullets below).
+
 ## Mobile app — file-by-file
 
 **Router rules learned the hard way, worth stating plainly:**
@@ -880,7 +914,7 @@ this, not just the one station — same root cause throughout.
 - [x] Apple Developer Program membership renewed
 - [ ] App Store Connect app record, build signing
 - [ ] Privacy policy / App Privacy disclosure
-- [ ] Recruit real testers
+- [ ] Recruit real testers — public TestFlight link in "Known operational constraints" below
 
 ## Portfolio
 
@@ -930,6 +964,21 @@ this, not just the one station — same root cause throughout.
 
 - **EAS free tier: 15 iOS builds/month**, resets monthly, no rollover. Batch native-dependency
   additions where foreseeable.
+- **`mobile/.env` does not travel to EAS builds** — EAS builds run on Expo's servers and never read
+  the local `.env` file, so any `EXPO_PUBLIC_*` var not baked into `eas.json`'s per-profile `env`
+  block silently comes through empty in the built app (surfaced as a TestFlight build missing
+  Supabase connectivity, `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` both
+  unset). `EXPO_PUBLIC_DEV_MODE` is fine since it's set programmatically per-profile in `eas.json`
+  (see above), but secrets/URLs that shouldn't live in `eas.json` need to be added as **sensitive
+  environment variables in the expo.dev project dashboard** (Project settings → Environment
+  variables) instead, so EAS can inject them at build time.
+- **Build and submit an iOS build for TestFlight:**
+  ```
+  eas build --platform ios --profile production &&
+  eas submit --platform ios
+  ```
+  Public TestFlight external group link (for testers, no App Store Connect invite needed):
+  https://testflight.apple.com/join/BTd5hQtA
 - **LAN dev-server connection fails on networks with client/AP isolation** (common on corporate
   WiFi) — tunnel mode (`--tunnel`, needs `@expo/ngrok` installed globally) or a personal hotspot are
   the workarounds.

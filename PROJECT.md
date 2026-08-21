@@ -180,4 +180,4 @@ Spot-checked against known geography — all correct.
 
 `mobile/scripts/sync-data.js` copies the processed files into `mobile/data/` for bundling — now 5
 files (added `quests.json`, milestone 8). Run manually any time the pipeline re-runs with fresh source
-data. `mobile/data/` copies are gitignored — `network/processed/` is the tracked source of truth.
+data. Both `network/processed/` and `mobile/data/` copies are tracked in git.
