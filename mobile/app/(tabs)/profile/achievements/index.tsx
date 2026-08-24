@@ -8,6 +8,7 @@ import { useDb } from '../../../../contexts/DatabaseContext';
 import { useUserId } from '../../../../contexts/AuthContext';
 import { getAllQuestProgress, type QuestSummary } from '../../../../db/quests';
 import { ProgressBar } from '../../../../components/ui/ProgressBar';
+import { TAB_BAR_HEIGHT } from '../../../../components/CustomTabBar';
 
 export default function AchievementsListScreen() {
     const db = useDb();
@@ -36,7 +37,7 @@ export default function AchievementsListScreen() {
                 <View style={{ width: 26 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <Text style={styles.sectionTitle}>Completed ({completed.length})</Text>
                 {completed.length === 0 ? (
                     <Text style={styles.emptyText}>None yet -- get out there.</Text>

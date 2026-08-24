@@ -19,7 +19,11 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: 24,
-        bottom: 96, // sits above the tab bar, doesn't overlap it
+        // CustomTabBar is a real in-flow sibling of the root Stack (see components/CustomTabBar.tsx),
+        // so it already shrinks this screen's own available height by the bar's full height -- this
+        // container's bottom edge now lands right at the bar's top edge. Just needs a small gap above
+        // that, not the old bar's full height on top of it again.
+        bottom: 16,
         width: 56,
         height: 56,
         borderRadius: 28,

@@ -12,6 +12,7 @@ import { deleteTrip } from '../db/projection';
 import { getOrCreateDeviceId } from '../lib/device';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { RouteIcon } from '../components/ui/RouteIcon';
+import { TAB_BAR_HEIGHT } from '../components/CustomTabBar';
 
 type TripRow = { trip_id: string; origin_station_id: string; destination_station_id: string; started_at: string };
 type LegRow = { leg_id: string; sequence: number; route_id: string; entry_station_id: string; exit_station_id: string };
@@ -101,7 +102,7 @@ export default function TripDetailScreen() {
                     <Ionicons name="trash-outline" size={24} color="#111" />
                 </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <View style={styles.routeRow}>
                     <Pressable onPress={() => router.push(`/station/${trip.origin_station_id}`)}>
                         <Text style={styles.route}>{getStationName(trip.origin_station_id)}</Text>

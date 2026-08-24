@@ -13,6 +13,7 @@ import { getQuestDetail, type QuestDetail, type EnrichedGroupBreakdownItem } fro
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { RouteIcon } from '../../components/ui/RouteIcon';
+import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { isNavigableRoute, normalizeRouteIdForIcon, getStation } from '../../lib/subwayData';
 
 function formatTripsLabel(tripIds: string[], tripDates: Record<string, string>): string | null {
@@ -260,7 +261,7 @@ export default function AchievementDetailScreen() {
                 </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}>
                 <View style={styles.hero}>
                     <Ionicons
                         name={quest.completed ? 'ribbon' : 'ribbon-outline'}

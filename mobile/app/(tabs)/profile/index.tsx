@@ -1,11 +1,14 @@
 // mobile/app/(tabs)/profile/index.tsx
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../../contexts/DatabaseContext';
 import { useUserId } from '../../../contexts/AuthContext';
+import { registerProfileNavigation } from '../../../lib/tabBarReset';
+import { registerProfileScrollReset } from '../../../lib/tabBarScrollReset';
+import { TAB_BAR_HEIGHT } from '../../../components/CustomTabBar';
 import { getBoroughName, getStation, isNavigableRoute, normalizeRouteIdForIcon } from '../../../lib/subwayData';
 import { getProfileStats, getSavedStations, type ProfileStats, type SavedStation } from '../../../db/stations';
 import { getTripHistory, type TripHistoryEntry } from '../../../db/trips';
@@ -64,6 +67,23 @@ export default function ProfileScreen() {
     const db = useDb();
     const userId = useUserId();
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation();
+    const scrollRef = useRef<ScrollView>(null);
+
+    // Hands this screen's navigation object (the nested Profile stack's own, since this file is
+    // inside it -- see lib/tabBarReset.ts) up to CustomTabBar, so tapping the Profile tab can pop
+    // this stack back to root the same way it clears the outer root stack.
+    useEffect(() => {
+        registerProfileNavigation(navigation);
+        return () => registerProfileNavigation(null);
+    }, [navigation]);
+
+    // Tapping the Profile tab while already on it scrolls back to top, same "tap the active tab
+    // to reset" convention CustomTabBar uses for the Map tab's region.
+    useEffect(() => {
+        registerProfileScrollReset(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+        return () => registerProfileScrollReset(null);
+    }, []);
 
     const [stats, setStats] = useState<ProfileStats | null>(null);
     const [savedStations, setSavedStations] = useState<SavedStation[] | null>(null);
@@ -103,7 +123,7 @@ export default function ProfileScreen() {
                 </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <View style={styles.statsRow}>
                     <StatTile label="Rides logged" value={stats.ridesLogged} />
                     <StatTile label="Stations visited" value={stats.stationsVisited} />

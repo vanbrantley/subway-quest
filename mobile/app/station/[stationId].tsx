@@ -13,6 +13,7 @@ import { useSyncEngine } from '../../contexts/SyncContext';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { saveStation, unsaveStation, writeProductEvent } from '../../db/projection';
 import { getStationStatus, getStationVisitHistory, type StationStatus, type StationVisit } from '../../db/stations';
+import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { StationQuestsList } from '../../components/quests/StationQuestsList';
 import { RouteIcon } from '../../components/ui/RouteIcon';
 import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
@@ -111,7 +112,7 @@ export default function StationScreen() {
                 </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <Text style={styles.stationNameHeading} numberOfLines={2}>{station.name}</Text>
                 <Text style={styles.borough}>{getBoroughName(station.borough)}</Text>
 

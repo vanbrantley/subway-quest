@@ -14,6 +14,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { DatabaseProvider } from '../contexts/DatabaseContext';
 import { SyncProvider } from '../contexts/SyncContext';
 import { DevModeBadge } from '../components/DevModeBadge';
+import { CustomTabBar } from '../components/CustomTabBar';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -79,6 +80,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" />
               </Stack.Protected>
             </Stack>
+            <CustomTabBar />
             <DevModeBadge />
           </View>
         </SyncProvider>

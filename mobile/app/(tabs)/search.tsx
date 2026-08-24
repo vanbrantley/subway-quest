@@ -13,6 +13,7 @@ import {
     normalizeRouteIdForIcon,
     type StationSearchResult,
 } from '../../lib/subwayData';
+import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 
 const AVAILABLE_ROUTES = getDisplayableRoutes();
 
@@ -76,7 +77,7 @@ export default function SearchScreen() {
             </View>
 
             {!isSearching ? (
-                <ScrollView contentContainerStyle={styles.grid}>
+                <ScrollView contentContainerStyle={[styles.grid, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                     {AVAILABLE_ROUTES.map((routeId) => (
                         <Pressable key={routeId} style={styles.bubble} onPress={() => router.push(`/line/${routeId}`)}>
                             <RouteIcon routeId={routeId} size={44} />
@@ -91,7 +92,7 @@ export default function SearchScreen() {
                 <FlatList
                     data={results}
                     keyExtractor={(r) => r.stopId}
-                    contentContainerStyle={styles.list}
+                    contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
                     renderItem={({ item }) => <ResultRow result={item} />}
                     keyboardShouldPersistTaps="handled"
                 />

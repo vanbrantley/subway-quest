@@ -17,6 +17,7 @@ import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { getLineStationLayout, getShuttleGroups, getStationName, getOtherComplexRoutes, type LineStationGroup } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
+import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 
 function LineIcon({ routeId, size }: { routeId: string; size: number }) {
     const Icon = LINE_ICONS[routeId];
@@ -141,7 +142,7 @@ export default function LineScreen() {
             {!statuses ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
-                <ScrollView contentContainerStyle={styles.content}>
+                <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                     <View style={styles.lineHeading}>
                         <LineIcon routeId={lineId} size={64} />
                         <Text style={styles.lineNameHeading}>{lineId}</Text>

@@ -9,7 +9,16 @@ export default function TabsLayout() {
     return (
         <RehydrationGate>
             <View style={styles.container}>
-                <Tabs screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#fff' } }}>
+                <Tabs
+                    screenOptions={{
+                        headerShown: false,
+                        sceneStyle: { backgroundColor: '#fff' },
+                        // Native bar is hidden -- CustomTabBar (mounted at the root layout) is
+                        // the persistent one, so it can also stay up on root-level detail screens
+                        // (station/line/trip/achievements) this navigator never covers.
+                        tabBarStyle: { display: 'none' },
+                    }}
+                >
                     <Tabs.Screen
                         name="map"
                         options={{

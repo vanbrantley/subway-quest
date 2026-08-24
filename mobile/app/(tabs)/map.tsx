@@ -1,5 +1,5 @@
 // mobile/app/(tabs)/map.tsx
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
@@ -9,6 +9,7 @@ import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { StationPreviewModal } from '../../components/map/StationPreviewModal';
+import { registerMapReset } from '../../lib/tabBarScrollReset';
 import type { Station } from '../../lib/subwayData';
 
 type StationsFile = Record<string, Station>;
@@ -65,11 +66,19 @@ function markerTouchSizeForDelta(markerSize: number): number {
 export default function MapScreen() {
     const db = useDb();
     const userId = useUserId();
+    const mapRef = useRef<MapView>(null);
     const [statuses, setStatuses] = useState<Record<string, StationStatus> | null>(null);
     const [selectedStation, setSelectedStation] = useState<Station | null>(null);
     const [region, setRegion] = useState(INITIAL_REGION);
     const markerSize = markerSizeForDelta(region.latitudeDelta);
     const markerTouchSize = markerTouchSizeForDelta(markerSize);
+
+    // Tapping the Map tab while already on it re-centers to the starting region, same "tap the
+    // active tab to reset" convention CustomTabBar uses for Profile's scroll position.
+    useEffect(() => {
+        registerMapReset(() => mapRef.current?.animateToRegion(INITIAL_REGION, 400));
+        return () => registerMapReset(null);
+    }, []);
 
     // forceTrack: briefly true right after a statuses refetch, then back to
     // false. Markers use tracksViewChanges={false} for performance (496 of
@@ -117,6 +126,7 @@ export default function MapScreen() {
     return (
         <View style={styles.container}>
             <MapView
+                ref={mapRef}
                 style={styles.map}
                 provider={PROVIDER_DEFAULT}
                 initialRegion={INITIAL_REGION}
