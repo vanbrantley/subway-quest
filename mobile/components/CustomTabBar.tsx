@@ -13,7 +13,7 @@
 // of that and instead resets that screen's own view (see lib/tabBarScrollReset.ts).
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { router, usePathname } from 'expo-router';
+import { router, usePathname, useRootNavigationState } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,6 +35,7 @@ export function CustomTabBar() {
     const { session } = useAuth();
     const insets = useSafeAreaInsets();
     const pathname = usePathname();
+    const rootState = useRootNavigationState();
     const [activeTab, setActiveTab] = useState<TabKey>('map');
 
     useEffect(() => {
@@ -59,11 +60,15 @@ export function CustomTabBar() {
         }
 
         resetProfileStack();
-        // dismissAll() dispatches POP_TO_TOP, which React Navigation's StackRouter treats as
-        // genuinely *unhandled* (not a no-op) when the root stack only has one route on it --
-        // e.g. switching tabs directly with nothing pushed on top. Unguarded, that logs an
-        // "action not handled by any navigator" warning on every plain tab switch.
-        if (router.canDismiss()) router.dismissAll();
+        // dismissAll() dispatches an untargeted POP_TO_TOP, which only ever resolves against the
+        // ROOT stack's own router (it never bubbles down into children) -- and that router treats
+        // popping a stack that's already at its single route as genuinely *unhandled*, not a
+        // no-op, logging "action not handled by any navigator". router.canDismiss() isn't the
+        // right guard here: it walks the whole focused chain looking for ANY dismissable stack,
+        // so it comes back true off Profile's own nested stack (e.g. sitting on Settings) even
+        // when the root stack itself has nothing to pop. Check the root stack's own route count
+        // directly instead.
+        if ((rootState?.routes.length ?? 0) > 1) router.dismissAll();
         router.navigate(`/${tab}`);
     };
 
