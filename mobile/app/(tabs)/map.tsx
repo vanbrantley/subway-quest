@@ -1,6 +1,6 @@
 // mobile/app/(tabs)/map.tsx
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import stationsData from '../../data/stations.json';
@@ -9,7 +9,11 @@ import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { StationPreviewModal } from '../../components/map/StationPreviewModal';
+import { UserLocationMarker } from '../../components/map/UserLocationMarker';
+import { UserLocationPreviewModal } from '../../components/map/UserLocationPreviewModal';
+import { LocationButton } from '../../components/map/LocationButton';
 import { registerMapReset } from '../../lib/tabBarScrollReset';
+import { useUserLocation } from '../../lib/location';
 import type { Station } from '../../lib/subwayData';
 
 type StationsFile = Record<string, Station>;
@@ -40,11 +44,10 @@ function markerColor(status: StationStatus | undefined): string {
 }
 
 // Discrete size buckets keyed off the settled region's latitudeDelta --
-// smaller delta means more zoomed in. Bucketed (not a continuous formula)
-// so a Marker's cache-busting `key` (see markerDot below -- most native
-// re-snapshots only happen while tracksViewChanges is true, see forceTrack,
-// same reasoning as the visited/saved state already baked into the key)
-// only changes on a real zoom-level crossing, not on every sub-pixel settle.
+// smaller delta means more zoomed in. Bucketed (not a continuous formula) so
+// the forceTrack pulse below (see markerDot -- most native re-snapshots only
+// happen while tracksViewChanges is true) only fires on a real zoom-level
+// crossing, not on every sub-pixel settle.
 function markerSizeForDelta(latitudeDelta: number): number {
     if (latitudeDelta >= 0.2) return 9;
     if (latitudeDelta >= 0.08) return 11;
@@ -80,16 +83,26 @@ export default function MapScreen() {
         return () => registerMapReset(null);
     }, []);
 
-    // forceTrack: briefly true right after a statuses refetch, then back to
-    // false. Markers use tracksViewChanges={false} for performance (496 of
-    // them) -- react-native-maps only re-snapshots a marker's native bitmap
-    // while tracksViewChanges is true, so a key-remount alone (below) isn't
-    // always enough to force an IMMEDIATE visual update on every platform;
-    // confirmed on-device that a freshly-visited station's dot stayed gray
-    // until an unrelated zoom gesture forced the map to redraw. Flipping
-    // this true for one render pass after every refetch forces a real
-    // native re-snapshot of every marker, then flips back off to keep the
-    // normal panning/zooming performance win.
+    // forceTrack: briefly true right after a statuses refetch or a zoom-level
+    // crossing, then back to false. Markers use tracksViewChanges={false} the
+    // rest of the time for performance (496 of them) -- react-native-maps
+    // only re-snapshots a marker's native bitmap while tracksViewChanges is
+    // true, so a plain re-render alone isn't enough to force an IMMEDIATE
+    // visual update on every platform; confirmed on-device that a
+    // freshly-visited station's dot stayed gray until an unrelated zoom
+    // gesture forced the map to redraw. Flipping this true for one render
+    // pass forces a real native re-snapshot of every marker at its current
+    // size/color, then flips back off to keep the normal panning/zooming
+    // performance win.
+    //
+    // Size changes used to be handled differently -- baked into each
+    // Marker's `key` below, forcing React to fully unmount and remount all
+    // 496 native marker views on every zoom-level crossing. That's expensive
+    // enough to visibly stutter mid-pinch-zoom, and was implicated in the
+    // separate user-location dot going blank during zoom (MapKit's rendering
+    // pipeline getting swamped rebuilding 496 views at once, independent of
+    // that marker's own settings). Routing size changes through this same
+    // pulse instead updates the existing 496 native views in place.
     const [forceTrack, setForceTrack] = useState(false);
 
     // Refetched on focus, not just mount -- a trip logged elsewhere, or a
@@ -108,6 +121,84 @@ export default function MapScreen() {
             return () => { cancelled = true; };
         }, [db, userId])
     );
+
+    useEffect(() => {
+        setForceTrack(true);
+        const timeout = setTimeout(() => setForceTrack(false), 100);
+        return () => clearTimeout(timeout);
+    }, [markerSize]);
+
+    // Destructured (not accessed as `location.x` inline) so the stable,
+    // useCallback-memoized functions read as plain stable identifiers to
+    // both React and eslint's exhaustive-deps check -- `location` itself is
+    // a fresh object literal every render (coords update every few
+    // seconds), and depending on the object itself would tear the watch
+    // down and rebuild it on every position update instead of once per focus.
+    const { status, coords, refresh, requestPermission, startWatching, stopWatching } = useUserLocation();
+    const [showLocationPreview, setShowLocationPreview] = useState(false);
+    // Set right before startWatching() so the *next* coords update (whether
+    // from a fresh grant or an already-granted watch just kicking off)
+    // triggers exactly one center-on-me animation, not a repeated one on
+    // every subsequent position update.
+    const pendingCenterRef = useRef(false);
+
+    useEffect(() => {
+        if (pendingCenterRef.current && coords) {
+            pendingCenterRef.current = false;
+            mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
+        }
+    }, [coords]);
+
+    // Runs on every focus: goes straight to the real iOS permission dialog
+    // the first time ever status reads 'undetermined' -- no custom rationale
+    // step first (the permission string in app.json's expo-location plugin
+    // already explains why, right inside that dialog). Once iOS resolves a
+    // decision there's no "ask me later," so this can only fire once per
+    // install; no separate persisted flag needed. On later focuses, an
+    // already-granted permission just starts the watch silently -- no
+    // dialog, the dot simply appears, matching how Maps apps behave.
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            (async () => {
+                const result = await refresh();
+                if (cancelled) return;
+                if (result.status === 'undetermined') {
+                    const granted = (await requestPermission()) === 'granted';
+                    if (granted) {
+                        pendingCenterRef.current = true;
+                        await startWatching();
+                    }
+                } else if (result.status === 'granted') {
+                    await startWatching();
+                }
+            })();
+            return () => {
+                cancelled = true;
+                stopWatching();
+            };
+        }, [refresh, requestPermission, startWatching, stopWatching])
+    );
+
+    function handleLocationButtonPress() {
+        if (status === 'granted') {
+            if (coords) {
+                mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
+            } else {
+                pendingCenterRef.current = true;
+                startWatching();
+            }
+            return;
+        }
+        // Deliberately never re-shows the rationale or re-triggers the
+        // system dialog here -- iOS only offers that once per install, and
+        // repeatedly asking is exactly what we don't want. Settings is the
+        // only path to change a decision after the first-visit prompt.
+        Alert.alert('Location is off', 'Turn it on in Settings to see your position on the map.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]);
+    }
 
     const selectedStatus = selectedStation ? statuses?.[selectedStation.stop_id] ?? null : null;
 
@@ -145,7 +236,7 @@ export default function MapScreen() {
                     const status = statuses[station.stop_id];
                     return (
                         <Marker
-                            key={`${station.stop_id}:${status?.visited}:${status?.saved}:${markerSize}`}
+                            key={`${station.stop_id}:${status?.visited}:${status?.saved}`}
                             coordinate={{ latitude: station.lat, longitude: station.lon }}
                             onPress={() => setSelectedStation(station)}
                             tracksViewChanges={forceTrack}
@@ -161,7 +252,19 @@ export default function MapScreen() {
                         </Marker>
                     );
                 })}
+
+                {coords && (
+                    <UserLocationMarker
+                        coords={coords}
+                        size={markerSize}
+                        touchSize={markerTouchSize}
+                        tracksViewChanges={forceTrack}
+                        onPress={() => setShowLocationPreview(true)}
+                    />
+                )}
             </MapView>
+
+            <LocationButton active={status === 'granted'} onPress={handleLocationButtonPress} />
 
             <StationPreviewModal
                 station={selectedStation}
@@ -169,6 +272,8 @@ export default function MapScreen() {
                 onClose={() => setSelectedStation(null)}
                 onStatusChange={handleStatusChange}
             />
+
+            <UserLocationPreviewModal visible={showLocationPreview} onClose={() => setShowLocationPreview(false)} />
         </View>
     );
 }

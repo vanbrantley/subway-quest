@@ -31,7 +31,13 @@
       ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Subway Quest uses your location to show your position on the map and help you find nearby stations. This is optional — the app works fully without it."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
