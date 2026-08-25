@@ -4,7 +4,7 @@
 // nested under one tab's own stack; see status.md's router-rules note.)
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useRootNavigationState } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../contexts/DatabaseContext';
@@ -13,6 +13,8 @@ import { useSyncEngine } from '../../contexts/SyncContext';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { saveStation, unsaveStation, writeProductEvent } from '../../db/projection';
 import { getStationStatus, getStationVisitHistory, type StationStatus, type StationVisit } from '../../db/stations';
+import { setPendingMapHighlight } from '../../lib/mapHighlight';
+import { navigateToTab } from '../../lib/tabBarReset';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { StationQuestsList } from '../../components/quests/StationQuestsList';
 import { RouteIcon } from '../../components/ui/RouteIcon';
@@ -28,6 +30,7 @@ export default function StationScreen() {
     const userId = useUserId();
     const insets = useSafeAreaInsets();
     const { triggerSync } = useSyncEngine();
+    const rootState = useRootNavigationState();
 
     const [status, setStatus] = useState<StationStatus | null>(null);
     const [visits, setVisits] = useState<StationVisit[] | null>(null);
@@ -76,6 +79,12 @@ export default function StationScreen() {
         const target = normalizeRouteIdForIcon(routeId);
         if (!isNavigableRoute(target)) return;
         router.push(`/line/${target}`);
+    }
+
+    function viewOnMap() {
+        if (!station) return;
+        setPendingMapHighlight({ stationId: station.stop_id, lat: station.lat, lon: station.lon });
+        navigateToTab('map', rootState);
     }
 
     async function toggleSave() {
@@ -142,6 +151,13 @@ export default function StationScreen() {
                             </Pressable>
                         </View>
                     )}
+
+                    <View style={styles.viewOnMapRow}>
+                        <Pressable style={styles.viewOnMapButton} onPress={viewOnMap}>
+                            <Ionicons name="map-outline" size={16} color="#444" />
+                            <Text style={styles.viewOnMapButtonText}>View on Map</Text>
+                        </Pressable>
+                    </View>
                 </View>
 
                 {transferRoutes.length > 0 && (
@@ -199,5 +215,8 @@ const styles = StyleSheet.create({
     saveButtonActive: { backgroundColor: '#111', borderColor: '#111' },
     saveButtonText: { fontSize: 13, fontWeight: '700', color: '#444' },
     saveButtonTextActive: { color: '#fff' },
+    viewOnMapRow: { flexDirection: 'row', marginTop: 10 },
+    viewOnMapButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#ccc' },
+    viewOnMapButtonText: { fontSize: 13, fontWeight: '700', color: '#444' },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
 });

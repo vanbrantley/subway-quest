@@ -12,6 +12,7 @@
 // screen), since the layout hasn't rendered its own <Stack> yet at that point. A screen actually
 // inside the nested stack sees the nested stack's own navigation object.
 import { StackActions } from '@react-navigation/native';
+import { router, type useRootNavigationState } from 'expo-router';
 
 // Only `dispatch`/`getState` are needed here, so this stays structurally compatible with
 // whatever specific NavigationProp<...> type expo-router's useNavigation() infers per call
@@ -38,4 +39,23 @@ export function resetProfileStack() {
     if (state && (state.index ?? 0) > 0) {
         profileNavigation!.dispatch(StackActions.popToTop());
     }
+}
+
+type TabKey = 'map' | 'search' | 'profile';
+
+// Shared by CustomTabBar's own tab-press handler and any other screen that needs to jump
+// straight to a tab (e.g. Station Detail's "View on Map" button). Pulled out here rather than
+// duplicated at each call site since the dismissAll() guard below is a documented React
+// Navigation footgun, not an obvious rule -- see the popToTop() comment above for the analogous
+// "unhandled, not a no-op" issue. dismissAll() dispatches an untargeted POP_TO_TOP, which only
+// ever resolves against the ROOT stack's own router -- and that router treats popping a stack
+// that's already at its single route as genuinely unhandled, logging "action not handled by any
+// navigator". router.canDismiss() isn't the right guard: it walks the whole focused chain
+// looking for ANY dismissable stack, so it comes back true off Profile's own nested stack (e.g.
+// sitting on Settings) even when the root stack itself has nothing to pop. Check the root
+// stack's own route count directly instead.
+export function navigateToTab(tab: TabKey, rootState: ReturnType<typeof useRootNavigationState>) {
+    resetProfileStack();
+    if ((rootState?.routes.length ?? 0) > 1) router.dismissAll();
+    router.navigate(`/${tab}`);
 }

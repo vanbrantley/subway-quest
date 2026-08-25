@@ -6,18 +6,18 @@
 // <Tabs> bar never covered since those routes aren't nested inside the tabs navigator (see
 // docs/status.md "Milestone 8" for why they're root-level siblings instead).
 //
-// Tapping a tab always lands on that tab's root and drops any pushed screens: resetProfileStack()
-// clears Profile's own nested stack (the one tab with pushable children), router.dismissAll()
-// clears the root stack (pops station/line/trip/achievements pushes back to (tabs)), then
-// router.navigate() selects the target tab. Tapping the tab you're already sitting on skips all
-// of that and instead resets that screen's own view (see lib/tabBarScrollReset.ts).
+// Tapping a tab always lands on that tab's root and drops any pushed screens -- see
+// navigateToTab() in lib/tabBarReset.ts for that sequence (shared with Station Detail's "View on
+// Map" button, the only other place that jumps to a tab from elsewhere in the app). Tapping the
+// tab you're already sitting on skips all of that and instead resets that screen's own view (see
+// lib/tabBarScrollReset.ts).
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { router, usePathname, useRootNavigationState } from 'expo-router';
+import { usePathname, useRootNavigationState } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
-import { resetProfileStack } from '../lib/tabBarReset';
+import { navigateToTab } from '../lib/tabBarReset';
 import { resetMapView, resetProfileScroll } from '../lib/tabBarScrollReset';
 
 type TabKey = 'map' | 'search' | 'profile';
@@ -59,17 +59,7 @@ export function CustomTabBar() {
             return;
         }
 
-        resetProfileStack();
-        // dismissAll() dispatches an untargeted POP_TO_TOP, which only ever resolves against the
-        // ROOT stack's own router (it never bubbles down into children) -- and that router treats
-        // popping a stack that's already at its single route as genuinely *unhandled*, not a
-        // no-op, logging "action not handled by any navigator". router.canDismiss() isn't the
-        // right guard here: it walks the whole focused chain looking for ANY dismissable stack,
-        // so it comes back true off Profile's own nested stack (e.g. sitting on Settings) even
-        // when the root stack itself has nothing to pop. Check the root stack's own route count
-        // directly instead.
-        if ((rootState?.routes.length ?? 0) > 1) router.dismissAll();
-        router.navigate(`/${tab}`);
+        navigateToTab(tab, rootState);
     };
 
     return (

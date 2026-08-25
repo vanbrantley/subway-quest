@@ -1,6 +1,6 @@
 // mobile/app/(tabs)/map.tsx
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
+import { Animated, View, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import stationsData from '../../data/stations.json';
@@ -13,6 +13,7 @@ import { UserLocationMarker } from '../../components/map/UserLocationMarker';
 import { UserLocationPreviewModal } from '../../components/map/UserLocationPreviewModal';
 import { LocationButton } from '../../components/map/LocationButton';
 import { registerMapReset } from '../../lib/tabBarScrollReset';
+import { consumePendingMapHighlight, type MapHighlightTarget } from '../../lib/mapHighlight';
 import { useUserLocation } from '../../lib/location';
 import type { Station } from '../../lib/subwayData';
 
@@ -105,6 +106,24 @@ export default function MapScreen() {
     // pulse instead updates the existing 496 native views in place.
     const [forceTrack, setForceTrack] = useState(false);
 
+    // Which station (if any) is showing the temporary "View on Map" highlight, and the pending
+    // target stashed by Station Detail's button but not yet applied -- kept as its own state,
+    // separate from forceTrack, since the highlight needs to persist for ~2.5s while forceTrack
+    // itself only ever pulses true for ~100ms at a time (see the forceTrack comment above).
+    // While a station is highlighted its OWN marker (only that one, not the shared forceTrack --
+    // see the Marker loop below) is kept in continuous tracksViewChanges mode, both so the
+    // opacity pulse animation actually gets re-snapshotted frame to frame, and so a markerSize
+    // bucket crossing that happens mid-flight (the camera settling at its new, less-zoomed-in
+    // region) gets picked up on that one marker too, instead of it being captured at whatever
+    // stale size was in effect the instant the highlight started. Highlighting is an in-place
+    // style change on the one matching marker, not a key change -- same "don't remount 496
+    // views" reasoning as the size-bucketing comment above.
+    const [highlightedStationId, setHighlightedStationId] = useState<string | null>(null);
+    const [pendingHighlight, setPendingHighlight] = useState<MapHighlightTarget | null>(null);
+    const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const highlightOpacity = useRef(new Animated.Value(1)).current;
+    const highlightAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
     // Refetched on focus, not just mount -- a trip logged elsewhere, or a
     // save/unsave made on the Station page, both happen on a different
     // screen and need to be reflected here when navigating back.
@@ -127,6 +146,81 @@ export default function MapScreen() {
         const timeout = setTimeout(() => setForceTrack(false), 100);
         return () => clearTimeout(timeout);
     }, [markerSize]);
+
+    // Picks up a target stashed by setPendingMapHighlight() (e.g. Station Detail's "View on Map"
+    // button) whenever Map gains focus. Just moves it into state here -- the actual camera
+    // animation happens in the effect below, gated on `statuses` so it doesn't fire while the
+    // MapView itself isn't mounted yet (see the `if (!statuses)` loading branch below).
+    useFocusEffect(
+        useCallback(() => {
+            const target = consumePendingMapHighlight();
+            if (target) setPendingHighlight(target);
+        }, [])
+    );
+
+    useEffect(() => {
+        if (!pendingHighlight || !statuses) return;
+        // Well more zoomed out than the 0.01/0.01 "center on my location" delta -- a neighborhood
+        // view around this station with several nearby stations visible for context, rather than
+        // cropping in tight on just the one.
+        const targetRegion = {
+            latitude: pendingHighlight.lat,
+            longitude: pendingHighlight.lon,
+            latitudeDelta: 0.08,
+            longitudeDelta: 0.08,
+        };
+        mapRef.current?.animateToRegion(targetRegion, 500);
+        // markerSize (and every marker's on-screen size) is derived from `region` state, which
+        // normally only updates via the MapView's own onRegionChangeComplete callback -- but
+        // that callback isn't reliable right when this fires, since it's landing mid-tab-switch
+        // (see the useFocusEffect above), before the map has necessarily settled into a stable
+        // layout. Relying on it left every marker sized for whatever region was current BEFORE
+        // this navigation (usually the far-zoomed-out INITIAL_REGION) until the user's next
+        // manual pan/gesture finally fired onRegionChangeComplete and jumped them to the right
+        // size. Setting `region` directly to the region we already know we're animating toward
+        // sidesteps that -- markerSize recomputes this same render, so all 496 markers resize
+        // immediately rather than waiting on a native callback that may lag or never arrive for
+        // this particular transition. If onRegionChangeComplete does eventually fire, it'll just
+        // confirm this same value (or a near-identical one after aspect-ratio normalization).
+        setRegion(targetRegion);
+        setHighlightedStationId(pendingHighlight.stationId);
+        setPendingHighlight(null);
+
+        // No initial forceTrack pulse needed here -- flipping isHighlighted true below already
+        // puts this one marker's own tracksViewChanges into continuous mode (see the Marker
+        // loop), which captures the animated opacity; the markerSize change above already
+        // pulses forceTrack for every marker via the `[markerSize]` effect if it crosses a
+        // bucket boundary.
+        highlightAnimationRef.current?.stop();
+        highlightOpacity.setValue(1);
+        highlightAnimationRef.current = Animated.loop(
+            Animated.sequence([
+                Animated.timing(highlightOpacity, { toValue: 0.15, duration: 350, useNativeDriver: false }),
+                Animated.timing(highlightOpacity, { toValue: 1, duration: 350, useNativeDriver: false }),
+            ]),
+            { iterations: 3 }
+        );
+        highlightAnimationRef.current.start();
+
+        if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedStationId(null);
+            highlightAnimationRef.current?.stop();
+            highlightOpacity.setValue(1);
+            // isHighlighted just went false, so this marker's tracksViewChanges falls back to
+            // the shared forceTrack -- one more brief pulse to re-snapshot it back to its plain
+            // look before tracksViewChanges goes false again.
+            setForceTrack(true);
+            setTimeout(() => setForceTrack(false), 100);
+        }, 2500);
+    }, [pendingHighlight, statuses]);
+
+    useEffect(() => {
+        return () => {
+            if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+            highlightAnimationRef.current?.stop();
+        };
+    }, []);
 
     // Destructured (not accessed as `location.x` inline) so the stable,
     // useCallback-memoized functions read as plain stable identifiers to
@@ -234,18 +328,24 @@ export default function MapScreen() {
 
                 {STATION_LIST.map((station) => {
                     const status = statuses[station.stop_id];
+                    const isHighlighted = station.stop_id === highlightedStationId;
                     return (
                         <Marker
                             key={`${station.stop_id}:${status?.visited}:${status?.saved}`}
                             coordinate={{ latitude: station.lat, longitude: station.lon }}
                             onPress={() => setSelectedStation(station)}
-                            tracksViewChanges={forceTrack}
+                            tracksViewChanges={forceTrack || isHighlighted}
                         >
                             <View style={[styles.markerTouchArea, { width: markerTouchSize, height: markerTouchSize }]}>
-                                <View
+                                <Animated.View
                                     style={[
                                         styles.markerDot,
                                         { width: markerSize, height: markerSize, borderRadius: markerSize / 2, backgroundColor: markerColor(status) },
+                                        isHighlighted && {
+                                            opacity: highlightOpacity,
+                                            borderWidth: 3,
+                                            borderColor: '#007aff',
+                                        },
                                     ]}
                                 />
                             </View>
