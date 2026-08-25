@@ -1,5 +1,5 @@
 // mobile/app/(tabs)/map.tsx
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, View, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
@@ -25,6 +25,16 @@ const STATIONS = stationsData as unknown as StationsFile;
 const STATION_LIST = Object.values(STATIONS);
 const ROUTE_SHAPES = routeShapesData as unknown as RouteShapesFile;
 const POLYLINE_BRANCHES = Object.values(ROUTE_SHAPES).flat();
+// Purely a function of the bundled route-shapes data, no component state --
+// built once at module load instead of on every MapScreen render.
+const POLYLINES = POLYLINE_BRANCHES.map((branch) => (
+    <Polyline
+        key={branch.branch_id}
+        coordinates={branch.points.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
+        strokeColor={branch.color}
+        strokeWidth={3}
+    />
+));
 
 const INITIAL_REGION = {
     latitude: 40.7128,
@@ -213,7 +223,7 @@ export default function MapScreen() {
             setForceTrack(true);
             setTimeout(() => setForceTrack(false), 100);
         }, 2500);
-    }, [pendingHighlight, statuses]);
+    }, [pendingHighlight, statuses, highlightOpacity]);
 
     useEffect(() => {
         return () => {
@@ -294,6 +304,47 @@ export default function MapScreen() {
         ]);
     }
 
+    // Rebuilding all 496 station Markers is real work -- memoized so it only
+    // happens when something that actually changes their appearance does
+    // (statuses, size, the forceTrack/highlight pulses), not on every
+    // unrelated MapScreen re-render. Without this, useUserLocation's coords
+    // ticking every ~3s (plus permission-status/AppState changes, modal
+    // toggles, etc.) would force a full rebuild+reconcile of all 496
+    // elements continuously in the background the whole time the tab is
+    // focused, none of which actually change what a station marker looks
+    // like.
+    const stationMarkers = useMemo(
+        () =>
+            statuses &&
+            STATION_LIST.map((station) => {
+                const status = statuses[station.stop_id];
+                const isHighlighted = station.stop_id === highlightedStationId;
+                return (
+                    <Marker
+                        key={`${station.stop_id}:${status?.visited}:${status?.saved}`}
+                        coordinate={{ latitude: station.lat, longitude: station.lon }}
+                        onPress={() => setSelectedStation(station)}
+                        tracksViewChanges={forceTrack || isHighlighted}
+                    >
+                        <View style={[styles.markerTouchArea, { width: markerTouchSize, height: markerTouchSize }]}>
+                            <Animated.View
+                                style={[
+                                    styles.markerDot,
+                                    { width: markerSize, height: markerSize, borderRadius: markerSize / 2, backgroundColor: markerColor(status) },
+                                    isHighlighted && {
+                                        opacity: highlightOpacity,
+                                        borderWidth: 3,
+                                        borderColor: '#007aff',
+                                    },
+                                ]}
+                            />
+                        </View>
+                    </Marker>
+                );
+            }),
+        [statuses, markerSize, markerTouchSize, forceTrack, highlightedStationId, highlightOpacity]
+    );
+
     const selectedStatus = selectedStation ? statuses?.[selectedStation.stop_id] ?? null : null;
 
     function handleStatusChange(stationId: string, newStatus: StationStatus) {
@@ -317,41 +368,9 @@ export default function MapScreen() {
                 initialRegion={INITIAL_REGION}
                 onRegionChangeComplete={setRegion}
             >
-                {POLYLINE_BRANCHES.map((branch) => (
-                    <Polyline
-                        key={branch.branch_id}
-                        coordinates={branch.points.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
-                        strokeColor={branch.color}
-                        strokeWidth={3}
-                    />
-                ))}
+                {POLYLINES}
 
-                {STATION_LIST.map((station) => {
-                    const status = statuses[station.stop_id];
-                    const isHighlighted = station.stop_id === highlightedStationId;
-                    return (
-                        <Marker
-                            key={`${station.stop_id}:${status?.visited}:${status?.saved}`}
-                            coordinate={{ latitude: station.lat, longitude: station.lon }}
-                            onPress={() => setSelectedStation(station)}
-                            tracksViewChanges={forceTrack || isHighlighted}
-                        >
-                            <View style={[styles.markerTouchArea, { width: markerTouchSize, height: markerTouchSize }]}>
-                                <Animated.View
-                                    style={[
-                                        styles.markerDot,
-                                        { width: markerSize, height: markerSize, borderRadius: markerSize / 2, backgroundColor: markerColor(status) },
-                                        isHighlighted && {
-                                            opacity: highlightOpacity,
-                                            borderWidth: 3,
-                                            borderColor: '#007aff',
-                                        },
-                                    ]}
-                                />
-                            </View>
-                        </Marker>
-                    );
-                })}
+                {stationMarkers}
 
                 {coords && (
                     <UserLocationMarker
