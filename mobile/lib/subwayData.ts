@@ -299,14 +299,18 @@ export function getEntryStopForTransfer(complexId: string, routeId: string): str
 // down — never a branch-selection step. Direction '0' only, matching every
 // other function in this file that reads branchesForRoute().
 
-// routeId is optional and only ever set for a group that IS itself a
-// separately-navigable line (currently: the S overview page's three shuttle
-// groups, via getShuttleGroups()) — a real geographic branch tail (e.g. one
-// of the 5 train's forks) isn't its own line, so getLineStationLayout()
-// never sets it. line/[lineId].tsx uses its presence to decide whether a
-// group's header is itself tappable.
-export type LineStationGroup = { label: string; stops: string[]; routeId?: string };
-export type LineStationLayout = { trunk: string[]; tails: LineStationGroup[] };
+// Flat, renderable sequence for the Line page: stations interleaved with
+// borough headers (wherever the borough changes, always freshly per
+// section — see stopsWithBoroughHeaders) and group headers (a real
+// geographic branch, suffixed " Branch" by getLineStationItems, or — for
+// the S overview page — a real shuttle name via getShuttleStationItems,
+// never suffixed since those are separate lines, not branches of one). No
+// item ever represents the old "Trunk" header — the outermost shared chain
+// flows straight into the list with only borough headers above it.
+export type LineStationItem =
+    | { kind: 'station'; stopId: string }
+    | { kind: 'groupHeader'; label: string; routeId?: string }
+    | { kind: 'boroughHeader'; label: string };
 
 function commonPrefixLen(lists: string[][]): number {
     const minLen = Math.min(...lists.map((l) => l.length));
@@ -322,63 +326,145 @@ function commonSuffixLen(lists: string[][]): number {
     return i;
 }
 
-export function getLineStationLayout(routeId: string): LineStationLayout {
-    const branches = branchesForRoute(routeId);
-    if (branches.length === 0) return { trunk: [], tails: [] };
-    if (branches.length === 1) return { trunk: branches[0].stops, tails: [] };
+// ---- Branch tree: a trie over each branch's ordered stop-id sequence ----
+//
+// Real branching (verified against MTA's own branch descriptions, see
+// PROJECT.md's "Route branches are geographic" note) isn't always a flat
+// trunk + N-diverging-tails shape — the A train's Rockaway Blvd trunk
+// splits into "Lefferts Blvd" vs "Rockaway", and "Rockaway" itself splits
+// again at Broad Channel into "Far Rockaway" vs "Rockaway Park". A single
+// global commonPrefixLen/commonSuffixLen (the old approach) only finds
+// commonality shared by ALL branches at once, so it can't see that nested,
+// two-of-three-branches-only split — it either double-rendered that shared
+// segment (pre-flattening) or silently dropped it from one branch's
+// section (the seen-set band-aid this replaces). A trie finds commonality
+// at every depth for free: branches merge into one path wherever they
+// agree, and fork wherever they first disagree, at any nesting level.
+type TrieNode = { stopId: string; children: TrieNode[] };
 
-    const stopLists = branches.map((b) => b.stops);
-    const minLen = Math.min(...stopLists.map((l) => l.length));
-    const prefixLen = commonPrefixLen(stopLists);
-    // Cap suffixLen so it can never overlap prefixLen within the shortest
-    // branch — without this, a very short branch could make the two
-    // shared regions double-count part of itself.
-    const suffixLen = Math.min(commonSuffixLen(stopLists), minLen - prefixLen);
-
-    // Real fork at both ends (route "5": 4 branches, distinct origins AND
-    // distinct termini, no shared segment at all) — don't force a trunk
-    // that doesn't exist. Every branch becomes its own top-level tail,
-    // labeled by both its termini since there's no shared anchor to
-    // describe it relative to.
-    if (prefixLen === 0 && suffixLen === 0) {
-        return {
-            trunk: [],
-            tails: branches.map((b) => ({
-                label: `${getStationName(b.stops[0])} ↔ ${getStationName(b.stops[b.stops.length - 1])}`,
-                stops: b.stops,
-            })),
-        };
-    }
-
-    if (prefixLen >= suffixLen) {
-        // Prefix-trunk (e.g. N, R, E): shared start, diverging ends.
-        const trunk = stopLists[0].slice(0, prefixLen);
-        const tails: LineStationGroup[] = branches.map((b) => {
-            const tailStops = b.stops.slice(prefixLen, b.stops.length - suffixLen);
-            return { label: getStationName(tailStops[tailStops.length - 1] ?? trunk[trunk.length - 1]), stops: tailStops };
-        });
-        // A secondary shared trailing segment (route F: both branches
-        // share the same start AND end, differing only in a middle
-        // stopping-pattern variant — a data-pipeline nuance, not a real
-        // geographic fork, per PROJECT.md's branch-dedup design). Shown
-        // once, after every tail, instead of duplicated inside each one.
-        if (suffixLen > 0) {
-            tails.push({ label: 'Shared', stops: stopLists[0].slice(stopLists[0].length - suffixLen) });
+function insertSequence(roots: TrieNode[], sequence: string[]): void {
+    let siblings = roots;
+    for (const stopId of sequence) {
+        let node = siblings.find((n) => n.stopId === stopId);
+        if (!node) {
+            node = { stopId, children: [] };
+            siblings.push(node);
         }
-        return { trunk, tails };
+        siblings = node.children;
     }
+}
 
-    // Suffix-trunk (e.g. A, 2): diverging starts, shared end. Trunk is
-    // shown FIRST regardless — this is a display-order choice, not a
-    // physical-direction requirement; "trunk first" just means "the
-    // shared part first," wherever it happens to sit in the raw array.
-    const trunk = stopLists[0].slice(stopLists[0].length - suffixLen);
-    const tails: LineStationGroup[] = branches.map((b) => {
-        const tailStops = b.stops.slice(prefixLen, b.stops.length - suffixLen);
-        return { label: getStationName(tailStops[0] ?? trunk[0]), stops: tailStops };
-    });
-    if (prefixLen > 0) {
-        tails.push({ label: 'Shared', stops: stopLists[0].slice(0, prefixLen) });
+// Walks a single-child chain from `node` until it hits a leaf (a branch's
+// true terminus) or a fork (2+ branches still diverge from here) — that
+// chain is exactly one rendered segment (the outermost shared trunk, or one
+// branch/sub-branch tail).
+function walkChain(node: TrieNode): { chainStopIds: string[]; next: TrieNode[] } {
+    const chainStopIds: string[] = [node.stopId];
+    let current = node;
+    while (current.children.length === 1) {
+        current = current.children[0];
+        chainStopIds.push(current.stopId);
     }
-    return { trunk, tails };
+    return { chainStopIds, next: current.children };
+}
+
+// A trie built in 'prefix' orientation merges branches from their shared
+// start (e.g. the 5: shared Brooklyn/Manhattan trunk, diverging Bronx
+// ends); 'suffix' merges from their shared end (e.g. the A: diverging
+// southern termini, shared trunk toward Inwood). orientStops undoes the
+// reversal used to build a suffix-oriented trie, back to real stop order.
+function orientStops(chainStopIds: string[], orientation: 'prefix' | 'suffix'): string[] {
+    return orientation === 'prefix' ? chainStopIds : [...chainStopIds].reverse();
+}
+
+// A segment's label is always its own boundary station — the far end for
+// prefix orientation (where a prefix-oriented tail actually terminates), the
+// near end for suffix orientation (where a suffix-oriented tail begins,
+// e.g. "Broad Channel" for the A's nested Rockaway split). This is the same
+// station whether the segment is a true branch leaf or an intermediate
+// shared sub-trunk covering more than one further-diverging branch — no
+// separate leaf-vs-fork labeling rule needed.
+function segmentLabel(orderedStops: string[], orientation: 'prefix' | 'suffix'): string {
+    const boundary = orientation === 'prefix' ? orderedStops[orderedStops.length - 1] : orderedStops[0];
+    return getStationName(boundary);
+}
+
+// Interleaves borough headers into an ordered stop-id list wherever the
+// borough changes, always starting fresh — every rendered segment (the
+// outermost trunk, a branch, or a nested sub-branch) is its own contained
+// unit on screen, not a continuation of whatever segment rendered above it.
+function stopsWithBoroughHeaders(stopIds: string[]): LineStationItem[] {
+    const items: LineStationItem[] = [];
+    let current: string | null = null;
+    for (const stopId of stopIds) {
+        const borough = getStation(stopId)?.borough;
+        if (borough && borough !== current) {
+            items.push({ kind: 'boroughHeader', label: getBoroughName(borough) });
+            current = borough;
+        }
+        items.push({ kind: 'station', stopId });
+    }
+    return items;
+}
+
+// Renders one trie node's chain as a segment, then recurses into whatever
+// it forks into. `header` is false only for the outermost call (the old
+// "Trunk") — every deeper chain, whether a true branch leaf or a nested
+// sub-trunk shared by only some of the branches, gets a "{label} Branch"
+// header. A station can legitimately appear in two different segments (a
+// real junction a rider passes through on either branch, e.g. the 5's East
+// 180 St) — the trie only merges branches that agree from a common
+// starting point, so this is never silently dropped, just rendered under
+// both; line/[lineId].tsx keys rows by position, not stopId, so this never
+// collides.
+function renderChain(node: TrieNode, orientation: 'prefix' | 'suffix', header: boolean): LineStationItem[] {
+    const { chainStopIds, next } = walkChain(node);
+    const orderedStops = orientStops(chainStopIds, orientation);
+    const items: LineStationItem[] = [];
+    if (header) {
+        items.push({ kind: 'groupHeader', label: `${segmentLabel(orderedStops, orientation)} Branch` });
+    }
+    items.push(...stopsWithBoroughHeaders(orderedStops));
+    for (const child of next) {
+        items.push(...renderChain(child, orientation, true));
+    }
+    return items;
+}
+
+// The canonical Line page's flattened render list. A single root after
+// building the trie means every branch shares that opening chain (the
+// normal case — a real outermost trunk); multiple roots means no branch
+// shares even a first stop with any other in this orientation (no current
+// route hits this, but it degrades gracefully: every root just becomes its
+// own top-level, headered branch instead of one headerless trunk).
+export function getLineStationItems(routeId: string): LineStationItem[] {
+    const branches = branchesForRoute(routeId).map((b) => b.stops);
+    if (branches.length === 0) return [];
+
+    const orientation: 'prefix' | 'suffix' =
+        commonPrefixLen(branches) >= commonSuffixLen(branches) ? 'prefix' : 'suffix';
+    const sequences = branches.map((stops) => (orientation === 'prefix' ? stops : [...stops].reverse()));
+    const roots: TrieNode[] = [];
+    for (const seq of sequences) insertSequence(roots, seq);
+
+    const items: LineStationItem[] = [];
+    for (const root of roots) {
+        items.push(...renderChain(root, orientation, roots.length > 1));
+    }
+    return items;
+}
+
+// The S overview page's flattened render list — same borough-header
+// treatment as getLineStationItems, but group headers keep their real
+// shuttle names (never suffixed " Branch": these are three separate
+// navigable lines sharing one display icon, not branches of one line — see
+// getShuttleGroups()).
+export function getShuttleStationItems(): LineStationItem[] {
+    const items: LineStationItem[] = [];
+
+    for (const group of getShuttleGroups()) {
+        items.push({ kind: 'groupHeader', label: group.label, routeId: group.routeId });
+        items.push(...stopsWithBoroughHeaders(group.stops));
+    }
+    return items;
 }

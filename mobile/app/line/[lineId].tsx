@@ -15,7 +15,7 @@ import { LINE_COLORS } from '../../constants/lineColors';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
-import { getLineStationLayout, getShuttleGroups, getStationName, getOtherComplexRoutes, type LineStationGroup } from '../../lib/subwayData';
+import { getLineStationItems, getShuttleStationItems, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 
@@ -54,32 +54,29 @@ function StationRow({ stopId, visited, onPress }: { stopId: string; visited: boo
     );
 }
 
-function GroupSection({
-    group, statuses, onPressStation, onPressGroup,
+function BoroughHeader({ label }: { label: string }) {
+    return <Text style={styles.boroughLabel}>{label}</Text>;
+}
+
+function GroupHeader({
+    label, routeId, onPress,
 }: {
-    group: LineStationGroup;
-    statuses: Record<string, StationStatus>;
-    onPressStation: (stopId: string) => void;
-    onPressGroup: (routeId: string) => void;
+    label: string;
+    routeId?: string;
+    onPress: (routeId: string) => void;
 }) {
-    return (
-        <View style={styles.group}>
-            {group.routeId ? (
-                // Only a group that's itself a separately-navigable line (the S
-                // overview page's shuttle groups) gets a tappable header — a
-                // real branch tail's label stays plain text, same as today.
-                <Pressable style={styles.groupLabelRow} onPress={() => onPressGroup(group.routeId!)}>
-                    <Text style={styles.groupLabel}>{group.label}</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#888" />
-                </Pressable>
-            ) : (
-                <Text style={[styles.groupLabel, styles.groupLabelSpacing]}>{group.label}</Text>
-            )}
-            {group.stops.map((stopId) => (
-                <StationRow key={stopId} stopId={stopId} visited={statuses[stopId]?.visited ?? false} onPress={() => onPressStation(stopId)} />
-            ))}
-        </View>
-    );
+    if (routeId) {
+        // Only a group that's itself a separately-navigable line (the S
+        // overview page's shuttle groups) gets a tappable header — a real
+        // branch tail's label stays plain text, same as today.
+        return (
+            <Pressable style={styles.groupLabelRow} onPress={() => onPress(routeId)}>
+                <Text style={styles.groupLabel}>{label}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#888" />
+            </Pressable>
+        );
+    }
+    return <Text style={[styles.groupLabel, styles.groupLabelSpacing]}>{label}</Text>;
 }
 
 export default function LineScreen() {
@@ -90,22 +87,24 @@ export default function LineScreen() {
     const [statuses, setStatuses] = useState<Record<string, StationStatus> | null>(null);
 
     // 'S' isn't a branching route with a shared trunk -- it's three separate,
-    // unrelated shuttles sharing one display icon. getLineStationLayout's
-    // generic trunk/tail split (built for real geographic forks) would still
-    // technically run against it via branchesForRoute's FS/GS/H union, but
-    // its termini-based labels don't say which real shuttle each group is --
-    // getShuttleGroups() gives each its own real name instead, reusing the
-    // exact same { trunk, tails } shape so nothing else on this page changes.
-    const layout = useMemo(
-        () => (lineId === 'S'
-            ? { trunk: [], tails: getShuttleGroups() }
-            : getLineStationLayout(lineId)),
+    // unrelated shuttles sharing one display icon. getShuttleStationItems()
+    // gives each its own real name instead of getLineStationItems' generic
+    // trunk/tail split (built for real geographic forks), reusing the same
+    // flat LineStationItem[] shape so nothing else on this page changes.
+    const items = useMemo(
+        () => (lineId === 'S' ? getShuttleStationItems() : getLineStationItems(lineId)),
         [lineId]
     );
-    const totalStations = useMemo(
-        () => layout.trunk.length + layout.tails.reduce((sum, t) => sum + t.stops.length, 0),
-        [layout]
+    // A stopId can legitimately appear twice in `items` (a real junction a
+    // rider passes through on either branch, e.g. the 5's East 180 St) — it
+    // still gets its own row under each branch, but it's one physical
+    // station, so progress counting dedupes by stopId here even though the
+    // render below doesn't.
+    const uniqueStopIds = useMemo(
+        () => [...new Set(items.filter((item) => item.kind === 'station').map((item) => item.stopId))],
+        [items]
     );
+    const totalStations = uniqueStopIds.length;
 
     useEffect(() => {
         (async () => {
@@ -117,11 +116,8 @@ export default function LineScreen() {
 
     const visitedCount = useMemo(() => {
         if (!statuses) return 0;
-        let count = 0;
-        for (const stopId of layout.trunk) if (statuses[stopId]?.visited) count++;
-        for (const tail of layout.tails) for (const stopId of tail.stops) if (statuses[stopId]?.visited) count++;
-        return count;
-    }, [statuses, layout]);
+        return uniqueStopIds.filter((stopId) => statuses[stopId]?.visited).length;
+    }, [statuses, uniqueStopIds]);
 
     function goToStation(stopId: string) {
         router.push(`/station/${stopId}`);
@@ -145,22 +141,30 @@ export default function LineScreen() {
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                     <View style={styles.lineHeading}>
                         <LineIcon routeId={lineId} size={64} />
-                        <Text style={styles.lineNameHeading}>{lineId}</Text>
                     </View>
                     <ProgressBar current={visitedCount} target={totalStations} label="Stations visited" />
 
-                    {layout.trunk.length > 0 && (
-                        <View style={styles.group}>
-                            <Text style={[styles.groupLabel, styles.groupLabelSpacing]}>Trunk</Text>
-                            {layout.trunk.map((stopId) => (
-                                <StationRow key={stopId} stopId={stopId} visited={statuses[stopId]?.visited ?? false} onPress={() => goToStation(stopId)} />
-                            ))}
-                        </View>
-                    )}
-
-                    {layout.tails.map((tail, i) => (
-                        <GroupSection key={i} group={tail} statuses={statuses} onPressStation={goToStation} onPressGroup={goToShuttleLine} />
-                    ))}
+                    {items.map((item, i) => {
+                        if (item.kind === 'station') {
+                            // Keyed by position, not stopId — a station can
+                            // legitimately appear twice (e.g. the 5's East
+                            // 180 St, a real junction both its branches pass
+                            // through), and forcing stopId-uniqueness would
+                            // mean silently dropping one of two real rows.
+                            return (
+                                <StationRow
+                                    key={`s-${i}`}
+                                    stopId={item.stopId}
+                                    visited={statuses[item.stopId]?.visited ?? false}
+                                    onPress={() => goToStation(item.stopId)}
+                                />
+                            );
+                        }
+                        if (item.kind === 'groupHeader') {
+                            return <GroupHeader key={`g-${i}`} label={item.label} routeId={item.routeId} onPress={goToShuttleLine} />;
+                        }
+                        return <BoroughHeader key={`b-${i}`} label={item.label} />;
+                    })}
                 </ScrollView>
             )}
         </View>
@@ -171,13 +175,12 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
-    content: { padding: 20, gap: 4 },
+    content: { padding: 20 },
     lineHeading: { alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 16 },
-    lineNameHeading: { fontSize: 24, fontWeight: '700' },
-    group: { marginTop: 16, marginBottom: 16 },
     groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 },
-    groupLabelSpacing: { marginBottom: 4 },
-    groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+    groupLabelSpacing: { marginTop: 16, marginBottom: 4 },
+    groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 16, marginBottom: 4 },
+    boroughLabel: { fontSize: 12, fontWeight: '600', color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 12, marginBottom: 4 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     rowText: { flex: 1, fontSize: 15, color: '#222' },
     transferIcons: { flexDirection: 'row', gap: 4 },
