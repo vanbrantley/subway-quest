@@ -17,6 +17,7 @@ import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { getLineStationItems, getShuttleStationItems, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
+import { LineTriviaFact } from '../../components/trivia/LineTriviaFact';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 
 function LineIcon({ routeId, size }: { routeId: string; size: number }) {
@@ -143,6 +144,8 @@ export default function LineScreen() {
                         <LineIcon routeId={lineId} size={64} />
                     </View>
                     <ProgressBar current={visitedCount} target={totalStations} label="Stations visited" />
+
+                    {lineId !== 'S' && <LineTriviaFact routeId={lineId} />}
 
                     {items.map((item, i) => {
                         if (item.kind === 'station') {

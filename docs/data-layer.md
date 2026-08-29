@@ -202,6 +202,38 @@ land in BigQuery's raw dataset for free; nothing downstream reads them yet.
 `schema.sql` source edit — the table already exists in production (see status.md, milestone 1). See
 `supabase/schema.sql`'s comment on this for the exact statements run.
 
+## Trivia preference events (product domain)
+
+Only the global on/off switch is a real, persisted, per-user preference. Whether an individual
+station's or line's "Fun fact" pill is expanded is plain local component state (see
+`mobile/components/trivia/StationTriviaFact.tsx`/`LineTriviaFact.tsx`) — every fresh page load starts
+collapsed; tapping only affects that one viewing, nothing is written to the event log for it. (An
+earlier version of this feature persisted per-entity visibility via `trivia_fact_shown`/
+`trivia_fact_hidden` events and a `trivia_preferences` table — removed as unnecessary complexity once
+the pill itself already made a fact's default footprint small enough that "remembering you looked
+once" wasn't worth a synced table for.)
+
+| event_type | payload | grain |
+|---|---|---|
+| `trivia_facts_enabled` | `{}` | User turns the global "Fun Facts" switch ON in Settings. One flag, no disambiguating payload needed — same reasoning `station_saved`/`station_unsaved` already use for a two-event-types-not-one-boolean-payload shape. |
+| `trivia_facts_disabled` | `{}` | Same switch, OFF. |
+
+**Local projection:** `trivia_global_preference (user_id, enabled, updated_at, is_test)`, PK `user_id` —
+one row per user, a projection off the pair above, same relationship to `events` as `saved_stations`.
+Absence of a row means enabled (default true) — see `mobile/db/trivia.ts`'s `getTriviaFactsEnabled`.
+
+**Rehydration covers this too, inside the same transaction as trip/saved-station replay** —
+`mobile/db/rehydrate_logic.ts`'s `planTriviaGlobalPreference()` folds a user's event history into the
+final flag (last-write-wins by `recorded_at`, same shape as `planSavedStations`), and `rehydrate.ts`
+writes the result into `trivia_global_preference` inside the same `withTransactionAsync` block that
+already replays trips and saved stations. Same single trigger (`needsRehydration`: local `trips`
+empty) covers all three; no separate trigger needed.
+
+**No EL/dbt changes needed** — same reasoning as the station-save events above.
+
+**Supabase's live `raw_events.events` CHECK constraint needs the same manual migration** as every prior
+CHECK-widening change here — see `supabase/schema.sql`'s comment for the exact statements.
+
 ## Product events (app usage)
 
 Deliberately minimal — extend as real usage questions come up, not ahead of the UI that would need them.
@@ -277,11 +309,17 @@ erDiagram
         string station_id PK
         string saved_at
     }
+    TRIVIA_GLOBAL_PREFERENCE {
+        string user_id PK
+        int enabled
+        string updated_at
+    }
 
     EVENTS ||--|| SYNC_STATUS : "1:1, real FK — trigger-created on every insert"
     TRIPS ||--o{ LEGS : "1:N, real FK"
     TRIPS ||..o{ EVENTS : "trip_id references (dotted: NOT a real FK — see note)"
     SAVED_STATIONS ||..o{ EVENTS : "station_id references (dotted: NOT a real FK — see note)"
+    TRIVIA_GLOBAL_PREFERENCE ||..o{ EVENTS : "one row per user (dotted: NOT a real FK — see note)"
 ```
 
 **Why `EVENTS`↔`TRIPS` is dotted, not solid:** `trips` is a projection *built from* `events`, not the

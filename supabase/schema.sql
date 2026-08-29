@@ -68,6 +68,36 @@ create table raw_events.events (
     -- deliberate: every row that existed before this column was added
     -- predates any real usage of the app, so it's all test data by
     -- definition, not just this developer's.
+    --
+    -- Trivia preference events (trivia_facts_enabled/disabled -- the
+    -- Settings on/off switch) are the same situation again: added here for a
+    -- fresh database, but the live table's constraint needs the equivalent
+    -- manual statement run once in the SQL Editor before this ships to
+    -- production --
+    --   alter table raw_events.events drop constraint events_grain_check; -- confirm the actual name via pg_constraint first
+    --   alter table raw_events.events add constraint events_grain_check check (
+    --       (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
+    --                                  and trip_id is not null and leg_id is null)
+    --       or
+    --       (event_domain = 'trip'    and event_type in ('leg_boarded', 'leg_alighted')
+    --                                  and trip_id is not null and leg_id is not null)
+    --       or
+    --       (event_domain = 'product' and event_type in ('screen_viewed', 'station_detail_opened',
+    --                                                      'route_detail_opened', 'feature_used',
+    --                                                      'trip_draft_started', 'draft_leg_added',
+    --                                                      'draft_leg_removed', 'trip_draft_committed',
+    --                                                      'trip_draft_abandoned', 'station_saved',
+    --                                                      'station_unsaved', 'trivia_facts_enabled',
+    --                                                      'trivia_facts_disabled')
+    --                                  and trip_id is null and leg_id is null)
+    --   );
+    -- NOTE: an earlier version of this feature also had trivia_fact_shown/
+    -- trivia_fact_hidden (per-entity pill visibility, since removed in favor
+    -- of unpersisted local component state) -- if the live constraint was
+    -- already widened to include those two, leaving them permitted there is
+    -- harmless (nothing will ever write them again; a CHECK permitting an
+    -- unused value costs nothing), no need to shrink it back down.
+    -- See docs/data-layer.md's "Trivia preference events" section.
     check (
         (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
                                    and trip_id is not null and leg_id is null)
@@ -80,7 +110,8 @@ create table raw_events.events (
                                                        'trip_draft_started', 'draft_leg_added',
                                                        'draft_leg_removed', 'trip_draft_committed',
                                                        'trip_draft_abandoned', 'station_saved',
-                                                       'station_unsaved')
+                                                       'station_unsaved', 'trivia_facts_enabled',
+                                                       'trivia_facts_disabled')
                                    and trip_id is null and leg_id is null)
     )
 );

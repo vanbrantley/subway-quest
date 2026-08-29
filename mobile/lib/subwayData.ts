@@ -6,6 +6,7 @@
 import routeStops from '../data/route_stops.json';
 import stations from '../data/stations.json';
 import transfers from '../data/transfers.json';
+import triviaData from '../data/trivia.json';
 import { LINE_ICONS } from '../constants/lineIcons';
 import { LINE_COLORS, sortRouteIds } from '../constants/lineColors';
 
@@ -99,6 +100,19 @@ export function getStation(stopId: string): Station | undefined {
 
 export function getBoroughName(code: string): string {
     return BOROUGH_NAMES[code] ?? code;
+}
+
+// ---- Trivia: the fact text half of the feature (whether it's UNLOCKED yet
+// is a trip-history question, answered by db/trivia.ts, not here). ----
+type TriviaData = { stations: Record<string, { fact: string }>; lines: Record<string, { fact: string }> };
+const TRIVIA = triviaData as unknown as TriviaData;
+
+export function getStationTrivia(complexId: string | number): string | undefined {
+    return TRIVIA.stations[String(complexId)]?.fact;
+}
+
+export function getLineTrivia(routeId: string): string | undefined {
+    return TRIVIA.lines[routeId]?.fact;
 }
 
 // ---- Search tab: name lookup over the full bundled station list ----

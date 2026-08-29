@@ -6,12 +6,14 @@ import { useEffect, useState, ReactNode } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useDb } from '../contexts/DatabaseContext';
 import { useUserId } from '../contexts/AuthContext';
+import { useTriviaPreferences } from '../contexts/TriviaPreferencesContext';
 import { needsRehydration, rehydrateFromRemote, wipeIfDifferentAccount } from '../db/rehydrate';
 import { withDbLock } from '../lib/dbLock';
 
 export function RehydrationGate({ children }: { children: ReactNode }) {
     const db = useDb();
     const userId = useUserId();
+    const { refresh: refreshTriviaPreferences } = useTriviaPreferences();
     const [checked, setChecked] = useState(false);
 
     useEffect(() => {
@@ -40,10 +42,16 @@ export function RehydrationGate({ children }: { children: ReactNode }) {
                 // user would've seen without rehydration at all; don't block
                 // the app on a rehydration bug.
             } finally {
+                // Resolves a race: this provider's own mount-time preference
+                // read isn't gated on rehydration finishing, so on a fresh
+                // install it could run before rehydration has restored the
+                // user's saved trivia preferences from remote. Cheap no-op
+                // read if nothing changed.
+                await refreshTriviaPreferences();
                 setChecked(true);
             }
         })();
-    }, [db, userId]);
+    }, [db, userId, refreshTriviaPreferences]);
 
     if (!checked) {
         return (

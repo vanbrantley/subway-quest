@@ -8,7 +8,9 @@ import { useDb } from '../contexts/DatabaseContext';
 import { useUserId } from '../contexts/AuthContext';
 import { getStationName, isNavigableRoute, normalizeRouteIdForIcon } from '../lib/subwayData';
 import { computeTripQuestProgress, type QuestTripProgress } from '../db/quests';
+import { computeTripTriviaReveals, type TriviaRevealDetail } from '../db/trivia';
 import { deleteTrip } from '../db/projection';
+import { useTriviaPreferences } from '../contexts/TriviaPreferencesContext';
 import { getOrCreateDeviceId } from '../lib/device';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { RouteIcon } from '../components/ui/RouteIcon';
@@ -25,7 +27,9 @@ export default function TripDetailScreen() {
     const [trip, setTrip] = useState<TripRow | null>(null);
     const [legs, setLegs] = useState<LegRow[]>([]);
     const [questProgress, setQuestProgress] = useState<QuestTripProgress[]>([]);
+    const [triviaReveals, setTriviaReveals] = useState<TriviaRevealDetail[]>([]);
     const [loading, setLoading] = useState(true);
+    const { factsEnabled } = useTriviaPreferences();
 
     useEffect(() => {
         (async () => {
@@ -59,11 +63,22 @@ export default function TripDetailScreen() {
             if (tripRow) {
                 const progress = await computeTripQuestProgress(db, userId, tripRow.trip_id);
                 setQuestProgress(progress);
+
+                // Same "recompute from full history every visit" reasoning as
+                // the quest progress call above -- a trivia reveal is exactly
+                // as true on a later revisit of this screen as it was right
+                // after logging, so there's no separate "seen" flag to track.
+                // Skipped entirely when facts are off -- no point diffing
+                // history for a section that won't render.
+                if (factsEnabled) {
+                    const reveals = await computeTripTriviaReveals(db, userId, tripRow.trip_id);
+                    setTriviaReveals(reveals);
+                }
             }
 
             setLoading(false);
         })();
-    }, [tripId, db, userId]);
+    }, [tripId, db, userId, factsEnabled]);
 
     function goToLine(routeId: string) {
         const target = normalizeRouteIdForIcon(routeId);
@@ -163,6 +178,32 @@ export default function TripDetailScreen() {
                         })}
                     </View>
                 )}
+
+                {factsEnabled && triviaReveals.length > 0 && (
+                    <View style={styles.triviaSection}>
+                        <Text style={styles.triviaSectionTitle}>New discovery</Text>
+                        {triviaReveals.map((r) => {
+                            const onPress = r.kind === 'station'
+                                ? (r.stopId ? () => router.push(`/station/${r.stopId}`) : undefined)
+                                : () => router.push(`/line/${r.routeId}`);
+                            return (
+                                <Pressable
+                                    key={r.kind === 'station' ? `station-${r.complexId}` : `line-${r.routeId}`}
+                                    style={styles.triviaRow}
+                                    onPress={onPress}
+                                    disabled={!onPress}
+                                >
+                                    {r.routeId && <RouteIcon routeId={r.routeId} onPress={null} size={26} />}
+                                    <View style={styles.triviaTextWrap}>
+                                        <Text style={styles.triviaName}>{r.displayName}</Text>
+                                        <Text style={styles.triviaText}>{r.fact}</Text>
+                                    </View>
+                                    {onPress && <Ionicons name="chevron-forward" size={16} color="#ccc" />}
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -187,4 +228,10 @@ const styles = StyleSheet.create({
     questRowTextWrap: { flex: 1 },
     questRowText: { fontSize: 15, color: '#333', fontWeight: '600' },
     questRowProgress: { fontSize: 13, color: '#777', marginTop: 2 },
+    triviaSection: { backgroundColor: '#fdf6e8', borderRadius: 14, padding: 16, gap: 12 },
+    triviaSectionTitle: { fontSize: 15, fontWeight: '700', color: '#8a6d1f' },
+    triviaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    triviaTextWrap: { flex: 1, gap: 2 },
+    triviaName: { fontSize: 15, fontWeight: '700', color: '#333' },
+    triviaText: { fontSize: 15, color: '#333', lineHeight: 20 },
 });

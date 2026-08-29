@@ -73,7 +73,8 @@ CREATE TABLE events (
                                                        'trip_draft_started', 'draft_leg_added',
                                                        'draft_leg_removed', 'trip_draft_committed',
                                                        'trip_draft_abandoned', 'station_saved',
-                                                       'station_unsaved')
+                                                       'station_unsaved', 'trivia_facts_enabled',
+                                                       'trivia_facts_disabled')
                                    AND trip_id IS NULL AND leg_id IS NULL)
                                    -- trip_id/leg_id stay NULL here even for trip_draft_committed,
                                    -- whose payload does reference a real trip_id — kept as JSON, not
@@ -235,5 +236,32 @@ CREATE TABLE saved_stations (
                                                -- saved_at already does.
 
     PRIMARY KEY (station_id, user_id),
+    CHECK (is_test IN (0, 1))
+);
+
+
+-- =============================================================================
+-- trivia_global_preference — one row per user, the Settings "Fun Facts" on/off
+-- switch. A projection off trivia_facts_enabled/trivia_facts_disabled events.
+-- Absence of a row means "on" (default true) -- see db/trivia.ts's
+-- getTriviaFactsEnabled.
+--
+-- Deliberately the ONLY persisted trivia preference -- whether an individual
+-- station/line's "Fun fact" pill is expanded is plain local component state
+-- (see StationTriviaFact.tsx/LineTriviaFact.tsx), not synced/remembered per
+-- entity. Every pill starts collapsed on a fresh page load; tapping it only
+-- affects that viewing. An earlier version of this feature persisted
+-- per-entity visibility (a trivia_preferences table + trivia_fact_shown/
+-- trivia_fact_hidden events) -- removed as unnecessary complexity once the
+-- pill itself already made a fact's default footprint small enough that
+-- "remembering you looked once" wasn't worth a whole synced table for.
+-- =============================================================================
+CREATE TABLE trivia_global_preference (
+    user_id      TEXT PRIMARY KEY,
+    enabled      INTEGER NOT NULL,
+    updated_at   TEXT NOT NULL,
+    is_test      INTEGER NOT NULL DEFAULT 0,
+
+    CHECK (enabled IN (0, 1)),
     CHECK (is_test IN (0, 1))
 );

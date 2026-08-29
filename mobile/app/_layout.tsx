@@ -12,6 +12,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../contexts/AuthContext';
 import { DatabaseProvider } from '../contexts/DatabaseContext';
+import { TriviaPreferencesProvider } from '../contexts/TriviaPreferencesContext';
 import { SyncProvider } from '../contexts/SyncContext';
 import { DevModeBadge } from '../components/DevModeBadge';
 import { CustomTabBar } from '../components/CustomTabBar';
@@ -69,20 +70,22 @@ export default function RootLayout() {
     <AuthContext.Provider value={{ session, loading: false }}>
       <DatabaseProvider onReady={handleDbReady}>
         <SyncProvider>
-          <View style={styles.container}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
-              <Stack.Protected guard={!!session}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
-              </Stack.Protected>
+          <TriviaPreferencesProvider>
+            <View style={styles.container}>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
+                <Stack.Protected guard={!!session}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="log-trip" options={{ presentation: 'modal' }} />
+                </Stack.Protected>
 
-              <Stack.Protected guard={!session}>
-                <Stack.Screen name="(auth)" />
-              </Stack.Protected>
-            </Stack>
-            <CustomTabBar />
-            <DevModeBadge />
-          </View>
+                <Stack.Protected guard={!session}>
+                  <Stack.Screen name="(auth)" />
+                </Stack.Protected>
+              </Stack>
+              <CustomTabBar />
+              <DevModeBadge />
+            </View>
+          </TriviaPreferencesProvider>
         </SyncProvider>
       </DatabaseProvider>
     </AuthContext.Provider>

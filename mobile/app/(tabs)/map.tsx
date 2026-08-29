@@ -240,10 +240,15 @@ export default function MapScreen() {
     // down and rebuild it on every position update instead of once per focus.
     const { status, coords, refresh, requestPermission, startWatching, stopWatching } = useUserLocation();
     const [showLocationPreview, setShowLocationPreview] = useState(false);
-    // Set right before startWatching() so the *next* coords update (whether
-    // from a fresh grant or an already-granted watch just kicking off)
-    // triggers exactly one center-on-me animation, not a repeated one on
-    // every subsequent position update.
+    // Set right before startWatching() so the *next* coords update triggers
+    // exactly one center-on-me animation, not a repeated one on every
+    // subsequent position update. Only ever armed by an explicit "locate me"
+    // tap (handleLocationButtonPress below) -- NOT by a fresh permission
+    // grant (see the useFocusEffect below), so the map never jumps away from
+    // whatever region is already showing (INITIAL_REGION on first load, or
+    // wherever the user last panned to) just because location happened to
+    // become available. Centering on your real position is something you
+    // ask for, not something that happens to you.
     const pendingCenterRef = useRef(false);
 
     useEffect(() => {
@@ -261,6 +266,15 @@ export default function MapScreen() {
     // install; no separate persisted flag needed. On later focuses, an
     // already-granted permission just starts the watch silently -- no
     // dialog, the dot simply appears, matching how Maps apps behave.
+    //
+    // Deliberately never arms pendingCenterRef here, in either branch -- a
+    // fresh grant used to auto-center the camera on your real location the
+    // instant permission was resolved, which meant the map's very first view
+    // depended on wherever you physically were instead of always starting at
+    // INITIAL_REGION (confirmed wrong on-device: testing outside NYC, the
+    // map opened centered hundreds of miles away instead of on the subway
+    // system). The dot still appears as soon as coords come in either way --
+    // this only stops the camera from following it uninvited.
     useFocusEffect(
         useCallback(() => {
             let cancelled = false;
@@ -270,7 +284,6 @@ export default function MapScreen() {
                 if (result.status === 'undetermined') {
                     const granted = (await requestPermission()) === 'granted';
                     if (granted) {
-                        pendingCenterRef.current = true;
                         await startWatching();
                     }
                 } else if (result.status === 'granted') {

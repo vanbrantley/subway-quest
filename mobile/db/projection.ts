@@ -250,6 +250,31 @@ export async function unsaveStation(
     });
 }
 
+/**
+ * Sets the global Fun Facts on/off switch (Settings) for the current user —
+ * writes trivia_facts_enabled/trivia_facts_disabled and upserts the
+ * single-row-per-user trivia_global_preference row, in one transaction.
+ */
+export async function setTriviaFactsEnabled(
+    db: SQLite.SQLiteDatabase,
+    enabled: boolean,
+    ctx: CommitContext
+): Promise<void> {
+    const occurredAt = buildOccurredAt(localDateString());
+    const recordedAt = new Date().toISOString();
+    await db.withTransactionAsync(async () => {
+        await insertEvent(db, {
+            eventType: enabled ? 'trivia_facts_enabled' : 'trivia_facts_disabled', eventDomain: 'product', occurredAt, recordedAt, ctx,
+            tripId: null, legId: null, payload: {},
+        });
+        await db.runAsync(
+            `INSERT INTO trivia_global_preference (user_id, enabled, updated_at, is_test) VALUES (?, ?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at, is_test = excluded.is_test`,
+            [ctx.userId, enabled ? 1 : 0, occurredAt, IS_DEV_MODE ? 1 : 0]
+        );
+    });
+}
+
 export async function writeProductEvent(
     db: SQLite.SQLiteDatabase,
     eventType: 'screen_viewed' | 'station_detail_opened' | 'route_detail_opened' | 'feature_used'

@@ -148,3 +148,28 @@ export function planSavedStations(events: RemoteEventRow[]): RehydratedSavedStat
     }
     return result;
 }
+
+export type RehydratedTriviaGlobalPreference = { enabled: boolean; updatedAt: string; isTest: boolean } | null;
+
+/** Pure -- folds a user's trivia_facts_enabled/trivia_facts_disabled event
+ *  history into the final on/off flag. Last-write-wins across ALL matching
+ *  events (no entity key -- there's only ever one flag per user). Returns
+ *  null if this user has no such events at all, letting the caller fall back
+ *  to the default (enabled) rather than writing a row that just repeats it. */
+export function planTriviaGlobalPreference(events: RemoteEventRow[]): RehydratedTriviaGlobalPreference {
+    let latest: { enabled: boolean; recordedAt: string; occurredAt: string; isTest: boolean } | null = null;
+
+    for (const row of events) {
+        if (row.event_type !== 'trivia_facts_enabled' && row.event_type !== 'trivia_facts_disabled') continue;
+        if (!latest || row.recorded_at > latest.recordedAt) {
+            latest = {
+                enabled: row.event_type === 'trivia_facts_enabled',
+                recordedAt: row.recorded_at,
+                occurredAt: row.occurred_at,
+                isTest: row.is_test,
+            };
+        }
+    }
+
+    return latest ? { enabled: latest.enabled, updatedAt: latest.occurredAt, isTest: latest.isTest } : null;
+}

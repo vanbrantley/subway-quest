@@ -17,6 +17,7 @@ import { setPendingMapHighlight } from '../../lib/mapHighlight';
 import { navigateToTab } from '../../lib/tabBarReset';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { StationQuestsList } from '../../components/quests/StationQuestsList';
+import { StationTriviaFact } from '../../components/trivia/StationTriviaFact';
 import { RouteIcon } from '../../components/ui/RouteIcon';
 import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
 import {
@@ -124,6 +125,12 @@ export default function StationScreen() {
             <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <Text style={styles.stationNameHeading} numberOfLines={2}>{station.name}</Text>
                 <Text style={styles.borough}>{getBoroughName(station.borough)}</Text>
+
+                {complexId !== undefined && (
+                    <View style={styles.groupSection}>
+                        <StationTriviaFact complexId={Number(complexId)} />
+                    </View>
+                )}
 
                 <View style={styles.groupSection}>
                     <Text style={styles.groupLabel}>This platform</Text>

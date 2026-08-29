@@ -1,6 +1,6 @@
 // mobile/db/rehydrate_tests.ts
 // Run: npx ts-node db/rehydrate_tests.ts
-import { planRehydration, planSavedStations, type RemoteEventRow } from './rehydrate_logic';
+import { planRehydration, planSavedStations, planTriviaGlobalPreference, type RemoteEventRow } from './rehydrate_logic';
 
 let failures = 0;
 function check(desc: string, cond: boolean) {
@@ -148,6 +148,27 @@ function savedEv(overrides: Partial<RemoteEventRow>): RemoteEventRow {
     const events = [savedEv({ event_type: 'station_saved', payload: { station_id: 'R11' }, is_test: true })];
     const plan = planSavedStations(events);
     check('planSavedStations: isTest carried from the deciding event', plan.find((s) => s.stationId === 'R11')?.isTest === true);
+}
+
+function triviaEv(overrides: Partial<RemoteEventRow>): RemoteEventRow {
+    return ev({ event_domain: 'product', trip_id: null, leg_id: null, ...overrides });
+}
+
+// --- planTriviaGlobalPreference: last-write-wins single flag ---
+{
+    const events = [
+        triviaEv({ event_type: 'trivia_facts_enabled', recorded_at: '2026-07-10T09:00:00Z' }),
+        triviaEv({ event_type: 'trivia_facts_disabled', recorded_at: '2026-07-11T09:00:00Z' }),
+    ];
+    const plan = planTriviaGlobalPreference(events);
+    check('planTriviaGlobalPreference: later event wins', plan?.enabled === false);
+}
+
+// --- planTriviaGlobalPreference: null when this user has no such events ---
+{
+    const events = [triviaEv({ event_type: 'station_saved', payload: { station_id: 'L08' } })];
+    const plan = planTriviaGlobalPreference(events);
+    check('planTriviaGlobalPreference: null when no trivia_facts_enabled/disabled events exist', plan === null);
 }
 
 console.log();

@@ -111,6 +111,17 @@ def test_domain_grain_check():
         occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
         device_id="dev1", trip_id="trip1", payload=json.dumps({"station_id": "L08"}))
 
+    for trivia_type in ["trivia_facts_enabled", "trivia_facts_disabled"]:
+        insert_event(cur, True, f"{trivia_type}: valid product event",
+            event_id=f"t-{trivia_type}", event_type=trivia_type, event_domain="product", event_version=1,
+            occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
+            device_id="dev1", payload="{}")
+
+    insert_event(cur, False, "trivia_facts_enabled with trip_id set: rejected",
+        event_id="t-bad", event_type="trivia_facts_enabled", event_domain="product", event_version=1,
+        occurred_at="2026-07-10T09:00:00Z", recorded_at="2026-07-11T14:00:00Z",
+        device_id="dev1", trip_id="trip1", payload="{}")
+
     conn.close()
 
 
@@ -201,6 +212,40 @@ def test_is_test_column():
     cur.execute("INSERT INTO saved_stations (station_id, user_id, saved_at) VALUES ('L08', 'user1', '2026-07-10T09:00:00Z')")
     cur.execute("SELECT is_test FROM saved_stations WHERE station_id = 'L08' AND user_id = 'user1'")
     check("saved_stations: is_test default is 0", cur.fetchone()[0] == 0)
+
+    conn.close()
+
+
+def test_trivia_preference_tables():
+    """trivia_global_preference (per-user Fun Facts on/off) -- a projection
+    off the trivia_facts_enabled/disabled events tested above, same
+    relationship to events as saved_stations. There's no per-station/per-line
+    preference table -- whether an individual fact's pill is expanded is
+    plain local component state, not persisted (see StationTriviaFact.tsx/
+    LineTriviaFact.tsx)."""
+    conn = fresh_db()
+    cur = conn.cursor()
+
+    cur.execute("INSERT INTO trivia_global_preference (user_id, enabled, updated_at) VALUES (?, ?, ?)",
+                ("user1", 0, "2026-07-10T09:00:00Z"))
+    cur.execute("SELECT COUNT(*) FROM trivia_global_preference")
+    check("trivia_global_preference: accepts a row", cur.fetchone()[0] == 1)
+
+    try:
+        cur.execute("INSERT INTO trivia_global_preference (user_id, enabled, updated_at) VALUES (?, ?, ?)",
+                    ("user1", 1, "2026-07-11T09:00:00Z"))
+        ok = True
+    except sqlite3.IntegrityError:
+        ok = False
+    check("trivia_global_preference: duplicate user_id rejected (PRIMARY KEY)", ok is False)
+
+    try:
+        cur.execute("INSERT INTO trivia_global_preference (user_id, enabled, updated_at) VALUES (?, ?, ?)",
+                    ("user3", 2, "2026-07-10T09:00:00Z"))
+        ok = True
+    except sqlite3.IntegrityError:
+        ok = False
+    check("trivia_global_preference: bad enabled value rejected (CHECK)", ok is False)
 
     conn.close()
 
@@ -326,6 +371,7 @@ if __name__ == "__main__":
     test_full_trip_lifecycle()
     test_saved_stations_table()
     test_is_test_column()
+    test_trivia_preference_tables()
 
     print()
     if failures:

@@ -8,7 +8,10 @@ import type * as SQLite from 'expo-sqlite';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../lib/supabase';
 import { writeProjectionRows, type CommitContext } from './projection';
-import { planRehydration, planSavedStations, type RemoteEventRow } from './rehydrate_logic';
+import {
+    planRehydration, planSavedStations, planTriviaGlobalPreference,
+    type RemoteEventRow,
+} from './rehydrate_logic';
 import { IS_DEV_MODE } from '../lib/devMode';
 
 const LAST_SEEN_USER_KEY = 'subwayquest_last_seen_user_id';
@@ -48,6 +51,10 @@ export async function wipeIfDifferentAccount(db: SQLite.SQLiteDatabase, userId: 
                 await db.execAsync('DELETE FROM trips;');
                 await db.execAsync('DELETE FROM events;');
                 await db.execAsync('DELETE FROM saved_stations;');
+                // Not strictly required for correctness -- this table is
+                // user_id-scoped from day one, unlike saved_stations' original
+                // bug -- but consistent hygiene with the rest of this wipe.
+                await db.execAsync('DELETE FROM trivia_global_preference;');
             });
         }
         await SecureStore.setItemAsync(LAST_SEEN_USER_KEY, userId);
@@ -67,10 +74,11 @@ export async function needsRehydration(db: SQLite.SQLiteDatabase, userId: string
 /** Fetches this user's raw_events history and replays it into the local
  *  projection — one transaction for the whole replay (see data-layer.md's
  *  "The whole replay is one local transaction" for why partial replay would
- *  break needsRehydration's own trigger check). Covers both trips (the
- *  original concern) and saved stations (milestone 9) — same single trigger
- *  (needsRehydration, above) covers both, folded into the same
- *  all-or-nothing transaction rather than a second, separate replay path. */
+ *  break needsRehydration's own trigger check). Covers trips (the original
+ *  concern), saved stations (milestone 9), and the global trivia-facts flag —
+ *  same single trigger (needsRehydration, above) covers all of them, folded
+ *  into the same all-or-nothing transaction rather than a second, separate
+ *  replay path. */
 export async function rehydrateFromRemote(
     db: SQLite.SQLiteDatabase,
     userId: string
@@ -94,14 +102,22 @@ export async function rehydrateFromRemote(
         .select('*')
         .eq('user_id', userId)
         .in('event_type', ['station_saved', 'station_unsaved']);
+    let triviaGlobalQuery = supabase
+        .schema('raw_events')
+        .from('events')
+        .select('*')
+        .eq('user_id', userId)
+        .in('event_type', ['trivia_facts_enabled', 'trivia_facts_disabled']);
     if (!IS_DEV_MODE) {
         tripQuery = tripQuery.eq('is_test', false);
         savedQuery = savedQuery.eq('is_test', false);
+        triviaGlobalQuery = triviaGlobalQuery.eq('is_test', false);
     }
 
-    const [tripEventsResult, savedEventsResult] = await Promise.all([
+    const [tripEventsResult, savedEventsResult, triviaGlobalEventsResult] = await Promise.all([
         tripQuery.order('recorded_at', { ascending: true }),
         savedQuery.order('recorded_at', { ascending: true }),
+        triviaGlobalQuery.order('recorded_at', { ascending: true }),
     ]);
 
     if (tripEventsResult.error) {
@@ -110,9 +126,13 @@ export async function rehydrateFromRemote(
     if (savedEventsResult.error) {
         throw new Error(`rehydrateFromRemote: saved-station fetch failed — ${savedEventsResult.error.message}`);
     }
+    if (triviaGlobalEventsResult.error) {
+        throw new Error(`rehydrateFromRemote: trivia-global-preference fetch failed — ${triviaGlobalEventsResult.error.message}`);
+    }
 
     const plan = planRehydration((tripEventsResult.data ?? []) as RemoteEventRow[]);
     const savedStations = planSavedStations((savedEventsResult.data ?? []) as RemoteEventRow[]);
+    const triviaGlobalPreference = planTriviaGlobalPreference((triviaGlobalEventsResult.data ?? []) as RemoteEventRow[]);
 
     await db.withTransactionAsync(async () => {
         for (const trip of plan.restore) {
@@ -126,6 +146,12 @@ export async function rehydrateFromRemote(
             await db.runAsync(
                 `INSERT OR REPLACE INTO saved_stations (station_id, user_id, saved_at, is_test) VALUES (?, ?, ?, ?)`,
                 [station.stationId, userId, station.savedAt, station.isTest ? 1 : 0]
+            );
+        }
+        if (triviaGlobalPreference) {
+            await db.runAsync(
+                `INSERT OR REPLACE INTO trivia_global_preference (user_id, enabled, updated_at, is_test) VALUES (?, ?, ?, ?)`,
+                [userId, triviaGlobalPreference.enabled ? 1 : 0, triviaGlobalPreference.updatedAt, triviaGlobalPreference.isTest ? 1 : 0]
             );
         }
     });
