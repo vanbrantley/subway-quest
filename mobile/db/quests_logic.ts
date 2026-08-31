@@ -64,8 +64,10 @@ export type PerTripCriteria =
     | { type: 'geographic_endpoints'; start: number; end: number };
 
 export type CountingCriteria =
-    | { type: 'ride_count_route'; route: string; count: number } // 'any' or a real route_id
-    | { type: 'transfer_count'; count: number };
+    | { type: 'ride_count_route'; route: string; tiers: number[] } // always a real route_id -- see line_loyalist_<ROUTE>'s per-line auto-generation, no more 'any'
+    | { type: 'transfer_count'; tiers: number[] }
+    | { type: 'total_ride_count'; tiers: number[] } // lifetime leg count, every line combined
+    | { type: 'unique_trip_pattern_count'; tiers: number[] }; // distinct ordered stop-sequences across trip history -- see tripSignature()
 
 export type Quest = {
     title: string;
@@ -86,6 +88,13 @@ export type QuestProgress = {
     // quests, which the UI shows as a plain checklist/badge, not a fraction.
     current: number | null;
     target: number | null;
+    // Only present for counting-mechanism quests -- the full tier ladder and
+    // how many rungs have been reached. Lets any caller (achievements list,
+    // detail page) render ProgressBar's `ticks` prop without re-deriving
+    // tier logic itself. Absent (not just empty) for lifetime_set/per_trip,
+    // which have no tier concept.
+    tiers?: number[];
+    tierIndex?: number;
 };
 
 // ============================================================================
@@ -169,14 +178,61 @@ function ridesPerRoute(history: RiderHistory): Map<string, number> {
     return counts;
 }
 
-function bestRoute(history: RiderHistory): string | undefined {
-    const counts = ridesPerRoute(history);
-    let best: string | undefined;
-    let bestCount = -1;
-    for (const [route, count] of counts) {
-        if (count > bestCount) { best = route; bestCount = count; }
+// A trip's signature is its ordered sequence of stops -- entry of the first
+// leg, then every leg's exit in sequence order -- translated to complex_id
+// (not raw stop_id), same translation rule as everything else here: a
+// transfer's exit and the next leg's entry are frequently different
+// stop_ids at the SAME physical complex (different platform), and using raw
+// stop_id would fragment what's really one signature into two different
+// ones. Powers 'unique_trip_pattern_count': two trips through the exact
+// same stations in the exact same order are the same "ride"; reversing the
+// order (or any station differing) makes it a different one.
+function tripSignature(legs: Leg[], complexLookup: ComplexLookup): string | null {
+    if (legs.length === 0) return null;
+    const ordered = [...legs].sort((a, b) => a.sequence - b.sequence);
+    const stops: number[] = [];
+    const addStop = (stopId: string) => {
+        const cid = complexLookup[stopId];
+        if (cid !== undefined) stops.push(cid);
+    };
+    addStop(ordered[0].entryStationId);
+    for (const leg of ordered) addStop(leg.exitStationId);
+    return stops.length > 0 ? stops.join('>') : null;
+}
+
+function tripSignaturesByTrip(history: RiderHistory, complexLookup: ComplexLookup): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const [tripId, legs] of legsByTrip(history.legs)) {
+        const sig = tripSignature(legs, complexLookup);
+        if (sig !== null) map.set(tripId, sig);
     }
-    return best;
+    return map;
+}
+
+function uniqueTripPatternCount(history: RiderHistory, complexLookup: ComplexLookup): number {
+    return new Set(tripSignaturesByTrip(history, complexLookup).values()).size;
+}
+
+// Shared threshold logic for every tiered counting quest. `completed` fires
+// the moment the FIRST (lowest) tier is reached, not the final one -- an
+// open-ended counter like Path Finder or Total Rides has no real "done"
+// state to gate a reward behind, and mirrors how stat-ladder achievements
+// actually work in other games (e.g. Call of Duty weapon-mastery tiers):
+// the first threshold unlocks the reward permanently, higher tiers are
+// ongoing progress on top of that, not a re-completion. `target` is always
+// the next unreached tier so current/target keeps climbing regardless of
+// `completed` -- once every tier is reached, target pins to the final tier
+// and current >= target, which is what makes the UI's plain
+// current-vs-target check (see ProgressBar) show "Completed!" only then.
+function evaluateTiers(
+    current: number,
+    tiers: number[]
+): { completed: boolean; current: number; target: number; tierIndex: number; tiers: number[] } {
+    const sorted = [...tiers].sort((a, b) => a - b);
+    const tierIndex = sorted.filter((t) => current >= t).length;
+    const maxed = tierIndex === sorted.length;
+    const target = maxed ? sorted[sorted.length - 1] : sorted[tierIndex];
+    return { completed: tierIndex > 0, current, target, tierIndex, tiers: sorted };
 }
 
 // ============================================================================
@@ -291,22 +347,20 @@ export function evaluatePerTrip(
 
 export function evaluateCounting(
     criteria: CountingCriteria,
-    history: RiderHistory
-): { completed: boolean; current: number; target: number } {
+    history: RiderHistory,
+    complexLookup: ComplexLookup
+): { completed: boolean; current: number; target: number; tierIndex: number; tiers: number[] } {
     switch (criteria.type) {
         case 'ride_count_route': {
-            const counts = ridesPerRoute(history);
-            if (criteria.route === 'any') {
-                const best = counts.size === 0 ? 0 : Math.max(...counts.values());
-                return { completed: best >= criteria.count, current: best, target: criteria.count };
-            }
-            const have = counts.get(criteria.route) ?? 0;
-            return { completed: have >= criteria.count, current: have, target: criteria.count };
+            const have = ridesPerRoute(history).get(criteria.route) ?? 0;
+            return evaluateTiers(have, criteria.tiers);
         }
-        case 'transfer_count': {
-            const have = transferCount(history);
-            return { completed: have >= criteria.count, current: have, target: criteria.count };
-        }
+        case 'transfer_count':
+            return evaluateTiers(transferCount(history), criteria.tiers);
+        case 'total_ride_count':
+            return evaluateTiers(history.legs.length, criteria.tiers);
+        case 'unique_trip_pattern_count':
+            return evaluateTiers(uniqueTripPatternCount(history, complexLookup), criteria.tiers);
     }
 }
 
@@ -321,12 +375,12 @@ export function evaluateQuestProgress(
     complexLookup: ComplexLookup,
     allRealRoutes: string[],
     fullRouteSpans: Record<string, string[]>
-): { completed: boolean; current: number | null; target: number | null } {
+): { completed: boolean; current: number | null; target: number | null; tiers?: number[]; tierIndex?: number } {
     if (quest.mechanism === 'lifetime_set') {
         return evaluateLifetimeSet(quest.criteria as LifetimeSetCriteria, history, complexLookup, allRealRoutes);
     }
     if (quest.mechanism === 'counting') {
-        return evaluateCounting(quest.criteria as CountingCriteria, history);
+        return evaluateCounting(quest.criteria as CountingCriteria, history, complexLookup);
     }
     // per_trip: "completed" = at least one past trip satisfied it. No
     // fractional progress makes sense here -- either some trip did or none did.
@@ -367,7 +421,8 @@ export function questIdsForStation(quests: QuestsFile, complexId: number): strin
             }
             // leg_count_min / full_line_ride / route_letters_spell_word aren't tied to any specific station
         }
-        // counting-mechanism quests (ride_count_route, transfer_count) are never station-specific
+        // counting-mechanism quests (ride_count_route, transfer_count, total_ride_count,
+        // unique_trip_pattern_count) are never station-specific
     }
     return ids;
 }
@@ -479,12 +534,14 @@ export type QuestBreakdown =
     | { kind: 'pairs'; items: PairBreakdownItem[] }
     | { kind: 'routes'; items: RouteBreakdownItem[] }
     | { kind: 'per_trip'; qualifyingTripIds: string[] } // every trip that has ever satisfied this quest
-    // contributingRoute is the specific route_id this count is tracking -- real
-    // for ride_count_route (resolved even when criteria.route is 'any', via
-    // bestRoute()), always null for transfer_count, which has no single-route
-    // concept. Surfaced so a quest like Line Loyalist (route: 'any') can show
-    // WHICH line its number refers to, not just the number.
-    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[]; contributingRoute: string | null };
+    // tiers/tierIndex feed the detail page's medal row (one medal per reached
+    // tier) -- see evaluateTiers. contributingRoute is the specific route_id
+    // this count is tracking -- real for ride_count_route, always null for
+    // the other three types, which have no single-route concept.
+    | {
+          kind: 'counting'; current: number; target: number; tiers: number[]; tierIndex: number;
+          contributingTripIds: string[]; contributingRoute: string | null;
+      };
 
 function tripsVisitingComplex(history: RiderHistory, complexLookup: ComplexLookup): Map<number, Set<string>> {
     const map = new Map<number, Set<string>>();
@@ -606,21 +663,45 @@ export function getQuestBreakdown(
 
     // counting
     const criteria = quest.criteria as CountingCriteria;
-    if (criteria.type === 'ride_count_route') {
-        const routeId = criteria.route === 'any' ? bestRoute(history) : criteria.route;
-        const routeTrips = tripsPerRoute(history);
-        const current = routeId ? (ridesPerRoute(history).get(routeId) ?? 0) : 0;
-        return {
-            kind: 'counting', current, target: criteria.count,
-            contributingTripIds: routeId ? [...(routeTrips.get(routeId) ?? [])] : [],
-            contributingRoute: routeId ?? null,
-        };
+    switch (criteria.type) {
+        case 'ride_count_route': {
+            const routeTrips = tripsPerRoute(history);
+            const current = ridesPerRoute(history).get(criteria.route) ?? 0;
+            const { target, tierIndex, tiers } = evaluateTiers(current, criteria.tiers);
+            return {
+                kind: 'counting', current, target, tiers, tierIndex,
+                contributingTripIds: [...(routeTrips.get(criteria.route) ?? [])],
+                contributingRoute: criteria.route,
+            };
+        }
+        case 'transfer_count': {
+            // contributing trips = trips with 2+ legs (at least one transfer).
+            // No single route applies to a transfer count.
+            const perTrip = transferCountPerTrip(history);
+            const contributing = [...perTrip.entries()].filter(([, count]) => count > 0).map(([tripId]) => tripId);
+            let current = 0;
+            for (const count of perTrip.values()) current += count;
+            const { target, tierIndex, tiers } = evaluateTiers(current, criteria.tiers);
+            return { kind: 'counting', current, target, tiers, tierIndex, contributingTripIds: contributing, contributingRoute: null };
+        }
+        case 'total_ride_count': {
+            const current = history.legs.length;
+            const { target, tierIndex, tiers } = evaluateTiers(current, criteria.tiers);
+            return {
+                kind: 'counting', current, target, tiers, tierIndex,
+                contributingTripIds: [...legsByTrip(history.legs).keys()], // every trip has >=1 leg
+                contributingRoute: null,
+            };
+        }
+        case 'unique_trip_pattern_count': {
+            const sigByTrip = tripSignaturesByTrip(history, complexLookup);
+            const seen = new Set<string>();
+            const representativeTripIds: string[] = [];
+            for (const [tripId, sig] of sigByTrip) {
+                if (!seen.has(sig)) { seen.add(sig); representativeTripIds.push(tripId); }
+            }
+            const { target, tierIndex, tiers } = evaluateTiers(seen.size, criteria.tiers);
+            return { kind: 'counting', current: seen.size, target, tiers, tierIndex, contributingTripIds: representativeTripIds, contributingRoute: null };
+        }
     }
-    // transfer_count -- contributing trips = trips with 2+ legs (at least one transfer).
-    // No single route applies to a transfer count, unlike ride_count_route.
-    const perTrip = transferCountPerTrip(history);
-    const contributing = [...perTrip.entries()].filter(([, count]) => count > 0).map(([tripId]) => tripId);
-    let current = 0;
-    for (const count of perTrip.values()) current += count;
-    return { kind: 'counting', current, target: criteria.count, contributingTripIds: contributing, contributingRoute: null };
 }

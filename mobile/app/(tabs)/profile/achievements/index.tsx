@@ -70,7 +70,7 @@ function QuestRow({ quest }: { quest: QuestSummary }) {
                     state above, matching quests_logic.ts's QuestProgress doc comment:
                     "the UI shows those as a checklist/badge, not a fraction." */}
                 {quest.current !== null && quest.target !== null && (
-                    <ProgressBar current={quest.current} target={quest.target} />
+                    <ProgressBar current={quest.current} target={quest.target} ticks={quest.tiers} />
                 )}
             </View>
             <Ionicons name="chevron-forward" size={18} color="#ccc" />

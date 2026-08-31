@@ -14,6 +14,7 @@ import routeStopsData from '../data/route_stops.json';
 import transfersData from '../data/transfers.json';
 import { EXPRESS_ROUTE_IDS } from '../lib/subwayData';
 import { testDataFilterSql } from './testDataFilter';
+import { getTripEndpoints, type TripHistoryEntry } from './trips';
 import {
     RiderHistory, ComplexLookup, QuestsFile, Quest,
     QuestProgress, QuestTripProgress, QuestBreakdown,
@@ -139,7 +140,11 @@ const FULL_ROUTE_SPANS: Record<string, string[]> = Object.fromEntries(
  *  formatting for display, not a progress fact -- same reasoning as
  *  title/description enrichment happening at this layer, not the pure one. */
 function formatDescription(quest: Quest): string {
-    const criteria = quest.criteria as { count?: number };
+    const criteria = quest.criteria as { count?: number; tiers?: number[] };
+    if (criteria.tiers !== undefined) {
+        const joined = [...criteria.tiers].sort((a, b) => a - b).join('/');
+        return quest.description.replace('{tiers}', joined);
+    }
     return criteria.count !== undefined
         ? quest.description.replace('{count}', String(criteria.count))
         : quest.description;
@@ -228,7 +233,15 @@ export type EnrichedQuestBreakdown =
     | { kind: 'pairs'; items: EnrichedPairBreakdownItem[] }
     | { kind: 'routes'; items: EnrichedRouteBreakdownItem[] }
     | { kind: 'per_trip'; qualifyingTripIds: string[] }
-    | { kind: 'counting'; current: number; target: number; contributingTripIds: string[]; contributingRoute: string | null };
+    | {
+          kind: 'counting'; current: number; target: number; tiers: number[]; tierIndex: number;
+          contributingTripIds: string[]; contributingRoute: string | null;
+          // Real trip rows for contributingTripIds, most recent first -- resolved
+          // separately in getQuestDetail (needs a DB call, so it can't happen
+          // inside the synchronous enrichBreakdown()). Feeds the detail page's
+          // tappable trip list (mirrors the Profile page's Trip History).
+          qualifyingTrips: TripHistoryEntry[];
+      };
 
 function enrichBreakdown(breakdown: QuestBreakdown): EnrichedQuestBreakdown {
     const nameOf = (cid: number) => COMPLEX_NAMES[cid] ?? `Unknown station (${cid})`;
@@ -264,9 +277,33 @@ function enrichBreakdown(breakdown: QuestBreakdown): EnrichedQuestBreakdown {
             };
         case 'routes':
         case 'per_trip':
-        case 'counting':
             return breakdown; // no complex_ids in these shapes -- nothing to enrich
+        case 'counting':
+            // qualifyingTrips needs a DB call (getTripEndpoints), so it can't be
+            // resolved in this synchronous function -- getQuestDetail fills it in
+            // right after calling this, only for the one caller that needs it.
+            return { ...breakdown, qualifyingTrips: [] };
     }
+}
+
+/** Resolves a counting breakdown's contributingTripIds into real,
+ *  displayable trip rows -- same shape (and same underlying getTripEndpoints
+ *  call) as mobile/db/trips.ts's getTripHistory, just scoped to one quest's
+ *  contributing trips instead of every trip. Sorted most-recent-first, same
+ *  convention as getTripHistory, for the detail page's tappable trip list. */
+async function resolveQualifyingTrips(
+    db: SQLite.SQLiteDatabase,
+    tripIds: string[],
+    tripDates: Record<string, string>
+): Promise<TripHistoryEntry[]> {
+    const endpoints = await getTripEndpoints(db, tripIds);
+    return tripIds
+        .map((tripId) => ({
+            tripId,
+            startedAt: tripDates[tripId] ?? '',
+            ...(endpoints.get(tripId) ?? { entryRouteId: null, entryStationId: null, exitRouteId: null, exitStationId: null }),
+        }))
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
 /** Progress on a single quest, PLUS the itemized breakdown (which specific
@@ -285,6 +322,9 @@ export async function getQuestDetail(
     const { history, tripDates } = await loadRiderHistory(db, userId);
     const progress = evaluateQuestProgress(quest, history, COMPLEX_LOOKUP, ALL_REAL_ROUTES, FULL_ROUTE_SPANS);
     const breakdown = enrichBreakdown(getQuestBreakdownPure(quest, history, COMPLEX_LOOKUP, ALL_REAL_ROUTES, FULL_ROUTE_SPANS));
+    if (breakdown.kind === 'counting') {
+        breakdown.qualifyingTrips = await resolveQualifyingTrips(db, breakdown.contributingTripIds, tripDates);
+    }
 
     return {
         questId, ...progress,

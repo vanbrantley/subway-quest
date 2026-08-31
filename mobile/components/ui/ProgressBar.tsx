@@ -10,18 +10,30 @@ type ProgressBarProps = {
     label?: string;
     completed?: boolean; // defaults to current >= target
     size?: 'default' | 'large';
+    // Absolute milestone values (same units as current/target) to notch into
+    // the fill -- e.g. a tiered quest's already-crossed tiers, so "why does
+    // this say Completed when the bar isn't full" reads visually: previous
+    // checkpoints are marked right there in the bar. Only values strictly
+    // between 0 and target are ever visible (anything an already-crossed
+    // tier by definition satisfies, since target is always the next
+    // uncrossed tier -- see quests_logic.ts's evaluateTiers()).
+    ticks?: number[];
 };
 
-export function ProgressBar({ current, target, label, completed, size = 'default' }: ProgressBarProps) {
+export function ProgressBar({ current, target, label, completed, size = 'default', ticks }: ProgressBarProps) {
     const isComplete = completed ?? current >= target;
     const pct = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 100;
     const isLarge = size === 'large';
+    const tickPositions = target > 0 ? (ticks ?? []).filter((t) => t > 0 && t < target).map((t) => (t / target) * 100) : [];
 
     return (
         <View style={styles.wrap}>
             {label && <Text style={styles.label}>{label}</Text>}
             <View style={[styles.track, isLarge && styles.trackLarge]}>
                 <View style={[styles.fill, isLarge && styles.trackLarge, { width: `${pct}%` }]} />
+                {tickPositions.map((left, i) => (
+                    <View key={i} style={[styles.tick, { left: `${left}%` }]} />
+                ))}
             </View>
             <Text style={[styles.fraction, isLarge && styles.fractionLarge]}>
                 {isComplete ? 'Completed!' : `${current} of ${target}`}
@@ -36,6 +48,7 @@ const styles = StyleSheet.create({
     track: { height: 8, borderRadius: 4, backgroundColor: '#e8e8e8', overflow: 'hidden' },
     trackLarge: { height: 12, borderRadius: 6 },
     fill: { height: 8, borderRadius: 4, backgroundColor: '#2e9e52' },
+    tick: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: 'rgba(255,255,255,0.85)' },
     fraction: { fontSize: 13, color: '#444', fontWeight: '600' },
     fractionLarge: { fontSize: 15 },
 });

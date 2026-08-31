@@ -229,23 +229,31 @@
             "end": 392
         }
     },
-    "line_loyalist": {
-        "title": "Line Loyalist",
-        "description": "Ride the same line at least {count} times.",
-        "mechanism": "counting",
-        "criteria": {
-            "type": "ride_count_route",
-            "route": "any",
-            "count": 10
-        }
-    },
     "transfer_master": {
         "title": "Transfer Master",
-        "description": "Make at least {count} transfers, lifetime.",
+        "description": "Make at least {tiers} transfers, lifetime.",
         "mechanism": "counting",
         "criteria": {
             "type": "transfer_count",
-            "count": 20
+            "tiers": [20]
+        }
+    },
+    "total_rides": {
+        "title": "Frequent Rider",
+        "description": "Take {tiers} rides, lifetime.",
+        "mechanism": "counting",
+        "criteria": {
+            "type": "total_ride_count",
+            "tiers": [25, 50, 100, 250, 500]
+        }
+    },
+    "path_finder": {
+        "title": "Path Finder",
+        "description": "Complete {tiers} different trip patterns, lifetime.",
+        "mechanism": "counting",
+        "criteria": {
+            "type": "unique_trip_pattern_count",
+            "tiers": [5, 10, 25, 50, 100]
         }
     }
 }

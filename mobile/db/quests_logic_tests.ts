@@ -132,11 +132,33 @@ function trip(tripId: string, origin: string, dest: string): Trip {
         trips: [],
         legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t2', 1, 'A', 'x', 'y'), leg('t3', 1, 'N', 'x', 'y')],
     };
-    const r = evaluateCounting({ type: 'ride_count_route', route: 'A', count: 2 }, history);
-    check('ride_count_route: 2 A-line legs, threshold 2 -> completed', r.completed === true && r.current === 2);
+    const r = evaluateCounting({ type: 'ride_count_route', route: 'A', tiers: [2] }, history, complexLookup);
+    check('ride_count_route: 2 A-line legs, single tier of 2 -> completed', r.completed === true && r.current === 2);
+}
 
-    const rAny = evaluateCounting({ type: 'ride_count_route', route: 'any', count: 2 }, history);
-    check('ride_count_route "any": best route (A, 2 legs) meets threshold -> completed', rAny.completed === true && rAny.current === 2);
+{
+    // Mid-ladder progress: target snaps to the next unreached tier, not the
+    // final one, and `completed` fires on the FIRST tier reached (not the
+    // final tier) -- an open-ended counter should still reward the rider for
+    // what they've done so far. tiers passed out of order on purpose, to
+    // confirm evaluateTiers sorts defensively rather than trusting input order.
+    const history: RiderHistory = {
+        trips: [],
+        legs: Array.from({ length: 12 }, (_, i) => leg(`t${i}`, 1, 'A', 'x', 'y')),
+    };
+    const r = evaluateCounting({ type: 'ride_count_route', route: 'A', tiers: [25, 5, 10] }, history, complexLookup);
+    check('ride_count_route: 12 rides against tiers [5,10,25] -> tierIndex 2 (5 and 10 reached), target snaps to 25',
+        r.current === 12 && r.tierIndex === 2 && r.target === 25 && r.tiers.join(',') === '5,10,25');
+    check('ride_count_route: completed is true the moment the first tier is reached, not just the final one',
+        r.completed === true);
+}
+
+{
+    // Once every tier is reached, target pins to the final tier (current >= target).
+    const history: RiderHistory = { trips: [], legs: Array.from({ length: 30 }, (_, i) => leg(`t${i}`, 1, 'A', 'x', 'y')) };
+    const r = evaluateCounting({ type: 'ride_count_route', route: 'A', tiers: [5, 10, 25] }, history, complexLookup);
+    check('ride_count_route: every tier reached -> tierIndex equals tiers.length, target pins to the final tier',
+        r.tierIndex === 3 && r.target === 25 && r.completed === true);
 }
 
 {
@@ -156,8 +178,38 @@ function trip(tripId: string, origin: string, dest: string): Trip {
             leg('t3', 1, 'A', 'x', 'y'), // single-leg trip, no transfer
         ],
     };
-    const r = evaluateCounting({ type: 'transfer_count', count: 2 }, history);
+    const r = evaluateCounting({ type: 'transfer_count', tiers: [2] }, history, complexLookup);
     check('transfer_count: 1 transfer per 2-leg trip, including different-stop_id transfers, single-leg trip contributes 0',
+        r.current === 2 && r.completed === true);
+}
+
+{
+    // total_ride_count: every leg across every line, lifetime -- unlike
+    // ride_count_route, not scoped to one route.
+    const history: RiderHistory = {
+        trips: [],
+        legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'N', 'y', 'z'), leg('t2', 1, 'A', 'x', 'y')],
+    };
+    const r = evaluateCounting({ type: 'total_ride_count', tiers: [3, 10] }, history, complexLookup);
+    check('total_ride_count: 3 legs total across 2 lines -> current 3, first tier reached', r.current === 3 && r.completed === true && r.target === 10);
+}
+
+{
+    // unique_trip_pattern_count: order matters, and a repeat of an earlier
+    // trip's exact stop sequence does NOT count again.
+    const sameOrderTwice: RiderHistory = {
+        trips: [],
+        // t1: A02 -> R16 -> B06 (via complex_ids 143 -> 611 -> 222)
+        // t2: identical station sequence -- a repeat, should not grow the unique count
+        // t3: same 3 stations but the reverse order -- a genuinely different pattern
+        legs: [
+            leg('t1', 1, 'A', 'A02', 'R16'), leg('t1', 2, 'N', 'R16', 'B06'),
+            leg('t2', 1, 'A', 'A02', 'R16'), leg('t2', 2, 'N', 'R16', 'B06'),
+            leg('t3', 1, 'N', 'B06', 'R16'), leg('t3', 2, 'A', 'R16', 'A02'),
+        ],
+    };
+    const r = evaluateCounting({ type: 'unique_trip_pattern_count', tiers: [2] }, sameOrderTwice, complexLookup);
+    check('unique_trip_pattern_count: t1 and t2 share one pattern, t3 reverses it into a second distinct pattern -> current 2',
         r.current === 2 && r.completed === true);
 }
 
@@ -342,43 +394,37 @@ function trip(tripId: string, origin: string, dest: string): Trip {
 
 {
     const quest = {
-        title: 'Line Loyalist', description: 'x', mechanism: 'counting' as const,
-        criteria: { type: 'ride_count_route' as const, route: 'A', count: 3 },
+        title: 'A Loyalist', description: 'x', mechanism: 'counting' as const,
+        criteria: { type: 'ride_count_route' as const, route: 'A', tiers: [3, 6] },
     };
     const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t2', 1, 'A', 'x', 'y')] };
     const b = getQuestBreakdown(quest, history, complexLookup, [], {});
-    check('getQuestBreakdown (counting): current/target correct, both contributing trips listed',
-        b.kind === 'counting' && b.current === 2 && b.target === 3
+    check('getQuestBreakdown (counting): current/target correct, both contributing trips listed, tiers/tierIndex surfaced',
+        b.kind === 'counting' && b.current === 2 && b.target === 3 && b.tierIndex === 0 && b.tiers.join(',') === '3,6'
         && b.contributingTripIds.sort().join(',') === 't1,t2');
-    check('getQuestBreakdown (counting, ride_count_route explicit): contributingRoute is the explicit route',
+    check('getQuestBreakdown (counting, ride_count_route): contributingRoute is the route this quest is scoped to',
         b.kind === 'counting' && b.contributingRoute === 'A');
-}
-
-{
-    // route: 'any' -- contributingRoute must resolve to the actual best route
-    // (N, ridden twice), not stay unresolved, so a quest like Line Loyalist
-    // can say WHICH line its count refers to.
-    const quest = {
-        title: 'Line Loyalist', description: 'x', mechanism: 'counting' as const,
-        criteria: { type: 'ride_count_route' as const, route: 'any', count: 2 },
-    };
-    const history: RiderHistory = {
-        trips: [],
-        legs: [leg('t1', 1, 'N', 'x', 'y'), leg('t2', 1, 'N', 'x', 'y'), leg('t3', 1, 'A', 'x', 'y')],
-    };
-    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
-    check('getQuestBreakdown (counting, ride_count_route "any"): contributingRoute resolves to the best route',
-        b.kind === 'counting' && b.contributingRoute === 'N');
 }
 
 {
     // transfer_count has no single-route concept -- contributingRoute must
     // stay null, unlike ride_count_route.
-    const quest = { title: 'Transfer Master', description: 'x', mechanism: 'counting' as const, criteria: { type: 'transfer_count' as const, count: 1 } };
+    const quest = { title: 'Transfer Master', description: 'x', mechanism: 'counting' as const, criteria: { type: 'transfer_count' as const, tiers: [1] } };
     const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t1', 2, 'N', 'y', 'z')] };
     const b = getQuestBreakdown(quest, history, complexLookup, [], {});
     check('getQuestBreakdown (counting, transfer_count): contributingRoute is null',
         b.kind === 'counting' && b.contributingRoute === null);
+}
+
+{
+    // total_ride_count/unique_trip_pattern_count also have no single-route
+    // concept, and total_ride_count's contributing trips = every trip (all
+    // trips have >=1 leg).
+    const quest = { title: 'Frequent Rider', description: 'x', mechanism: 'counting' as const, criteria: { type: 'total_ride_count' as const, tiers: [2] } };
+    const history: RiderHistory = { trips: [], legs: [leg('t1', 1, 'A', 'x', 'y'), leg('t2', 1, 'N', 'y', 'z')] };
+    const b = getQuestBreakdown(quest, history, complexLookup, [], {});
+    check('getQuestBreakdown (counting, total_ride_count): contributingRoute null, every trip listed',
+        b.kind === 'counting' && b.contributingRoute === null && b.contributingTripIds.sort().join(',') === 't1,t2');
 }
 
 // ---- questIdsForStation ----
@@ -392,7 +438,7 @@ function trip(tripId: string, origin: string, dest: string): Trip {
         all_lines: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_routes' } },
         top_to_bottom: { title: 'x', description: 'x', mechanism: 'per_trip', criteria: { type: 'geographic_endpoints', start: 222, end: 999 } },
         n_legger: { title: 'x', description: 'x', mechanism: 'per_trip', criteria: { type: 'leg_count_min', count: 3 } },
-        line_loyalist: { title: 'x', description: 'x', mechanism: 'counting', criteria: { type: 'ride_count_route', route: 'any', count: 5 } },
+        line_loyalist_a: { title: 'x', description: 'x', mechanism: 'counting', criteria: { type: 'ride_count_route', route: 'A', tiers: [5] } },
         unrelated: { title: 'x', description: 'x', mechanism: 'lifetime_set', criteria: { type: 'all_stations', stations: [999] } },
     };
     const matches = questIdsForStation(quests, 222).sort();
@@ -400,7 +446,7 @@ function trip(tripId: string, origin: string, dest: string): Trip {
         matches.join(',') === 'beachy,boroughs,crossroads,roosevelt_island,top_to_bottom');
     check('questIdsForStation: does NOT match all_routes, leg_count_min, counting, or an unrelated station list',
         !matches.includes('all_lines') && !matches.includes('n_legger')
-        && !matches.includes('line_loyalist') && !matches.includes('unrelated'));
+        && !matches.includes('line_loyalist_a') && !matches.includes('unrelated'));
 }
 
 // ---- report ----

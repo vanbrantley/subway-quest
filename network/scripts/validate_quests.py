@@ -31,7 +31,7 @@ VALID_CRITERIA_TYPES = {
         "leg_count_min", "full_line_ride", "route_letters_spell_word",
         "geographic_endpoints",
     },
-    "counting": {"ride_count_route", "transfer_count"},
+    "counting": {"ride_count_route", "transfer_count", "total_ride_count", "unique_trip_pattern_count"},
 }
 
 # NYC subway line letters that actually exist as route_ids -- used to sanity-check
@@ -79,6 +79,22 @@ def main():
     def warn(condition, message):
         if not condition:
             warnings.append(message)
+
+    def check_tiers(tiers, prefix, criteria_type):
+        # Shared shape check for every tiered counting criteria type: a
+        # non-empty list of distinct positive ints, strictly increasing.
+        # Runtime code (evaluateTiers/evaluate_tiers) sorts defensively and
+        # doesn't strictly need ascending input, but authored data should be
+        # unambiguous -- the medal-row/tier-ladder UI displays tiers in the
+        # order they're given, and out-of-order or duplicate tiers here are
+        # almost always an authoring mistake, not intentional.
+        check(isinstance(tiers, list) and len(tiers) > 0,
+              f"{prefix} {criteria_type} tiers must be a non-empty list, got {tiers!r}")
+        if isinstance(tiers, list) and len(tiers) > 0:
+            check(all(isinstance(t, int) and t > 0 for t in tiers),
+                  f"{prefix} {criteria_type} tiers must all be positive ints, got {tiers!r}")
+            check(tiers == sorted(set(tiers)),
+                  f"{prefix} {criteria_type} tiers must be strictly increasing with no duplicates, got {tiers!r}")
 
     # --- load everything up front; a missing/malformed file is itself a failure ---
     try:
@@ -290,16 +306,21 @@ def main():
 
         elif ctype == "ride_count_route":
             route = criteria.get("route")
-            count = criteria.get("count")
-            check(route == "any" or route in valid_route_ids,
-                  f"{prefix} ride_count_route route '{route}' is neither 'any' nor a real route")
-            check(isinstance(count, int) and count > 0,
-                  f"{prefix} ride_count_route count must be a positive int, got {count!r}")
+            # No more 'any' -- every ride_count_route quest is auto-generated
+            # one-per-line by resolve_line_loyalist_quests now, always a real
+            # route_id (see build_quests.py's line_loyalist auto-generation).
+            check(route in valid_route_ids,
+                  f"{prefix} ride_count_route route '{route}' is not a real route")
+            check_tiers(criteria.get("tiers"), prefix, "ride_count_route")
 
         elif ctype == "transfer_count":
-            count = criteria.get("count")
-            check(isinstance(count, int) and count > 0,
-                  f"{prefix} transfer_count count must be a positive int, got {count!r}")
+            check_tiers(criteria.get("tiers"), prefix, "transfer_count")
+
+        elif ctype == "total_ride_count":
+            check_tiers(criteria.get("tiers"), prefix, "total_ride_count")
+
+        elif ctype == "unique_trip_pattern_count":
+            check_tiers(criteria.get("tiers"), prefix, "unique_trip_pattern_count")
 
     # --- whole-file sanity checks ---
     line_completion_ids = {qid for qid in quests if qid.startswith("line_completion_")}
@@ -329,6 +350,25 @@ def main():
             wrong_route = [p for p in quest["criteria"]["pairs"] if p["route"] != expected_route]
             check(not wrong_route,
                   f"{qid} has pair(s) referencing a route other than '{expected_route}': {wrong_route}")
+
+    # Same coverage + route-specificity checks as line_completion above, for
+    # the auto-generated per-line Line Loyalist family (see
+    # build_quests.py's resolve_line_loyalist_quests).
+    line_loyalist_ids = {qid for qid in quests if qid.startswith("line_loyalist_")}
+    covered_loyalist_routes = {qid.removeprefix("line_loyalist_") for qid in line_loyalist_ids}
+    missing_loyalist_routes = valid_route_ids - covered_loyalist_routes - EXPRESS_ROUTE_IDS
+    check(not missing_loyalist_routes,
+          f"missing line_loyalist quests for real route(s): {sorted(missing_loyalist_routes)} "
+          f"-- every real route should get its own tiered ride-count quest")
+
+    for qid in line_loyalist_ids:
+        quest = quests[qid]
+        expected_route = qid.removeprefix("line_loyalist_")
+        check(quest["criteria"]["type"] == "ride_count_route",
+              f"{qid} uses '{quest['criteria']['type']}' criteria -- must be 'ride_count_route'")
+        if quest["criteria"]["type"] == "ride_count_route":
+            check(quest["criteria"]["route"] == expected_route,
+                  f"{qid} tracks route '{quest['criteria']['route']}', expected '{expected_route}'")
 
     warn(len(branching_out_ids) > 0,
          "no branching_out quests were generated at all -- expected at least one "

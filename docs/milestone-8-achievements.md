@@ -137,12 +137,20 @@ Evaluated against one trip's ordered legs in isolation — no cross-trip history
 | `geographic_endpoints` | Trip's first entry / last exit satisfy a directional rule | Top-to-bottom, Bottom-to-top, Side-to-side |
 
 ### Mechanism 3: Lifetime counting
-A simple tally against a threshold — no set membership involved.
+A tally against a *tiered* threshold ladder (`tiers: number[]`, e.g.
+`[5, 10, 25, 50, 100]`) — no set membership involved. `completed` fires the
+moment the FIRST (lowest) tier is reached, not the final one — an
+open-ended counter has no real "done" state, and this rewards a rider for
+what they've done so far rather than gating a badge behind full mastery
+(see `quests_logic.ts`'s `evaluateTiers()`). `target` always tracks the
+next unreached tier.
 
 | Shape | Meaning | Quest examples |
 |---|---|---|
-| `ride_count_route` | Ridden a specific route ≥ N times | Line Loyalist |
-| `transfer_count` | Made ≥ N transfers, lifetime | Transfer Master |
+| `ride_count_route` | Ridden one specific real route ≥ N times, tiered | Line Loyalist (auto-generated one per real line — `line_loyalist_<ROUTE>` — no more `route: 'any'`) |
+| `transfer_count` | Made ≥ N transfers lifetime, tiered | Transfer Master |
+| `total_ride_count` | Total legs ridden, every line combined, tiered | Frequent Rider |
+| `unique_trip_pattern_count` | Distinct ordered stop-sequences across trip history, tiered (order matters — reversing a trip counts as a different pattern) | Path Finder |
 
 ---
 

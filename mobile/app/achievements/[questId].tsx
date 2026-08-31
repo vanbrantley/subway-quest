@@ -13,6 +13,7 @@ import { getQuestDetail, type QuestDetail, type EnrichedGroupBreakdownItem } fro
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { RouteIcon } from '../../components/ui/RouteIcon';
+import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { isNavigableRoute, normalizeRouteIdForIcon, getStation } from '../../lib/subwayData';
 
@@ -217,24 +218,114 @@ function BreakdownList({ quest }: { quest: QuestDetail }) {
         case 'counting': {
             // No second progress bar here -- the hero section above already
             // shows this exact current/target (they're the same number by
-            // construction). This block only adds what the hero can't:
-            // which line the count is tracking (ride_count_route with
-            // route: 'any' picks your most-ridden line, otherwise ambiguous
-            // from the number alone) and which trips contributed.
-            const label = formatTripsLabel(breakdown.contributingTripIds, tripDates);
+            // construction), and the medal row shows which tiers are already
+            // earned. This block only adds what the hero can't: which line
+            // the count is tracking (ride_count_route) and a tappable list of
+            // every trip that contributed, same row style as the Profile
+            // page's Trip History.
+            const routeId = breakdown.contributingRoute;
+            const routeNavigable = routeId !== null && isNavigableRoute(normalizeRouteIdForIcon(routeId));
+            const goToLine = routeNavigable ? () => router.push(`/line/${normalizeRouteIdForIcon(routeId)}`) : null;
             return (
                 <View style={styles.countingBlock}>
-                    {breakdown.contributingRoute && (
-                        <View style={styles.checklistRow}>
-                            <RouteIcon routeId={breakdown.contributingRoute} onPress={null} size={28} />
-                            <Text style={styles.checklistLabel}>{breakdown.contributingRoute} line</Text>
-                        </View>
+                    {routeId && (
+                        goToLine ? (
+                            <Pressable style={styles.checklistRow} onPress={goToLine}>
+                                <RouteIcon routeId={routeId} onPress={null} size={28} />
+                                <Text style={[styles.checklistLabel, styles.checklistTextWrap]}>{routeId} line</Text>
+                                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+                            </Pressable>
+                        ) : (
+                            <View style={styles.checklistRow}>
+                                <RouteIcon routeId={routeId} onPress={null} size={28} />
+                                <Text style={styles.checklistLabel}>{routeId} line</Text>
+                            </View>
+                        )
                     )}
-                    {label && <Text style={styles.checklistSublabel}>{label}</Text>}
+                    <SectionHeader title="Qualifying Trips" />
+                    {breakdown.qualifyingTrips.length === 0 ? (
+                        <Text style={styles.emptyText}>No trips yet.</Text>
+                    ) : (
+                        breakdown.qualifyingTrips.map((t) => <TripHistoryRow key={t.tripId} {...t} />)
+                    )}
                 </View>
             );
         }
     }
+}
+
+// One row for EVERY defined tier (not just reached ones) -- gold + filled
+// ribbon for a tier already reached, gray + outline ribbon for one not yet
+// reached, same done/pending color convention as everywhere else on this
+// page (ChecklistRow's checkmark-circle green vs. ellipse-outline gray).
+// Reuses the same ribbon glyph as the hero icon above the quest title,
+// rather than a different medal icon, so a tiered quest's trophy case reads
+// as "a row of the same achievement icon, one per milestone." The cutoff
+// number sits in a small circle nudged down-and-right of the ribbon's
+// center (not dead-center) so it reads as a badge pinned to the medal
+// rather than text stamped through it, and the white circle gives it
+// contrast against the ribbon's own fill color. Horizontal-scrolls rather
+// than wrapping -- a tiered quest with many rungs still fits on one line for
+// most quests, and scrolling avoids the hero section's height jumping
+// around as more tiers are earned.
+// The badge grows from a circle (1-2 digit tiers) into a pill (3-digit
+// tiers like 100/500) since a fixed-size circle can't hold "500" without
+// clipping or off-center text. Its own width/height is measured via
+// onLayout (RN gives no other way to know rendered size ahead of paint) and
+// fed back in as an exact -width/2/-height/2 translate, so the badge's
+// CENTER lands on the anchor point regardless of how wide the pill grows --
+// a fixed translate tuned for the 2-digit case would drift off-center for
+// 3-digit values, which is exactly the bug this fixes.
+function MedalBadge({ value, done }: { value: number; done: boolean }) {
+    const [size, setSize] = useState({ width: 18, height: 18 });
+    return (
+        <View
+            onLayout={(e) => {
+                const { width, height } = e.nativeEvent.layout;
+                setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+            }}
+            style={[
+                styles.medalBadge,
+                done ? styles.medalBadgeDone : styles.medalBadgePending,
+                { transform: [{ translateX: -size.width / 2 }, { translateY: -size.height / 2 }] },
+            ]}
+        >
+            <Text style={[styles.medalNumber, done ? styles.medalNumberDone : styles.medalNumberPending]}>{value}</Text>
+        </View>
+    );
+}
+
+function MedalRow({ tiers, tierIndex }: { tiers: number[]; tierIndex: number }) {
+    if (tiers.length === 0) return null;
+    return (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.medalScroll} contentContainerStyle={styles.medalRow}>
+            {tiers.map((t, i) => {
+                const done = i < tierIndex;
+                return (
+                    <View key={t} style={styles.medalWrap}>
+                        <Ionicons name={done ? 'ribbon' : 'ribbon-outline'} size={40} color={done ? '#c9962c' : '#999'} />
+                        <MedalBadge value={t} done={done} />
+                    </View>
+                );
+            })}
+        </ScrollView>
+    );
+}
+
+// A tiered quest's status badge shouldn't say "Completed" the moment the
+// first tier is reached while the progress bar right underneath still reads
+// e.g. "31 of 50" -- that reads as contradictory. Once a quest has at least
+// one tier done but isn't maxed, show which rung it's on instead; "Completed"
+// is reserved for every tier reached (or, for non-counting quests, the
+// original binary completed flag).
+function statusLabel(quest: QuestDetail): string {
+    if (quest.breakdown.kind === 'counting') {
+        const { tierIndex, tiers } = quest.breakdown;
+        if (tierIndex === 0) return 'In progress';
+        if (tierIndex === tiers.length) return 'Completed';
+        return `Tier ${tierIndex} of ${tiers.length}`;
+    }
+    return quest.completed ? 'Completed' : 'In progress';
 }
 
 export default function AchievementDetailScreen() {
@@ -271,15 +362,24 @@ export default function AchievementDetailScreen() {
                     <Text style={styles.questTitle}>{quest.title}</Text>
                     <Text style={styles.description}>{quest.description}</Text>
 
+                    {quest.breakdown.kind === 'counting' && (
+                        <MedalRow tiers={quest.breakdown.tiers} tierIndex={quest.breakdown.tierIndex} />
+                    )}
+
                     <View style={[styles.statusBadge, quest.completed ? styles.statusBadgeDone : styles.statusBadgePending]}>
                         <Text style={[styles.statusBadgeText, quest.completed ? styles.statusBadgeTextDone : styles.statusBadgeTextPending]}>
-                            {quest.completed ? 'Completed' : 'In progress'}
+                            {statusLabel(quest)}
                         </Text>
                     </View>
 
                     {quest.current !== null && quest.target !== null && (
                         <View style={styles.heroProgress}>
-                            <ProgressBar current={quest.current} target={quest.target} size="large" />
+                            <ProgressBar
+                                current={quest.current}
+                                target={quest.target}
+                                size="large"
+                                ticks={quest.breakdown.kind === 'counting' ? quest.breakdown.tiers : undefined}
+                            />
                         </View>
                     )}
                 </View>
@@ -308,6 +408,28 @@ const styles = StyleSheet.create({
     statusBadgeTextDone: { color: '#8a6d1f' },
     statusBadgeTextPending: { color: '#888' },
     heroProgress: { width: '100%', marginTop: 8 },
+    medalScroll: { width: '100%', flexGrow: 0, marginTop: 2 },
+    medalRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 4, justifyContent: 'center', flexGrow: 1 },
+    medalWrap: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    // Anchor point is down-and-right of dead-center on the ribbon icon (top
+    // 50%, left 50% would be dead-center) -- right-shifted further than
+    // down since a purely-diagonal offset read as too close to center once
+    // rendered. Component-level onLayout then translates back by exactly
+    // half the badge's own measured size, so this anchor point becomes the
+    // badge's center, not its corner.
+    medalBadge: {
+        position: 'absolute', top: '58%', left: '72%',
+        minWidth: 18, minHeight: 18, borderRadius: 999,
+        paddingHorizontal: 4,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    medalBadgeDone: { borderColor: '#c9962c' },
+    medalBadgePending: { borderColor: '#999' },
+    medalNumber: { fontSize: 9, fontWeight: '800' },
+    medalNumberDone: { color: '#c9962c' },
+    medalNumberPending: { color: '#999' },
     breakdownSection: { gap: 4 },
     groupSection: { marginBottom: 8 },
     groupBlock: { marginTop: 10, marginBottom: 4, gap: 6 },

@@ -8,7 +8,7 @@ per-trip criteria, counting criteria) and passes through unchanged -- it's
 either already concrete or evaluated live at runtime by the app/dbt, never
 precomputed here.
 
-Real resolver logic lives in five places:
+Real resolver logic lives in six places:
   1. group_ref "boroughs"                    -- group stations by their own
                                                  borough field
   2. group_ref "same_name_station_clusters"   -- group stations by exact name,
@@ -21,7 +21,14 @@ Real resolver logic lives in five places:
   4. line_completion auto-generation          -- one quest per real route,
                                                  generated fresh every run, never
                                                  hand-authored in the source file
-  5. branching_out auto-generation            -- one quest per route with 2+
+  5. line_loyalist auto-generation            -- one tiered ride_count_route
+                                                 quest per real route, same
+                                                 reasoning as line_completion --
+                                                 replaces a single hand-authored
+                                                 quest with route: 'any', which
+                                                 only ever tracked the rider's
+                                                 single best-ridden line.
+  6. branching_out auto-generation            -- one quest per route with 2+
                                                  real branches, using the same
                                                  branch data mobile/lib/
                                                  subwayData.ts's branchesForRoute()
@@ -75,6 +82,11 @@ OUTPUT_PATH = BASE_DIR / "processed" / "quests.json"
 # the unrestricted "Every Line" quest itself uncompletable. Mirrored on the
 # mobile side by mobile/lib/subwayData.ts's EXPRESS_ROUTE_IDS.
 EXPRESS_ROUTE_IDS = {"6X", "7X", "FX"}
+
+# Tier thresholds for the auto-generated per-line Line Loyalist family (see
+# resolve_line_loyalist_quests) -- one shared ladder for every line, easy to
+# retune here without touching the resolver itself.
+LINE_LOYALIST_TIERS = [5, 10, 25, 50, 100]
 
 # Borough GTFS code -> display name, mirroring
 # build_neighborhood_mapping.py's BORO_MAP (not imported from there to avoid
@@ -167,6 +179,31 @@ def resolve_line_completion_quests(route_stops, stations):
             "criteria": {
                 "type": "all_station_route_pairs",
                 "pairs": [{"station": cid, "route": route_id} for cid in complexes],
+            },
+        }
+    return quests
+
+
+def resolve_line_loyalist_quests(route_stops):
+    """Auto-generates one tiered 'ride line X N times' quest per real route --
+    same one-quest-per-line pattern as resolve_line_completion_quests, and
+    for the same reason: this used to be a single hand-authored quest with
+    criteria.route == 'any', which only ever tracked the rider's single
+    best-ridden line and silently hid progress on every other line they were
+    building up (a real reported bug, not a hypothetical). Splitting per line
+    makes progress on each line visible and unambiguous, and removes 'any'
+    from the ride_count_route criteria entirely -- nothing else used it."""
+    quests = {}
+    for route_id in real_routes(route_stops):
+        quests[f"line_loyalist_{route_id}"] = {
+            "title": f"{route_id} Loyalist",
+            "description": f"Ride the {route_id} line {{tiers}} times.",
+            "mechanism": "counting",
+            "source": "auto_generated",
+            "criteria": {
+                "type": "ride_count_route",
+                "route": route_id,
+                "tiers": LINE_LOYALIST_TIERS,
             },
         }
     return quests
@@ -388,9 +425,11 @@ def resolve_quest(quest_id, quest, complexes, route_stops):
 
     # Everything else -- all_stations, min_count_stations,
     # all_station_route_pairs, leg_count_min, full_line_ride,
-    # route_letters_spell_word, geographic_endpoints, ride_count_route,
-    # transfer_count -- is literal data or a runtime check. Pass through
-    # unchanged; nothing to resolve.
+    # route_letters_spell_word, geographic_endpoints, transfer_count,
+    # total_ride_count, unique_trip_pattern_count -- is literal data or a
+    # runtime check. Pass through unchanged; nothing to resolve.
+    # (ride_count_route is never hand-authored -- see
+    # resolve_line_loyalist_quests, same as line_completion.)
     return dict(quest)
 
 
@@ -414,10 +453,11 @@ def main():
         # return branch inside resolve_quest() individually
         resolved[quest_id] = result
 
-    # Auto-generate line_completion and branching_out quests -- never
-    # hand-authored, always regenerated fresh so they can't drift from the
-    # real route/branch data
+    # Auto-generate line_completion, line_loyalist, and branching_out quests
+    # -- never hand-authored, always regenerated fresh so they can't drift
+    # from the real route/branch data
     resolved.update(resolve_line_completion_quests(route_stops, stations))
+    resolved.update(resolve_line_loyalist_quests(route_stops))
     resolved.update(resolve_branching_out_quests(route_stops, stations))
 
     with open(OUTPUT_PATH, "w") as f:

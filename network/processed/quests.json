@@ -1163,24 +1163,47 @@
     },
     "source": "hand_authored"
   },
-  "line_loyalist": {
-    "title": "Line Loyalist",
-    "description": "Ride the same line at least {count} times.",
-    "mechanism": "counting",
-    "criteria": {
-      "type": "ride_count_route",
-      "route": "any",
-      "count": 10
-    },
-    "source": "hand_authored"
-  },
   "transfer_master": {
     "title": "Transfer Master",
-    "description": "Make at least {count} transfers, lifetime.",
+    "description": "Make at least {tiers} transfers, lifetime.",
     "mechanism": "counting",
     "criteria": {
       "type": "transfer_count",
-      "count": 20
+      "tiers": [
+        20
+      ]
+    },
+    "source": "hand_authored"
+  },
+  "total_rides": {
+    "title": "Frequent Rider",
+    "description": "Take {tiers} rides, lifetime.",
+    "mechanism": "counting",
+    "criteria": {
+      "type": "total_ride_count",
+      "tiers": [
+        25,
+        50,
+        100,
+        250,
+        500
+      ]
+    },
+    "source": "hand_authored"
+  },
+  "path_finder": {
+    "title": "Path Finder",
+    "description": "Complete {tiers} different trip patterns, lifetime.",
+    "mechanism": "counting",
+    "criteria": {
+      "type": "unique_trip_pattern_count",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
     },
     "source": "hand_authored"
   },
@@ -4527,6 +4550,448 @@
           "station": 278,
           "route": "Z"
         }
+      ]
+    }
+  },
+  "line_loyalist_1": {
+    "title": "1 Loyalist",
+    "description": "Ride the 1 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "1",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_2": {
+    "title": "2 Loyalist",
+    "description": "Ride the 2 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "2",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_3": {
+    "title": "3 Loyalist",
+    "description": "Ride the 3 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "3",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_4": {
+    "title": "4 Loyalist",
+    "description": "Ride the 4 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "4",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_5": {
+    "title": "5 Loyalist",
+    "description": "Ride the 5 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "5",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_6": {
+    "title": "6 Loyalist",
+    "description": "Ride the 6 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "6",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_7": {
+    "title": "7 Loyalist",
+    "description": "Ride the 7 line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "7",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_A": {
+    "title": "A Loyalist",
+    "description": "Ride the A line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "A",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_B": {
+    "title": "B Loyalist",
+    "description": "Ride the B line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "B",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_C": {
+    "title": "C Loyalist",
+    "description": "Ride the C line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "C",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_D": {
+    "title": "D Loyalist",
+    "description": "Ride the D line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "D",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_E": {
+    "title": "E Loyalist",
+    "description": "Ride the E line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "E",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_F": {
+    "title": "F Loyalist",
+    "description": "Ride the F line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "F",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_FS": {
+    "title": "FS Loyalist",
+    "description": "Ride the FS line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "FS",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_G": {
+    "title": "G Loyalist",
+    "description": "Ride the G line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "G",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_GS": {
+    "title": "GS Loyalist",
+    "description": "Ride the GS line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "GS",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_H": {
+    "title": "H Loyalist",
+    "description": "Ride the H line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "H",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_J": {
+    "title": "J Loyalist",
+    "description": "Ride the J line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "J",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_L": {
+    "title": "L Loyalist",
+    "description": "Ride the L line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "L",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_M": {
+    "title": "M Loyalist",
+    "description": "Ride the M line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "M",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_N": {
+    "title": "N Loyalist",
+    "description": "Ride the N line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "N",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_Q": {
+    "title": "Q Loyalist",
+    "description": "Ride the Q line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "Q",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_R": {
+    "title": "R Loyalist",
+    "description": "Ride the R line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "R",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_SI": {
+    "title": "SI Loyalist",
+    "description": "Ride the SI line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "SI",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_W": {
+    "title": "W Loyalist",
+    "description": "Ride the W line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "W",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
+      ]
+    }
+  },
+  "line_loyalist_Z": {
+    "title": "Z Loyalist",
+    "description": "Ride the Z line {tiers} times.",
+    "mechanism": "counting",
+    "source": "auto_generated",
+    "criteria": {
+      "type": "ride_count_route",
+      "route": "Z",
+      "tiers": [
+        5,
+        10,
+        25,
+        50,
+        100
       ]
     }
   },
