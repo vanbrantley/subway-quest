@@ -909,6 +909,76 @@ this, not just the one station — same root cause throughout.
   several of the previously-detected "branches" turn out to have been the same reroute-pattern
   contamination as the main bug, not real, everyday branch structure.
 
+## Trip Insights
+
+**Done.** A third Trip Summary section, alongside Quest progress and trivia's "New discovery" —
+general analytical facts about a trip that aren't tied to any quest ("you've ridden this exact trip
+12 times," "this is your 40th unique trip," a new station/line callout). Same pure-logic/I/O-wrapper
+split as quests/trivia: `mobile/db/insights_logic.ts` (pure, zero RN/SQLite imports, 35 tests via
+`npx tsx mobile/db/insights_logic_tests.ts`) computes a flat list of structured, tagged facts;
+`mobile/db/insights.ts` (I/O wrapper) reuses `quests.ts`'s `loadRiderHistory` and enriches with
+station names from bundled `stations.json`; `trip.tsx` renders through a dumb per-type `switch`
+template. Deliberately no LLM involved — considered and explicitly rejected for v1 (see below) — so
+the compute → select → render split exists specifically to let a narration layer be swapped in later
+without touching how facts are computed or selected.
+
+**What it looks for**, one fact per occurrence, computed fresh from full history on every visit (same
+"recompute, don't cache" principle as quest progress):
+
+- `nth_trip_overall` — this trip's chronological rank (by `started_at`) among all of the rider's trips.
+- `unique_trip_pattern` / `trip_repeat_count` — mutually exclusive per trip, keyed off
+  `tripSignature()` (the same ordered-complex_id signature `unique_trip_pattern_count` quests already
+  use): a signature never seen before is a new "unique trip" (ranked among all distinct patterns
+  ridden); a signature seen before reports how many times (including this one) that exact trip has
+  been ridden.
+- `nth_unique_station` — one per station (stop_id grain, matching Profile's `stationsVisited` stat)
+  this trip visited for the first time ever, ranked by running count.
+- `new_line_ridden` / `route_ride_count` — mutually exclusive per route ridden this trip: a route
+  never ridden before is a "new line," everything else reports lifetime ride count on that route.
+
+**"Discoveries" (`nth_unique_station`, `new_line_ridden`) are a separate, always-shown bucket** —
+`isDiscoveryFact()` flags them, and they're never subject to the ranking/cap below; every new
+station and every new line this trip touched is shown, full stop, with that line's icon and a tap
+target into the station/line page (mirroring trivia's station-reveal treatment). This was a direct
+revision mid-build: an earlier version scored "first ever" facts by novelty like everything else,
+which meant they could get crowded out by other facts on a busy trip — wrong for the two fact types
+that are the whole point of the app (finding new places).
+
+**Everything else is ranked by a novelty `priority` and adaptively capped** (`milestoneRank` — round
+numbers and true firsts score high, everything else a flat low baseline; `selectInsightsForDisplay`
+decides how many actually render):
+- When Quest progress or a trivia reveal is already showing, only the single highest-priority fact
+  that clears a real notability bar gets added — don't pile on.
+- **Exception:** a repeat of a trip the rider has ridden before is a guaranteed floor whenever this
+  trip produced no discoveries, regardless of priority rank or whether Quest progress/trivia are
+  already on the page — "you've done this exact trip N times" is exactly the piece of information a
+  routine commute should always surface, not something that can lose out to an unrelated quest tick.
+  Revised mid-build from an earlier version that only guaranteed this when *nothing else at all* was
+  on the page, which meant a trip with a completed quest but no new stations/lines could still show
+  up empty of any other insight.
+- When nothing else is on the page at all, the cap relaxes further (up to 3, backfilled by priority)
+  so a plain repeat trip isn't reduced to one line — the section is never empty on a routine trip.
+- `unique_trip_pattern`'s own priority scales by how much trip history already existed
+  (`firstEverPriority`) rather than always scoring maximally: a new route is unremarkable on trip #4
+  (exploring *is* what early usage looks like) but genuinely notable after an established history.
+  Fixed mid-build after early testing showed old trips dominated by "new route for you!"/"first ride
+  on the X!" almost every time, crowding out everything else.
+
+**Render order:** text/sparkle facts (`nth_trip_overall`, `unique_trip_pattern`, `trip_repeat_count`,
+`route_ride_count`) first, discoveries grouped below — discoveries already carry their own visual
+weight (icon, name, tap target), so they read better as a distinct group under the shorter lines
+rather than interleaved.
+
+**Side effect, not a regression:** fixing a related Quest progress display bug (a tiered quest's
+`ProgressBar` claiming "Completed!" as its own fraction text while only, e.g., 55% full toward the
+*next* tier — `target` is always the next unreached tier, see `evaluateTiers()`) required adding
+`tiers`/`tierIndex` to `QuestTripProgress` (`quests_logic.ts`), which `computeTripQuestProgressPure`
+now forwards from `evaluateQuestProgress()` same as `QuestProgress` already did. `trip.tsx` now shows
+a separate "Tier completed!" caption above an honest next-tier bar (with crossed tiers notched in via
+`ProgressBar`'s existing `ticks` prop) instead of overloading the bar's own text — same
+completion-badge-separate-from-progress-bar pattern the achievements detail page already used.
+`StationQuestsList.tsx`'s row picked up `ticks` too, matching the achievements list's row.
+
 ## Release
 
 - [x] Apple Developer Program membership renewed

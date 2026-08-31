@@ -50,7 +50,7 @@ export function StationQuestsList({ complexId }: { complexId: number }) {
                     <View style={styles.rowText}>
                         <Text style={styles.rowTitle}>{q.title}</Text>
                         {q.current !== null && q.target !== null && (
-                            <ProgressBar current={q.current} target={q.target} />
+                            <ProgressBar current={q.current} target={q.target} ticks={q.tiers} />
                         )}
                     </View>
                     <Ionicons name="chevron-forward" size={16} color="#ccc" />

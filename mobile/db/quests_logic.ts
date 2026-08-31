@@ -135,7 +135,7 @@ function stationRoutePairsRidden(history: RiderHistory, complexLookup: ComplexLo
     return pairs;
 }
 
-function legsByTrip(legs: Leg[]): Map<string, Leg[]> {
+export function legsByTrip(legs: Leg[]): Map<string, Leg[]> {
     const byTrip = new Map<string, Leg[]>();
     for (const leg of legs) {
         if (!byTrip.has(leg.tripId)) byTrip.set(leg.tripId, []);
@@ -170,7 +170,7 @@ function transferCount(history: RiderHistory): number {
     return total;
 }
 
-function ridesPerRoute(history: RiderHistory): Map<string, number> {
+export function ridesPerRoute(history: RiderHistory): Map<string, number> {
     const counts = new Map<string, number>();
     for (const leg of history.legs) {
         counts.set(leg.routeId, (counts.get(leg.routeId) ?? 0) + 1);
@@ -187,7 +187,7 @@ function ridesPerRoute(history: RiderHistory): Map<string, number> {
 // ones. Powers 'unique_trip_pattern_count': two trips through the exact
 // same stations in the exact same order are the same "ride"; reversing the
 // order (or any station differing) makes it a different one.
-function tripSignature(legs: Leg[], complexLookup: ComplexLookup): string | null {
+export function tripSignature(legs: Leg[], complexLookup: ComplexLookup): string | null {
     if (legs.length === 0) return null;
     const ordered = [...legs].sort((a, b) => a.sequence - b.sequence);
     const stops: number[] = [];
@@ -200,7 +200,7 @@ function tripSignature(legs: Leg[], complexLookup: ComplexLookup): string | null
     return stops.length > 0 ? stops.join('>') : null;
 }
 
-function tripSignaturesByTrip(history: RiderHistory, complexLookup: ComplexLookup): Map<string, string> {
+export function tripSignaturesByTrip(history: RiderHistory, complexLookup: ComplexLookup): Map<string, string> {
     const map = new Map<string, string>();
     for (const [tripId, legs] of legsByTrip(history.legs)) {
         const sig = tripSignature(legs, complexLookup);
@@ -209,7 +209,7 @@ function tripSignaturesByTrip(history: RiderHistory, complexLookup: ComplexLooku
     return map;
 }
 
-function uniqueTripPatternCount(history: RiderHistory, complexLookup: ComplexLookup): number {
+export function uniqueTripPatternCount(history: RiderHistory, complexLookup: ComplexLookup): number {
     return new Set(tripSignaturesByTrip(history, complexLookup).values()).size;
 }
 
@@ -455,6 +455,11 @@ export type QuestTripProgress = {
     currentBefore: number | null;
     currentAfter: number | null;
     target: number | null;
+    // Only present for counting-mechanism quests, same convention as
+    // QuestProgress -- lets the caller pass ProgressBar's `ticks` prop
+    // without re-deriving tier logic itself.
+    tiers?: number[];
+    tierIndex?: number;
 };
 
 /** Every quest this specific trip changed something on. historyBefore must
@@ -499,6 +504,7 @@ export function computeTripQuestProgressPure(
                 questId, title: quest.title,
                 completedBefore: before.completed, completedAfter: after.completed,
                 currentBefore: before.current, currentAfter: after.current, target: after.target,
+                tiers: after.tiers, tierIndex: after.tierIndex,
             });
         }
     }

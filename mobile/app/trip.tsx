@@ -9,6 +9,8 @@ import { useUserId } from '../contexts/AuthContext';
 import { getStationName, isNavigableRoute, normalizeRouteIdForIcon } from '../lib/subwayData';
 import { computeTripQuestProgress, type QuestTripProgress } from '../db/quests';
 import { computeTripTriviaReveals, type TriviaRevealDetail } from '../db/trivia';
+import { computeTripInsights, type EnrichedInsightFact } from '../db/insights';
+import { isDiscoveryFact, selectInsightsForDisplay } from '../db/insights_logic';
 import { deleteTrip } from '../db/projection';
 import { useTriviaPreferences } from '../contexts/TriviaPreferencesContext';
 import { getOrCreateDeviceId } from '../lib/device';
@@ -28,6 +30,7 @@ export default function TripDetailScreen() {
     const [legs, setLegs] = useState<LegRow[]>([]);
     const [questProgress, setQuestProgress] = useState<QuestTripProgress[]>([]);
     const [triviaReveals, setTriviaReveals] = useState<TriviaRevealDetail[]>([]);
+    const [insights, setInsights] = useState<EnrichedInsightFact[]>([]);
     const [loading, setLoading] = useState(true);
     const { factsEnabled } = useTriviaPreferences();
 
@@ -63,6 +66,13 @@ export default function TripDetailScreen() {
             if (tripRow) {
                 const progress = await computeTripQuestProgress(db, userId, tripRow.trip_id);
                 setQuestProgress(progress);
+
+                // Same "recompute from full history every visit" shape as quest
+                // progress/trivia above -- general, non-quest facts (repeat-trip
+                // counts, unique-station milestones, etc.), always computed
+                // regardless of the Fun Facts toggle since they're not trivia.
+                const insightFacts = await computeTripInsights(db, userId, tripRow.trip_id);
+                setInsights(insightFacts);
 
                 // Same "recompute from full history every visit" reasoning as
                 // the quest progress call above -- a trivia reveal is exactly
@@ -105,6 +115,24 @@ export default function TripDetailScreen() {
 
     if (loading) return <View style={styles.centered}><ActivityIndicator /></View>;
     if (!trip) return <View style={styles.centered}><Text style={styles.label}>Trip not found.</Text></View>;
+
+    // Discoveries (a brand new station or line) always show in full -- see
+    // isDiscoveryFact -- they're never subject to the ranking/cap below.
+    // Everything else adapts: when Quest progress, a trivia reveal, or a
+    // discovery already have something to show, only surface a genuinely
+    // notable extra insight (and just one) -- don't pile on, EXCEPT a repeat
+    // of a trip you've ridden before, which always shows as long as this
+    // trip itself had no discoveries (see selectInsightsForDisplay). When
+    // nothing else is on the page at all (the common routine-commute case),
+    // the cap relaxes further so a plain repeat trip isn't reduced to one
+    // line. See insights_logic.ts.
+    const discoveries = insights.filter(isDiscoveryFact);
+    const otherFacts = insights.filter((f) => !isDiscoveryFact(f));
+    const hasOtherContent = questProgress.length > 0 || (factsEnabled && triviaReveals.length > 0) || discoveries.length > 0;
+    // Sparkle/text insights read first, with the station/line discoveries
+    // (which already have their own visual weight -- icon, name, tap target)
+    // grouped below them.
+    const shownInsights = [...selectInsightsForDisplay(otherFacts, hasOtherContent, discoveries.length > 0), ...discoveries];
 
     return (
         <View style={styles.container}>
@@ -166,8 +194,22 @@ export default function TripDetailScreen() {
                                     />
                                     <View style={styles.questRowTextWrap}>
                                         <Text style={styles.questRowText}>{q.title}</Text>
+                                        {/* A separate "Completed!" caption, not the bar's own fraction
+                                            text -- for a tiered counting quest, `target` is always the
+                                            NEXT unreached tier (see quests_logic.ts's evaluateTiers), so
+                                            the bar itself has to stay honest (e.g. "5 of 10" toward tier
+                                            2) even on the trip that just crossed tier 1. Saying
+                                            "Completed!" as the bar's fraction text produced a
+                                            contradiction (a bar that's only 55% full claiming to be
+                                            done); splitting it into its own line above the bar keeps
+                                            both true at once -- same pattern the achievements detail
+                                            page already uses (a completion badge separate from the
+                                            honest next-tier bar). */}
+                                        {justCompleted && q.currentAfter !== null && (
+                                            <Text style={styles.questRowTierCompleted}>Tier completed!</Text>
+                                        )}
                                         {q.currentAfter !== null && q.target !== null && (
-                                            <ProgressBar current={q.currentAfter} target={q.target} completed={justCompleted} />
+                                            <ProgressBar current={q.currentAfter} target={q.target} ticks={q.tiers} />
                                         )}
                                         {q.currentAfter === null && justCompleted && (
                                             <Text style={styles.questRowProgress}>Completed!</Text>
@@ -204,9 +246,106 @@ export default function TripDetailScreen() {
                         })}
                     </View>
                 )}
+
+                {shownInsights.length > 0 && (
+                    <View style={styles.insightsSection}>
+                        <Text style={styles.insightsSectionTitle}>Insights</Text>
+                        {shownInsights.map((fact) => {
+                            // route_ride_count, new_line_ridden, and
+                            // nth_unique_station are tied to a specific line/station
+                            // -- navigable, with that line's icon, same as the leg
+                            // list above and the trivia section's rows. The other
+                            // fact types (overall trip count, repeat/pattern facts)
+                            // aren't about any single navigable entity, so they
+                            // render as plain rows.
+                            if (fact.type === 'route_ride_count' || fact.type === 'new_line_ridden') {
+                                const target = normalizeRouteIdForIcon(fact.routeId);
+                                const navigable = isNavigableRoute(target);
+                                return (
+                                    <Pressable
+                                        key={insightKey(fact)}
+                                        style={styles.insightRow}
+                                        onPress={navigable ? () => goToLine(fact.routeId) : undefined}
+                                        disabled={!navigable}
+                                    >
+                                        <View style={styles.insightIconWrap}>
+                                            <RouteIcon routeId={fact.routeId} onPress={null} size={26} />
+                                        </View>
+                                        <Text style={styles.insightText}>{insightText(fact)}</Text>
+                                        {navigable && <Ionicons name="chevron-forward" size={16} color="#ccc" />}
+                                    </Pressable>
+                                );
+                            }
+                            if (fact.type === 'nth_unique_station') {
+                                return (
+                                    <Pressable
+                                        key={insightKey(fact)}
+                                        style={styles.insightRow}
+                                        onPress={() => router.push(`/station/${fact.stopId}`)}
+                                    >
+                                        <View style={styles.insightIconWrap}>
+                                            <RouteIcon routeId={fact.routeId} onPress={null} size={26} />
+                                        </View>
+                                        <Text style={styles.insightText}>{insightText(fact)}</Text>
+                                        <Ionicons name="chevron-forward" size={16} color="#ccc" />
+                                    </Pressable>
+                                );
+                            }
+                            return (
+                                <View key={insightKey(fact)} style={styles.insightRow}>
+                                    <View style={styles.insightIconWrap}>
+                                        <Ionicons name="sparkles" size={20} color="#5b8def" />
+                                    </View>
+                                    <Text style={styles.insightText}>{insightText(fact)}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
+}
+
+function insightKey(fact: EnrichedInsightFact): string {
+    switch (fact.type) {
+        case 'nth_unique_station': return `station-${fact.stopId}`;
+        case 'route_ride_count':
+        case 'new_line_ridden': return `route-${fact.routeId}`;
+        default: return fact.type;
+    }
+}
+
+function ordinal(n: number): string {
+    const rem100 = n % 100;
+    if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+    switch (n % 10) {
+        case 1: return `${n}st`;
+        case 2: return `${n}nd`;
+        case 3: return `${n}rd`;
+        default: return `${n}th`;
+    }
+}
+
+// Per-type sentence templates -- the one place display text is derived from
+// a structured fact, kept deliberately dumb (a plain switch, no shared
+// phrasing logic) so a future narration layer can replace just this
+// function without touching how facts are computed or selected.
+function insightText(fact: EnrichedInsightFact): string {
+    switch (fact.type) {
+        case 'nth_trip_overall':
+            return `Trip #${fact.n} — keep it up!`;
+        case 'unique_trip_pattern':
+            return `New route! This is your ${ordinal(fact.n)} unique trip.`;
+        case 'trip_repeat_count':
+            return `You've ridden this exact trip ${fact.count} times now!`;
+        case 'nth_unique_station':
+            return `${fact.stationName} — new station visited!`;
+        case 'new_line_ridden':
+            return 'New line ridden!';
+        case 'route_ride_count':
+            return `You've ridden the ${fact.routeId} ${fact.count} times now!`;
+    }
 }
 
 const styles = StyleSheet.create({
@@ -228,10 +367,23 @@ const styles = StyleSheet.create({
     questRowTextWrap: { flex: 1 },
     questRowText: { fontSize: 15, color: '#333', fontWeight: '600' },
     questRowProgress: { fontSize: 13, color: '#777', marginTop: 2 },
+    // Sits between the title and the next-tier ProgressBar -- marginBottom
+    // gives the bar below it room to breathe instead of crowding right
+    // underneath the text.
+    questRowTierCompleted: { fontSize: 13, color: '#777', marginTop: 2, marginBottom: 6 },
     triviaSection: { backgroundColor: '#fdf6e8', borderRadius: 14, padding: 16, gap: 12 },
     triviaSectionTitle: { fontSize: 15, fontWeight: '700', color: '#8a6d1f' },
     triviaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     triviaTextWrap: { flex: 1, gap: 2 },
     triviaName: { fontSize: 15, fontWeight: '700', color: '#333' },
     triviaText: { fontSize: 15, color: '#333', lineHeight: 20 },
+    insightsSection: { backgroundColor: '#fdf6e8', borderRadius: 14, padding: 16, gap: 12 },
+    insightsSectionTitle: { fontSize: 15, fontWeight: '700', color: '#8a6d1f' },
+    insightRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    // Fixed-width so the sparkle icon (a smaller Ionicon) and the RouteIcon
+    // (26px, used for line/station insights) both center within the same
+    // box -- otherwise the smaller sparkle icon left text starting further
+    // left than rows with a RouteIcon, misaligning the text column.
+    insightIconWrap: { width: 26, alignItems: 'center', justifyContent: 'center' },
+    insightText: { fontSize: 15, color: '#333', flex: 1 },
 });
