@@ -10,11 +10,15 @@ import stationsData from '../data/stations.json';
 import { loadRiderHistory } from './quests';
 import { getTripEndpoints, type TripEndpoints } from './trips';
 import { testDataFilterSql } from './testDataFilter';
+import { rangeToStartDate, localMidnightToIsoUtc, type TimeRange } from '../lib/dateMath';
 import {
     computeProfileStatsPure,
+    computeTopFavoritesPure,
     type StationRefLookup,
     type StationStatus,
     type ProfileStats,
+    type FavoriteStation,
+    type RouteRideCount,
 } from './stations_logic';
 
 export type { StationStatus, ProfileStats } from './stations_logic';
@@ -132,4 +136,23 @@ export async function getSavedStations(
 export async function getProfileStats(db: SQLite.SQLiteDatabase, userId: string): Promise<ProfileStats> {
     const { history } = await loadRiderHistory(db, userId);
     return computeProfileStatsPure(history, STATION_REFS, ALL_STATION_IDS);
+}
+
+/** Top-5 most-ridden stations/lines within a time range -- feeds the Profile
+ *  page's favorites bar charts. Reuses the existing loadRiderHistory() (full
+ *  lifetime history, already used by getProfileStats/getAllQuestProgress/
+ *  etc.) and filters its legs down to the range in JS via tripDates, rather
+ *  than adding a new SQL query or a date param to the shared loader. */
+export async function getFavoritesForRange(
+    db: SQLite.SQLiteDatabase,
+    userId: string,
+    range: TimeRange
+): Promise<{ stations: FavoriteStation[]; lines: RouteRideCount[] }> {
+    const { history, tripDates } = await loadRiderHistory(db, userId);
+    const cutoff = rangeToStartDate(range);
+    const cutoffIso = cutoff === null ? null : localMidnightToIsoUtc(cutoff);
+    const legs = cutoffIso === null
+        ? history.legs
+        : history.legs.filter((leg) => (tripDates[leg.tripId] ?? '') >= cutoffIso);
+    return computeTopFavoritesPure(legs, STATION_REFS, 5);
 }

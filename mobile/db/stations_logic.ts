@@ -8,7 +8,7 @@
 // into this file with plain data -- never the reverse. Testable via plain
 // tsx, no device needed.
 
-import type { RiderHistory } from './quests_logic';
+import type { Leg, RiderHistory } from './quests_logic';
 
 // stop_id -> reference data needed for display/aggregation. Built by
 // stations.ts from bundled stations.json -- this module never reads JSON
@@ -27,8 +27,6 @@ export type ProfileStats = {
     totalStations: number;
     pctVisitedOverall: number; // 0-100, rounded to 1 decimal
     pctVisitedByBorough: BoroughCoverage[];
-    favoriteStations: FavoriteStation[]; // most-visited, ties included
-    favoriteLines: RouteRideCount[]; // most-ridden, ties included
 };
 
 /** Every distinct GTFS stop_id this rider has ever entered or exited at --
@@ -54,38 +52,6 @@ export function computeProfileStatsPure(
 ): ProfileStats {
     const visited = getVisitedStationIdsPure(history);
 
-    // Rides per station -- entry AND exit both count, since "most-visited"
-    // is about how often this station showed up in a trip, not distinct
-    // trips touching it.
-    const stationRideCounts = new Map<string, number>();
-    for (const leg of history.legs) {
-        stationRideCounts.set(leg.entryStationId, (stationRideCounts.get(leg.entryStationId) ?? 0) + 1);
-        stationRideCounts.set(leg.exitStationId, (stationRideCounts.get(leg.exitStationId) ?? 0) + 1);
-    }
-    const maxStationCount = stationRideCounts.size > 0 ? Math.max(...stationRideCounts.values()) : 0;
-    const favoriteStations: FavoriteStation[] = maxStationCount > 0
-        ? [...stationRideCounts.entries()]
-            .filter(([, c]) => c === maxStationCount)
-            .map(([stationId, rideCount]) => ({
-                stationId, rideCount,
-                name: stationRefs[stationId]?.name ?? stationId,
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name))
-        : [];
-
-    // Rides per route.
-    const routeRideCounts = new Map<string, number>();
-    for (const leg of history.legs) {
-        routeRideCounts.set(leg.routeId, (routeRideCounts.get(leg.routeId) ?? 0) + 1);
-    }
-    const maxRouteCount = routeRideCounts.size > 0 ? Math.max(...routeRideCounts.values()) : 0;
-    const favoriteLines: RouteRideCount[] = maxRouteCount > 0
-        ? [...routeRideCounts.entries()]
-            .filter(([, c]) => c === maxRouteCount)
-            .map(([routeId, rideCount]) => ({ routeId, rideCount }))
-            .sort((a, b) => a.routeId.localeCompare(b.routeId))
-        : [];
-
     // % visited by borough.
     const boroughTotals = new Map<string, number>();
     const boroughVisited = new Map<string, number>();
@@ -108,7 +74,38 @@ export function computeProfileStatsPure(
         totalStations: allStationIds.length,
         pctVisitedOverall: allStationIds.length > 0 ? round1((visited.size / allStationIds.length) * 100) : 0,
         pctVisitedByBorough,
-        favoriteStations,
-        favoriteLines,
     };
+}
+
+/** Top-N most-ridden stations and lines within a given set of legs (already
+ *  date-filtered by the caller, if a time range applies) -- same per-station
+ *  (entry AND exit both count) and per-route counting as
+ *  computeProfileStatsPure above, but ranked and sliced to `limit` instead of
+ *  filtered to ties at the max. Feeds the Profile page's favorites bar
+ *  charts. Fewer than `limit` distinct stations/lines just returns fewer --
+ *  no zero-padding. */
+export function computeTopFavoritesPure(
+    legs: Leg[],
+    stationRefs: StationRefLookup,
+    limit = 5
+): { stations: FavoriteStation[]; lines: RouteRideCount[] } {
+    const stationRideCounts = new Map<string, number>();
+    const routeRideCounts = new Map<string, number>();
+    for (const leg of legs) {
+        stationRideCounts.set(leg.entryStationId, (stationRideCounts.get(leg.entryStationId) ?? 0) + 1);
+        stationRideCounts.set(leg.exitStationId, (stationRideCounts.get(leg.exitStationId) ?? 0) + 1);
+        routeRideCounts.set(leg.routeId, (routeRideCounts.get(leg.routeId) ?? 0) + 1);
+    }
+
+    const stations: FavoriteStation[] = [...stationRideCounts.entries()]
+        .map(([stationId, rideCount]) => ({ stationId, rideCount, name: stationRefs[stationId]?.name ?? stationId }))
+        .sort((a, b) => b.rideCount - a.rideCount || a.name.localeCompare(b.name))
+        .slice(0, limit);
+
+    const lines: RouteRideCount[] = [...routeRideCounts.entries()]
+        .map(([routeId, rideCount]) => ({ routeId, rideCount }))
+        .sort((a, b) => b.rideCount - a.rideCount || a.routeId.localeCompare(b.routeId))
+        .slice(0, limit);
+
+    return { stations, lines };
 }

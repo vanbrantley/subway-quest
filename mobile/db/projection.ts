@@ -13,6 +13,9 @@
 import * as SQLite from 'expo-sqlite';
 import { randomUUID } from 'expo-crypto';
 import { IS_DEV_MODE } from '../lib/devMode';
+import { localDateString } from '../lib/dateMath';
+
+export { localDateString };
 
 export type DraftLeg = {
     sequence: number; // 1-based, contiguous — the draft screen is responsible for
@@ -40,16 +43,6 @@ export type CommitContext = {
 const EVENT_VERSION = 1;
 const LEG_BOARDED_VERSION = 2; // payload gained `sequence` — see data-layer.md's
 // "Rehydration-on-sign-in" section for why
-
-/** Local calendar date ('YYYY-MM-DD') for a given moment. Deliberately NOT
- *  `date.toISOString().slice(0, 10)` — that returns the UTC calendar date,
- *  which is wrong near local midnight (see buildOccurredAt below). */
-export function localDateString(d: Date = new Date()): string {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
 
 /** Combines the user-picked local calendar date with the actual current
  *  local time-of-day, producing a correct UTC instant. Only the date is

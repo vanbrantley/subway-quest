@@ -15,9 +15,12 @@ import { LINE_COLORS } from '../../constants/lineColors';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
+import { getLineStopRideHistory } from '../../db/trips';
+import type { StopRideEvent } from '../../db/trips_logic';
 import { getLineStationItems, getShuttleStationItems, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LineTriviaFact } from '../../components/trivia/LineTriviaFact';
+import { StopRideHistory } from '../../components/line/StopRideHistory';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 
 function LineIcon({ routeId, size }: { routeId: string; size: number }) {
@@ -30,7 +33,16 @@ function LineIcon({ routeId, size }: { routeId: string; size: number }) {
     );
 }
 
-function StationRow({ stopId, visited, onPress }: { stopId: string; visited: boolean; onPress: () => void }) {
+function StationRow({
+    stopId, visited, onPress, rideEvents, expanded, onToggleExpand,
+}: {
+    stopId: string;
+    visited: boolean;
+    onPress: () => void;
+    rideEvents: StopRideEvent[];
+    expanded: boolean;
+    onToggleExpand: () => void;
+}) {
     // Lightweight transfer indicator — up to 2 small secondary icons for
     // other lines reachable at this stop's complex. Deliberately not a
     // labeled two-group split (that's the Station page's job) — too dense
@@ -38,20 +50,36 @@ function StationRow({ stopId, visited, onPress }: { stopId: string; visited: boo
     const transferRoutes = useMemo(() => getOtherComplexRoutes(stopId), [stopId]);
 
     return (
-        <Pressable style={styles.row} onPress={onPress}>
-            <Ionicons
-                name={visited ? 'checkmark-circle' : 'ellipse-outline'}
-                size={20}
-                color={visited ? '#3d9a5c' : '#ccc'}
-            />
-            <Text style={styles.rowText} numberOfLines={1}>{getStationName(stopId)}</Text>
-            {transferRoutes.length > 0 && (
-                <View style={styles.transferIcons}>
-                    {transferRoutes.slice(0, 2).map((r) => <LineIcon key={r} routeId={r} size={16} />)}
-                </View>
-            )}
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
-        </Pressable>
+        <View>
+            <Pressable style={styles.row} onPress={onPress}>
+                <Ionicons
+                    name={visited ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={20}
+                    color={visited ? '#3d9a5c' : '#ccc'}
+                />
+                <Text style={styles.rowText} numberOfLines={1}>{getStationName(stopId)}</Text>
+                {transferRoutes.length > 0 && (
+                    <View style={styles.transferIcons}>
+                        {transferRoutes.slice(0, 2).map((r) => <LineIcon key={r} routeId={r} size={16} />)}
+                    </View>
+                )}
+                {rideEvents.length > 0 && (
+                    // Separate hit target from the row's own onPress (which
+                    // still navigates to the Station page) -- expanding ride
+                    // history is a distinct action from opening the station.
+                    <Pressable
+                        onPress={onToggleExpand}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={expanded ? 'Hide ride history' : 'Show ride history'}
+                    >
+                        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#888" />
+                    </Pressable>
+                )}
+                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            </Pressable>
+            {expanded && rideEvents.length > 0 && <StopRideHistory events={rideEvents} />}
+        </View>
     );
 }
 
@@ -86,6 +114,17 @@ export default function LineScreen() {
     const userId = useUserId();
     const insets = useSafeAreaInsets();
     const [statuses, setStatuses] = useState<Record<string, StationStatus> | null>(null);
+    const [rideHistoryByStop, setRideHistoryByStop] = useState<Record<string, StopRideEvent[]> | null>(null);
+    const [expandedStops, setExpandedStops] = useState<Set<string>>(new Set());
+
+    function toggleStopExpanded(stopId: string) {
+        setExpandedStops((prev) => {
+            const next = new Set(prev);
+            if (next.has(stopId)) next.delete(stopId);
+            else next.add(stopId);
+            return next;
+        });
+    }
 
     // 'S' isn't a branching route with a shared trunk -- it's three separate,
     // unrelated shuttles sharing one display icon. getShuttleStationItems()
@@ -109,7 +148,12 @@ export default function LineScreen() {
 
     useEffect(() => {
         (async () => {
-            setStatuses(await getAllStationStatuses(db, userId));
+            const [allStatuses, stopRideHistory] = await Promise.all([
+                getAllStationStatuses(db, userId),
+                getLineStopRideHistory(db, userId, lineId),
+            ]);
+            setStatuses(allStatuses);
+            setRideHistoryByStop(stopRideHistory);
             const deviceId = await getOrCreateDeviceId();
             await writeProductEvent(db, 'route_detail_opened', { route_id: lineId }, { deviceId, userId });
         })();
@@ -136,7 +180,7 @@ export default function LineScreen() {
                 </Pressable>
             </View>
 
-            {!statuses ? (
+            {!statuses || !rideHistoryByStop ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
@@ -160,6 +204,9 @@ export default function LineScreen() {
                                     stopId={item.stopId}
                                     visited={statuses[item.stopId]?.visited ?? false}
                                     onPress={() => goToStation(item.stopId)}
+                                    rideEvents={rideHistoryByStop[item.stopId] ?? []}
+                                    expanded={expandedStops.has(item.stopId)}
+                                    onToggleExpand={() => toggleStopExpanded(item.stopId)}
                                 />
                             );
                         }

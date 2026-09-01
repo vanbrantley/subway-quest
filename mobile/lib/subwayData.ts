@@ -216,6 +216,15 @@ export function getShuttleGroups(): ShuttleGroup[] {
     }));
 }
 
+// Real route_ids a leg could actually be logged under for a given display
+// line -- 'S' expands to its three real shuttles (legs.route_id is never
+// literally 'S', see SHUTTLE_ROUTE_IDS above), everything else is just
+// itself. Used by the Line page's per-stop ride history query, which needs
+// real route_ids to match against legs.route_id, not the display grouping.
+export function routeIdsForLine(lineId: string): string[] {
+    return lineId === 'S' ? [...SHUTTLE_ROUTE_IDS] : [lineId];
+}
+
 export function getStationIdsForRoute(routeId: string): string[] {
     const seen = new Set<string>();
     const ordered: string[] = [];

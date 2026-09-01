@@ -6,7 +6,7 @@
 // imports).
 
 import type { Leg, Trip, RiderHistory } from './quests_logic';
-import { getVisitedStationIdsPure, computeProfileStatsPure, type StationRefLookup } from './stations_logic';
+import { getVisitedStationIdsPure, computeProfileStatsPure, computeTopFavoritesPure, type StationRefLookup } from './stations_logic';
 
 let passed = 0;
 let failed = 0;
@@ -60,32 +60,6 @@ const allStationIds = ['A1', 'A2', 'B1', 'B2', 'C1']; // 2 Q, 2 M, 1 Bk
     check('pctVisitedOverall = 3/5 = 60', stats.pctVisitedOverall === 60);
 }
 
-// ---- favorite station: most-visited by entry+exit count, ties included ----
-{
-    const history: RiderHistory = {
-        trips: [trip('t1', 'A1', 'B1'), trip('t2', 'B1', 'A1')],
-        legs: [leg('t1', 1, 'N', 'A1', 'B1'), leg('t2', 1, 'N', 'B1', 'A1')],
-    };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
-    // A1 and B1 each appear twice (once as entry, once as exit, across the two trips)
-    check('favorite station is a tie between A1 and B1', stats.favoriteStations.length === 2);
-    check('tie sorted by name', stats.favoriteStations[0].stationId === 'A1'); // "Astoria-Ditmars Blvd" < "Union Sq"
-}
-
-// ---- favorite line ----
-{
-    const history: RiderHistory = {
-        trips: [trip('t1', 'A1', 'B1'), trip('t2', 'A1', 'B1'), trip('t3', 'B1', 'B2')],
-        legs: [
-            leg('t1', 1, 'N', 'A1', 'B1'),
-            leg('t2', 1, 'N', 'A1', 'B1'),
-            leg('t3', 1, 'L', 'B1', 'B2'),
-        ],
-    };
-    const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
-    check('favorite line is N (ridden twice)', stats.favoriteLines.length === 1 && stats.favoriteLines[0].routeId === 'N');
-}
-
 // ---- % visited by borough ----
 {
     const history: RiderHistory = {
@@ -103,9 +77,39 @@ const allStationIds = ['A1', 'A2', 'B1', 'B2', 'C1']; // 2 Q, 2 M, 1 Bk
 {
     const history: RiderHistory = { trips: [], legs: [] };
     const stats = computeProfileStatsPure(history, stationRefs, allStationIds);
-    check('empty history: no favorite stations', stats.favoriteStations.length === 0);
-    check('empty history: no favorite lines', stats.favoriteLines.length === 0);
     check('empty history: 0% overall', stats.pctVisitedOverall === 0);
+}
+
+// ---- computeTopFavoritesPure: ranked descending, ties broken alphabetically ----
+{
+    const legs = [
+        leg('t1', 1, 'N', 'A1', 'B1'), // A1 +1, B1 +1, N +1
+        leg('t2', 1, 'N', 'B1', 'A1'), // B1 +1, A1 +1, N +1
+        leg('t3', 1, 'L', 'B1', 'B2'), // B1 +1, B2 +1, L +1
+    ];
+    // A1: 2, B1: 3, B2: 1 | N: 2, L: 1
+    const { stations, lines } = computeTopFavoritesPure(legs, stationRefs, 5);
+    check('stations ranked descending by ride count', stations[0].stationId === 'B1' && stations[0].rideCount === 3);
+    check('all distinct stations returned when under the limit', stations.length === 3);
+    check('lines ranked descending by ride count', lines[0].routeId === 'N' && lines[0].rideCount === 2);
+}
+
+// ---- computeTopFavoritesPure: limit truncates, no zero-padding below it ----
+{
+    const legs = [
+        leg('t1', 1, 'N', 'A1', 'A2'),
+        leg('t2', 1, 'N', 'B1', 'B2'),
+        leg('t3', 1, 'N', 'C1', 'A1'),
+    ];
+    const { stations } = computeTopFavoritesPure(legs, stationRefs, 2);
+    check('limit truncates the ranked list', stations.length === 2);
+}
+
+// ---- computeTopFavoritesPure: empty legs returns empty, no crash ----
+{
+    const { stations, lines } = computeTopFavoritesPure([], stationRefs, 5);
+    check('empty legs: no favorite stations', stations.length === 0);
+    check('empty legs: no favorite lines', lines.length === 0);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

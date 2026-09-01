@@ -659,6 +659,71 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
       the name. Icon sizes across favorite station/favorite line/least-travelled standardized to one
       shared `FAVORITES_ICON_SIZE` (32px) after initial per-context sizing looked visually inconsistent
       as a group. See the Profile file-by-file bullet above for detail.
+- [x] **Profile charts/heatmap/streaks + Line page per-stop ride history** — first round of a
+      Profile-page time-series revamp; `getProfileStats()` previously had no time dimension at all
+      (`loadRiderHistory`'s `tripDates` map was computed and discarded). All charts hand-built with
+      `react-native-svg`, no charting library added.
+      - **Favorites → top-5 bar charts, time-filterable.** Replaces the old single
+        favorite-station/favorite-line rows (round 1c) with ranked horizontal bar charts (line-colored
+        bars, route icons, count at the end), filterable All-time/30 days/Week via a new shared
+        `components/ui/TimeRangeFilter.tsx`. `stations_logic.ts`'s `computeTopFavoritesPure()` (ranks +
+        slices to N, no zero-padding below the limit) replaces the old tie-at-max
+        `favoriteStations`/`favoriteLines` fields on `ProfileStats` (removed — dead once nothing read
+        them); `stations.ts`'s `getFavoritesForRange()` reuses the existing, unmodified
+        `loadRiderHistory()` and filters legs in JS via `tripDates`, rather than adding a new SQL query
+        or a date param to the shared loader (6 other call sites depend on it staying full/unfiltered).
+      - **Trip history collapsed to 5 by default**, "Show 10 more" progressive disclosure (not
+        infinite scroll — predictable scroll position, simpler to make accessible) up to "Show all
+        remaining," plus "Show less" to collapse back; independently time-range-filterable. Entirely
+        client-side (`components/profile/TripHistoryList.tsx`) — `getTripHistory()` already returned
+        every trip with `startedAt`, no SQL pagination needed.
+      - **Calendar heatmap + streak stats, new "Activity" section.** GitHub-contribution-graph-style
+        grid (`components/profile/RideHeatmap.tsx`), current/longest streak stat tiles. Bucketing is
+        done in JS via a new `lib/dateMath.ts` (local calendar-day math — `localDateString` moved here
+        from `db/projection.ts`, which now imports/re-exports it), deliberately not SQLite
+        `date()`/`strftime()`: `trips.started_at` is a UTC instant, and SQL-side bucketing would group
+        by UTC calendar day, wrong near local midnight (same bug class documented on
+        `buildOccurredAt`). `db/ride_activity_logic.ts` (new, pure, 19 tests) — day-bucketing, dense
+        week-grid construction, and streak computation. **Streak uses grace-day semantics** (confirmed
+        with Van): a streak stays alive until a full calendar day passes with zero rides — an
+        unlogged-yet today doesn't zero out yesterday's streak.
+        **Follow-up, on-device testing feedback:** heatmap only filled however much width a rider's
+        actual history spanned, reading as a rendering bug for newer accounts — fixed by measuring the
+        container's real width via `onLayout` and using it as a floor on `weeksBack` (extra columns
+        beyond real history render as ordinary 0-count gray cells via `buildHeatmapWeeks`'s existing
+        dense zero-fill, so no `ride_activity_logic.ts` changes needed; cell size itself stays fixed,
+        matching GitHub's reference look, rather than stretching to fit). Added a Less→More legend row
+        (5 swatches sampled from the existing `intensityColor()` ramp, not re-hardcoded). Added
+        tap-to-reveal: each cell is now a `<G>` of two `Rect`s — a full-14px transparent hit-target
+        `Rect` (`fill="transparent"`, not `"none"`, since RNSVG only hit-tests filled area) carrying
+        `onPress`, with the visible 11px colored `Rect` on top marked `pointerEvents="none"` so taps
+        always fall through to the hit-target rather than being swallowed by the topmost,
+        handler-less decorative shape — needed since the visible cells are well under any reasonable
+        touch-target size. Selecting a cell shows "N rides on August 3rd." below the legend via a new
+        `friendlyDateLocal()` in `lib/dateMath.ts` (ordinal-day formatting, year suffix only when it
+        differs from the current year — no such formatter existed anywhere in the app before this;
+        every other trip-date display still uses raw `toLocaleDateString()`). Month-axis labels gained
+        a year suffix on January specifically (`Jan '25`) since the window can span up to
+        `MAX_WEEKS_BACK` (~2 years) where a repeated month abbreviation is genuinely ambiguous — GitHub's
+        own graph never needs this since it's always exactly a rolling 12 months. **On-device-verify
+        flagged, not yet confirmed:** `Rect`'s `onPress` inside a horizontally-scrolling `ScrollView`
+        has no other precedent in this codebase (no other SVG shape here uses `onPress`) — needs a
+        physical check that a plain tap isn't swallowed/delayed by the ScrollView's own pan-gesture
+        recognizer.
+      - **Line page: per-stop ride history**, expandable under each stop (boarded/alighted events,
+        same entry+exit "visited" grain as the rest of the app — legs don't store intermediate-stop
+        path data, so this is "rode from/to this stop," not full route tracing; confirmed with Van as
+        the right scope). New `db/trips_logic.ts` (pure, first `_logic.ts` sibling for `trips.ts`, 6
+        tests) — `groupLegsByStopPure()`. `trips.ts` gained `getLegsForRoutes()`/
+        `getLineStopRideHistory()`; `subwayData.ts` gained `routeIdsForLine()` (expands `'S'` to its
+        three real shuttle route_ids — `legs.route_id` is never literally `'S'`).
+      - New shared `components/ui/SectionHeader.tsx` bug caught mid-build: Profile's old *local*
+        `SectionHeader` (a same-named duplicate, not the actual shared component achievements/
+        `[questId].tsx` already used) got consolidated into the real shared one — but that component's
+        margins couldn't just become Profile's values, since achievements' content container already
+        applies its own `gap: 24` between children (Profile's `gap: 4` relies on each header's own top
+        margin instead). Fixed via an opt-in `style` prop rather than changing the shared default —
+        Profile passes its own `sectionSpacing` override, achievements' usage is untouched.
 - [ ] **UI polish pass, round 2** — no fixed spec; further general visual/interaction refinement across
       the four milestone-9 pages plus Search, judged by feel rather than a checklist. Worth scoping to
       a concrete list of specific complaints before starting, so it has a real finish line rather than

@@ -1,5 +1,5 @@
 // mobile/app/(tabs)/profile/index.tsx
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,15 +9,19 @@ import { useUserId } from '../../../contexts/AuthContext';
 import { registerProfileNavigation } from '../../../lib/tabBarReset';
 import { registerProfileScrollReset } from '../../../lib/tabBarScrollReset';
 import { TAB_BAR_HEIGHT } from '../../../components/CustomTabBar';
-import { getBoroughName, getStation, isNavigableRoute, normalizeRouteIdForIcon } from '../../../lib/subwayData';
-import { getProfileStats, getSavedStations, type ProfileStats, type SavedStation } from '../../../db/stations';
+import { getBoroughName, getStation } from '../../../lib/subwayData';
+import { localDateString, type TimeRange } from '../../../lib/dateMath';
+import { getProfileStats, getSavedStations, getFavoritesForRange, type ProfileStats, type SavedStation } from '../../../db/stations';
 import { getTripHistory, type TripHistoryEntry } from '../../../db/trips';
+import { bucketRidesByLocalDay, computeStreaksPure } from '../../../db/ride_activity_logic';
+import type { FavoriteStation, RouteRideCount } from '../../../db/stations_logic';
 import { ProfileQuestsSummary } from '../../../components/quests/ProfileQuestsSummary';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
-import { TripHistoryRow } from '../../../components/ui/TripHistoryRow';
 import { RouteIcon } from '../../../components/ui/RouteIcon';
-
-type FavoriteStationEntry = ProfileStats['favoriteStations'][number];
+import { SectionHeader } from '../../../components/ui/SectionHeader';
+import { FavoritesCharts } from '../../../components/profile/FavoritesCharts';
+import { TripHistoryList } from '../../../components/profile/TripHistoryList';
+import { RideHeatmap } from '../../../components/profile/RideHeatmap';
 
 function StatTile({ label, value }: { label: string; value: string | number }) {
     return (
@@ -25,41 +29,6 @@ function StatTile({ label, value }: { label: string; value: string | number }) {
             <Text style={styles.statValue}>{value}</Text>
             <Text style={styles.statLabel}>{label}</Text>
         </View>
-    );
-}
-
-function SectionHeader({ title }: { title: string }) {
-    return <Text style={styles.sectionHeader}>{title}</Text>;
-}
-
-// Shared across favorite station/favorite line so the two sit together as
-// one visually consistent unit rather than each picking its own size in
-// isolation.
-const FAVORITES_ICON_SIZE = 32;
-
-// Tappable line icon, guarded by isNavigableRoute the same way
-// station/[stationId].tsx's/trip.tsx's goToLine() are -- some ridden routes
-// (the shuttle-grouping gap, see status.md's "Mobile UI -- remaining") have
-// no Line page to push to yet.
-function LineIconLink({ routeId, size = FAVORITES_ICON_SIZE }: { routeId: string; size?: number }) {
-    const target = normalizeRouteIdForIcon(routeId);
-    const navigable = isNavigableRoute(target);
-    return <RouteIcon routeId={routeId} onPress={navigable ? () => router.push(`/line/${target}`) : null} size={size} />;
-}
-
-// One pick from the (already alphabetically-sorted) tie list -- "favorite"
-// reads as singular, so a tie just resolves to the first one rather than
-// listing every station/line tied for most-ridden.
-function FavoriteStationRow({ station }: { station: FavoriteStationEntry }) {
-    const routes = getStation(station.stationId)?.daytime_routes ?? [];
-    return (
-        <Pressable style={styles.row} onPress={() => router.push(`/station/${station.stationId}`)}>
-            <View style={styles.rowIcons}>
-                {routes.map((r) => <RouteIcon key={r} routeId={r} onPress={null} size={FAVORITES_ICON_SIZE} />)}
-            </View>
-            <Text style={styles.rowText} numberOfLines={1}>{station.name}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
-        </Pressable>
     );
 }
 
@@ -110,6 +79,26 @@ export default function ProfileScreen() {
         }, [db, userId])
     );
 
+    // Own state/fetch, separate from the effect above -- switching the
+    // favorites time range shouldn't refetch stats/savedStations/trips too.
+    const [favorites, setFavorites] = useState<{ stations: FavoriteStation[]; lines: RouteRideCount[] } | null>(null);
+    const [favoritesRange, setFavoritesRange] = useState<TimeRange>('all');
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            (async () => {
+                const result = await getFavoritesForRange(db, userId, favoritesRange);
+                if (!cancelled) setFavorites(result);
+            })();
+            return () => { cancelled = true; };
+        }, [db, userId, favoritesRange])
+    );
+
+    // Derived from the same trips already loaded for Trip History -- no
+    // separate fetch needed for the heatmap/streak stats.
+    const dayCounts = useMemo(() => bucketRidesByLocalDay((trips ?? []).map((t) => t.startedAt)), [trips]);
+    const streaks = useMemo(() => computeStreaksPure(dayCounts, localDateString()), [dayCounts]);
+
     if (!stats || !savedStations || !trips) {
         return <View style={styles.centered}><ActivityIndicator /></View>;
     }
@@ -130,7 +119,7 @@ export default function ProfileScreen() {
                     <StatTile label="Network explored" value={`${stats.pctVisitedOverall}%`} />
                 </View>
 
-                <SectionHeader title="By borough" />
+                <SectionHeader title="By borough" style={styles.sectionSpacing} />
                 {stats.pctVisitedByBorough.map((b) => (
                     <View key={b.borough} style={styles.boroughRow}>
                         <View style={styles.boroughHeaderRow}>
@@ -141,30 +130,23 @@ export default function ProfileScreen() {
                     </View>
                 ))}
 
-                <SectionHeader title="Favorites" />
-
-                <Text style={styles.favoritesLabel}>Favorite station</Text>
-                {stats.favoriteStations.length > 0 ? (
-                    <FavoriteStationRow station={stats.favoriteStations[0]} />
+                <SectionHeader title="Activity" style={styles.sectionSpacing} />
+                <View style={styles.statsRow}>
+                    <StatTile label="Current streak" value={`${streaks.currentStreak}d`} />
+                    <StatTile label="Longest streak" value={`${streaks.longestStreak}d`} />
+                </View>
+                {dayCounts.length > 0 ? (
+                    <RideHeatmap dayCounts={dayCounts} />
                 ) : (
-                    <Text style={styles.emptyText}>—</Text>
+                    <Text style={styles.emptyText}>No rides logged yet.</Text>
                 )}
 
-                <Text style={[styles.favoritesLabel, styles.favoritesLabelSpaced]}>Favorite line</Text>
-                {stats.favoriteLines.length > 0 ? (
-                    <LineIconLink routeId={stats.favoriteLines[0].routeId} />
-                ) : (
-                    <Text style={styles.emptyText}>—</Text>
-                )}
+                <SectionHeader title="Favorites" style={styles.sectionSpacing} />
+                <FavoritesCharts favorites={favorites} range={favoritesRange} onRangeChange={setFavoritesRange} />
 
-                <SectionHeader title={`Trip history (${trips.length})`} />
-                {trips.length === 0 ? (
-                    <Text style={styles.emptyText}>No trips logged yet.</Text>
-                ) : (
-                    trips.map((t) => <TripHistoryRow key={t.tripId} {...t} />)
-                )}
+                <TripHistoryList trips={trips} />
 
-                <SectionHeader title={`Saved stations (${savedStations.length})`} />
+                <SectionHeader title={`Saved stations (${savedStations.length})`} style={styles.sectionSpacing} />
                 {savedStations.length === 0 ? (
                     <Text style={styles.emptyText}>No saved stations yet.</Text>
                 ) : (
@@ -187,7 +169,7 @@ export default function ProfileScreen() {
                     })
                 )}
 
-                <SectionHeader title="Achievements" />
+                <SectionHeader title="Achievements" style={styles.sectionSpacing} />
                 <ProfileQuestsSummary />
             </ScrollView>
         </View>
@@ -204,13 +186,16 @@ const styles = StyleSheet.create({
     statTile: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
     statValue: { fontSize: 20, fontWeight: '700', color: '#111' },
     statLabel: { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'center' },
-    sectionHeader: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 20, marginBottom: 8 },
+    // This page's content container uses a small gap: 4 between children
+    // (unlike e.g. achievements/[questId].tsx's gap: 24), so each top-level
+    // section header carries its own top margin instead of relying on the
+    // parent gap -- see SectionHeader.tsx's comment on why this can't be
+    // that component's own default.
+    sectionSpacing: { marginTop: 20 },
     boroughRow: { paddingVertical: 6, gap: 4 },
     boroughHeaderRow: { flexDirection: 'row', justifyContent: 'space-between' },
     boroughName: { fontSize: 14, color: '#333' },
     boroughPct: { fontSize: 14, color: '#888' },
-    favoritesLabel: { fontSize: 12, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
-    favoritesLabelSpaced: { marginTop: 16 },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
     rowIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flexShrink: 0 },
