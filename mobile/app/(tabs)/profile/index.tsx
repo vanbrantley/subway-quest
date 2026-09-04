@@ -120,6 +120,9 @@ export default function ProfileScreen() {
                     <StatTile label="Network explored" value={`${stats.pctVisitedOverall}%`} />
                 </View>
 
+                <SectionHeader title="Achievements" style={styles.sectionSpacing} />
+                <ProfileQuestsSummary />
+
                 <SectionHeader title="By borough" style={styles.sectionSpacing} />
                 {stats.pctVisitedByBorough.map((b) => (
                     <View key={b.borough} style={styles.boroughRow}>
@@ -132,7 +135,7 @@ export default function ProfileScreen() {
                 ))}
 
                 <SectionHeader title="Activity" style={styles.sectionSpacing} />
-                <View style={styles.statsRow}>
+                <View style={[styles.statsRow, styles.statsRowSpaced]}>
                     <StatTile label="Current streak" value={`${streaks.currentStreak}d`} />
                     <StatTile label="Longest streak" value={`${streaks.longestStreak}d`} />
                 </View>
@@ -172,9 +175,6 @@ export default function ProfileScreen() {
                         );
                     }}
                 />
-
-                <SectionHeader title="Achievements" style={styles.sectionSpacing} />
-                <ProfileQuestsSummary />
             </ScrollView>
         </View>
     );
@@ -186,7 +186,14 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
     title: { fontSize: 22, fontWeight: '700' },
     content: { padding: 20, paddingTop: 4, gap: 4 },
-    statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    // No marginBottom here -- whatever follows this row is always a
+    // SectionHeader now, which already contributes its own marginTop via
+    // sectionSpacing; adding a second margin here just doubled the gap. The
+    // streak-tiles row (statsRowSpaced) is the one exception that still
+    // needs its own trailing margin, since RideHeatmap/its empty state has
+    // no leading margin of its own.
+    statsRow: { flexDirection: 'row', gap: 12 },
+    statsRowSpaced: { marginBottom: 20 },
     statTile: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
     statValue: { fontSize: 20, fontWeight: '700', color: '#111' },
     statLabel: { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'center' },
