@@ -208,6 +208,14 @@ export type ShuttleGroup = { routeId: string; label: string; stops: string[] };
 // route with a shared trunk, it's three unrelated routes sharing one display
 // icon, so labeling by real shuttle name (not by shared-segment geometry)
 // is the correct grouping here.
+// The specific shuttle's display name (e.g. "Franklin Ave Shuttle") when
+// routeId is one of the three real shuttles, else null — used by the line
+// page to label a specific-shuttle page, since its icon alone (S) doesn't
+// distinguish it from the other two.
+export function getShuttleName(routeId: string): string | null {
+    return SHUTTLE_NAMES[routeId] ?? null;
+}
+
 export function getShuttleGroups(): ShuttleGroup[] {
     return SHUTTLE_ROUTE_IDS.map((routeId) => ({
         routeId,

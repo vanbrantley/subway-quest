@@ -68,10 +68,16 @@ export type TripHistoryEntry = { tripId: string; startedAt: string } & TripEndpo
 
 /** Every trip this rider has logged, most recent first -- feeds the Profile
  *  page's trip history, same row shape (date + origin + exit, via
- *  getTripEndpoints) as the Station page's per-station visit history. */
+ *  getTripEndpoints) as the Station page's per-station visit history.
+ *  Sorted by calendar day, then by rowid (insertion order) within a day --
+ *  started_at's time-of-day is whatever was current when the trip was
+ *  submitted, not when it happened, so a trip backdated to a past date
+ *  after the fact can carry an earlier time-of-day than one logged live
+ *  that same day. rowid DESC breaks that tie by actual insertion order,
+ *  so the most recently-logged trip for a day always sorts first. */
 export async function getTripHistory(db: SQLite.SQLiteDatabase, userId: string): Promise<TripHistoryEntry[]> {
     const tripRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
-        `SELECT trip_id, started_at FROM trips WHERE user_id = ? ${testDataFilterSql()} ORDER BY started_at DESC`,
+        `SELECT trip_id, started_at FROM trips WHERE user_id = ? ${testDataFilterSql()} ORDER BY date(started_at, 'localtime') DESC, rowid DESC`,
         [userId]
     );
     if (tripRows.length === 0) return [];
@@ -104,7 +110,7 @@ export async function getLineVisitHistory(
     const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
         `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
          WHERE t.user_id = ? AND l.route_id IN (${placeholders}) ${testDataFilterSql('t.')}
-         ORDER BY t.started_at DESC`,
+         ORDER BY date(t.started_at, 'localtime') DESC, t.rowid DESC`,
         [userId, ...routeIds]
     );
     if (visitRows.length === 0) return [];

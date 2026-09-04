@@ -95,7 +95,7 @@ export async function getStationVisitHistory(
     const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
         `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
          WHERE t.user_id = ? AND (l.entry_station_id = ? OR l.exit_station_id = ?) ${testDataFilterSql('t.')}
-         ORDER BY t.started_at DESC`,
+         ORDER BY date(t.started_at, 'localtime') DESC, t.rowid DESC`,
         [userId, stationId, stationId]
     );
     if (visitRows.length === 0) return [];

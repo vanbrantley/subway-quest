@@ -19,7 +19,7 @@ Outputs (JSON, ready for the app to bundle):
 import json
 import pandas as pd
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 # Resolve paths relative to this script's location, assuming the structure:
 #   network/
@@ -179,13 +179,24 @@ def build_route_branches(trips: pd.DataFrame, stop_times: pd.DataFrame, shapes: 
         route_shapes[route_id] = []
 
         for direction_id, dir_group in route_group.groupby("direction_id"):
-            seq_to_shapes = dir_group.groupby("stop_seq")["shape_id"].unique()
+            seq_to_shapes = dir_group.groupby("stop_seq")["shape_id"].apply(list)
 
             patterns = []
             for stop_seq, shape_ids in seq_to_shapes.items():
                 if len(stop_seq) < 2:
                     continue
-                best_shape = max(shape_ids, key=lambda sid: shape_npts.get(sid, 0))
+                # Prefer the shape_id used by the most trips for this stop
+                # pattern (the representative, everyday routing), breaking
+                # ties by point count. Picking by raw point count alone can
+                # select a rare shape variant that traces extra shared
+                # trackage beyond the route's actual first/last stop (e.g.
+                # the 4 train picking a shape that continues south past its
+                # own terminal, painting over the 3 train's segment).
+                shape_counts = Counter(shape_ids)
+                best_shape = max(
+                    shape_counts,
+                    key=lambda sid: (shape_counts[sid], shape_npts.get(sid, 0)),
+                )
                 patterns.append({"stops": stop_seq, "shape_id": best_shape})
 
             endpoint_groups = defaultdict(list)

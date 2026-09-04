@@ -16,7 +16,7 @@ import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { getLineVisitHistory, type TripHistoryEntry } from '../../db/trips';
-import { getLineStationItems, getShuttleStationItems, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
+import { getLineStationItems, getShuttleStationItems, getShuttleName, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LineTriviaFact } from '../../components/trivia/LineTriviaFact';
 import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
@@ -110,6 +110,10 @@ export default function LineScreen() {
         [items]
     );
     const totalStations = uniqueStopIds.length;
+    // Only the three real shuttles (FS/GS/H) resolve to a name here — the
+    // combined 'S' overview page itself gets null, same as every non-shuttle
+    // line, since its icon is already the whole story there.
+    const shuttleName = useMemo(() => getShuttleName(lineId), [lineId]);
 
     useEffect(() => {
         (async () => {
@@ -151,6 +155,7 @@ export default function LineScreen() {
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                     <View style={styles.lineHeading}>
                         <LineIcon routeId={lineId} size={64} />
+                        {shuttleName && <Text style={styles.shuttleName}>{shuttleName}</Text>}
                     </View>
                     <ProgressBar current={visitedCount} target={totalStations} label="Stations visited" />
 
@@ -204,6 +209,7 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
     content: { padding: 20 },
     lineHeading: { alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 16 },
+    shuttleName: { fontSize: 15, fontWeight: '600', color: '#444' },
     groupLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 },
     groupLabelSpacing: { marginTop: 16, marginBottom: 4 },
     groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 16, marginBottom: 4 },

@@ -14,6 +14,7 @@ import {
     type StationSearchResult,
 } from '../../lib/subwayData';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
+import { RandomStationButton } from '../../components/search/RandomStationButton';
 
 const AVAILABLE_ROUTES = getDisplayableRoutes();
 
@@ -97,6 +98,8 @@ export default function SearchScreen() {
                     keyboardShouldPersistTaps="handled"
                 />
             )}
+
+            <RandomStationButton />
         </View>
     );
 }
