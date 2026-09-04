@@ -7,13 +7,9 @@ import { getStation, isNavigableRoute, normalizeRouteIdForIcon } from '../../lib
 import { LINE_COLORS } from '../../constants/lineColors';
 import type { TimeRange } from '../../lib/dateMath';
 import type { FavoriteStation, RouteRideCount } from '../../db/stations_logic';
-import { RouteIcon } from '../ui/RouteIcon';
 import { TimeRangeFilter } from '../ui/TimeRangeFilter';
-import { HorizontalBarChart, type BarDatum } from './HorizontalBarChart';
-
-const STATION_ICON_SIZE = 18;
-const LINE_ICON_SIZE = 22;
-const MAX_STATION_ICONS = 3;
+import { LinesBarChart, type LineDatum } from './LinesBarChart';
+import { StationsBarChart, type StationDatum } from './StationsBarChart';
 
 function rangeLabel(range: TimeRange): string {
     return range === '30d' ? 'the last 30 days' : range === '7d' ? 'the last week' : '';
@@ -34,34 +30,27 @@ type Props = {
 };
 
 export function FavoritesCharts({ favorites, range, onRangeChange }: Props) {
-    const stationData: BarDatum[] = (favorites?.stations ?? []).map((s) => {
+    const stationData: StationDatum[] = (favorites?.stations ?? []).map((s) => {
         const routes = getStation(s.stationId)?.daytime_routes ?? [];
         const primary = routes[0] ? normalizeRouteIdForIcon(routes[0]) : null;
         return {
             key: s.stationId,
-            label: s.name,
+            name: s.name,
             value: s.rideCount,
             color: primary ? (LINE_COLORS[primary]?.bg ?? '#ccc') : '#ccc',
-            icon: routes.length > 0 ? (
-                <>
-                    {routes.slice(0, MAX_STATION_ICONS).map((r) => (
-                        <RouteIcon key={r} routeId={r} onPress={null} size={STATION_ICON_SIZE} />
-                    ))}
-                </>
-            ) : undefined,
+            routes,
             onPress: () => router.push(`/station/${s.stationId}`),
         };
     });
 
-    const lineData: BarDatum[] = (favorites?.lines ?? []).map((l) => {
+    const lineData: LineDatum[] = (favorites?.lines ?? []).map((l) => {
         const target = normalizeRouteIdForIcon(l.routeId);
         const navigable = isNavigableRoute(target);
         return {
             key: l.routeId,
-            label: l.routeId,
+            routeId: l.routeId,
             value: l.rideCount,
             color: LINE_COLORS[target]?.bg ?? '#ccc',
-            icon: <RouteIcon routeId={l.routeId} onPress={null} size={LINE_ICON_SIZE} />,
             onPress: navigable ? () => router.push(`/line/${target}`) : undefined,
         };
     });
@@ -74,7 +63,7 @@ export function FavoritesCharts({ favorites, range, onRangeChange }: Props) {
             {favorites === null ? (
                 <ActivityIndicator />
             ) : stationData.length > 0 ? (
-                <HorizontalBarChart data={stationData} />
+                <StationsBarChart data={stationData} />
             ) : (
                 <EmptyRow range={range} />
             )}
@@ -83,7 +72,7 @@ export function FavoritesCharts({ favorites, range, onRangeChange }: Props) {
             {favorites === null ? (
                 <ActivityIndicator />
             ) : lineData.length > 0 ? (
-                <HorizontalBarChart data={lineData} />
+                <LinesBarChart data={lineData} />
             ) : (
                 <EmptyRow range={range} />
             )}

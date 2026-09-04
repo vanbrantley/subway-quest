@@ -19,6 +19,7 @@ import { ProfileQuestsSummary } from '../../../components/quests/ProfileQuestsSu
 import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { RouteIcon } from '../../../components/ui/RouteIcon';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
+import { PaginatedList } from '../../../components/ui/PaginatedList';
 import { FavoritesCharts } from '../../../components/profile/FavoritesCharts';
 import { TripHistoryList } from '../../../components/profile/TripHistoryList';
 import { RideHeatmap } from '../../../components/profile/RideHeatmap';
@@ -146,14 +147,17 @@ export default function ProfileScreen() {
 
                 <TripHistoryList trips={trips} />
 
-                <SectionHeader title={`Saved stations (${savedStations.length})`} style={styles.sectionSpacing} />
-                {savedStations.length === 0 ? (
-                    <Text style={styles.emptyText}>No saved stations yet.</Text>
-                ) : (
-                    savedStations.map((s) => {
+                <PaginatedList
+                    title="Saved stations"
+                    items={savedStations}
+                    keyExtractor={(s) => s.stationId}
+                    itemNoun="stations"
+                    emptyText="No saved stations yet."
+                    headerStyle={styles.sectionSpacing}
+                    renderItem={(s) => {
                         const routes = getStation(s.stationId)?.daytime_routes ?? [];
                         return (
-                            <Pressable key={s.stationId} style={styles.row} onPress={() => router.push(`/station/${s.stationId}`)}>
+                            <Pressable style={styles.row} onPress={() => router.push(`/station/${s.stationId}`)}>
                                 <Ionicons
                                     name={s.visited ? 'checkmark-circle' : 'bookmark'}
                                     size={18}
@@ -166,8 +170,8 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={16} color="#ccc" />
                             </Pressable>
                         );
-                    })
-                )}
+                    }}
+                />
 
                 <SectionHeader title="Achievements" style={styles.sectionSpacing} />
                 <ProfileQuestsSummary />

@@ -8,7 +8,7 @@
 import * as SQLite from 'expo-sqlite';
 import stationsData from '../data/stations.json';
 import { loadRiderHistory } from './quests';
-import { getTripEndpoints, type TripEndpoints } from './trips';
+import { getTripEndpoints, type TripHistoryEntry } from './trips';
 import { testDataFilterSql } from './testDataFilter';
 import { rangeToStartDate, localMidnightToIsoUtc, type TimeRange } from '../lib/dateMath';
 import {
@@ -80,7 +80,7 @@ export async function getAllStationStatuses(
     return result;
 }
 
-export type StationVisit = { tripId: string; startedAt: string } & TripEndpoints;
+export type StationVisit = TripHistoryEntry;
 
 /** Dates this rider passed through a given station (entry or exit on any
  *  leg), most recent first -- feeds the Station page's visit history, along

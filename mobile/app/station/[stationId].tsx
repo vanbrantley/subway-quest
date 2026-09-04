@@ -20,6 +20,7 @@ import { StationQuestsList } from '../../components/quests/StationQuestsList';
 import { StationTriviaFact } from '../../components/trivia/StationTriviaFact';
 import { RouteIcon } from '../../components/ui/RouteIcon';
 import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
+import { PaginatedList } from '../../components/ui/PaginatedList';
 import {
     getStation, getBoroughName, getComplexId,
     isNavigableRoute, normalizeRouteIdForIcon, getOtherComplexRoutes,
@@ -179,13 +180,17 @@ export default function StationScreen() {
                 )}
 
                 <View style={styles.groupSection}>
-                    <Text style={styles.groupLabel}>Visit history</Text>
                     {visits === null ? (
                         <ActivityIndicator style={styles.statusLoading} />
-                    ) : visits.length === 0 ? (
-                        <Text style={styles.emptyText}>Not visited yet.</Text>
                     ) : (
-                        visits.map((v) => <TripHistoryRow key={v.tripId} {...v} />)
+                        <PaginatedList
+                            title="Visit history"
+                            items={visits}
+                            renderItem={(v) => <TripHistoryRow {...v} />}
+                            keyExtractor={(v) => v.tripId}
+                            itemNoun="visits"
+                            emptyText="Not visited yet."
+                        />
                     )}
                 </View>
 
@@ -225,5 +230,4 @@ const styles = StyleSheet.create({
     viewOnMapRow: { flexDirection: 'row', marginTop: 10 },
     viewOnMapButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#ccc' },
     viewOnMapButtonText: { fontSize: 13, fontWeight: '700', color: '#444' },
-    emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
 });

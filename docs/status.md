@@ -710,13 +710,45 @@ pipeline: EL job, then `dbt seed`/`dbt run`/`dbt test` back to back, cron every 
         has no other precedent in this codebase (no other SVG shape here uses `onPress`) — needs a
         physical check that a plain tap isn't swallowed/delayed by the ScrollView's own pan-gesture
         recognizer.
-      - **Line page: per-stop ride history**, expandable under each stop (boarded/alighted events,
-        same entry+exit "visited" grain as the rest of the app — legs don't store intermediate-stop
-        path data, so this is "rode from/to this stop," not full route tracing; confirmed with Van as
-        the right scope). New `db/trips_logic.ts` (pure, first `_logic.ts` sibling for `trips.ts`, 6
-        tests) — `groupLegsByStopPure()`. `trips.ts` gained `getLegsForRoutes()`/
-        `getLineStopRideHistory()`; `subwayData.ts` gained `routeIdsForLine()` (expands `'S'` to its
-        three real shuttle route_ids — `legs.route_id` is never literally `'S'`).
+      - **Line page: per-stop ride history — shipped, then replaced same round.** The original version
+        (expandable per-stop boarded/alighted events, `db/trips_logic.ts`'s `groupLegsByStopPure()`,
+        `trips.ts`'s `getLegsForRoutes()`/`getLineStopRideHistory()`) didn't read well on-device and was
+        removed entirely (`db/trips_logic.ts`/`trips_logic_tests.ts`/`components/line/StopRideHistory.tsx`
+        deleted). Replaced with a flat **Visit History** section matching the Station page's existing
+        pattern — one row per trip that touched this line (via `TripHistoryRow`, tappable through to that
+        trip's summary), not grouped by stop. Fed by a new `trips.ts#getLineVisitHistory()`, mirroring
+        `stations.ts#getStationVisitHistory()`'s exact `SELECT DISTINCT ... route_id IN (...)` shape
+        (via the still-used `subwayData.ts#routeIdsForLine()`) instead of an entry/exit station match —
+        returns the existing `TripHistoryEntry` type rather than a new one; `stations.ts`'s
+        `StationVisit` was collapsed to `= TripHistoryEntry` (was a byte-for-byte duplicate literal).
+      - **New shared `components/ui/PaginatedList.tsx`** — the "count-in-header + Show more/Show
+        less" pattern (`TripHistoryList.tsx` had it once, hand-rolled) extracted into one generic
+        component, now used by four call sites: Profile's Trip History (`TripHistoryList.tsx`, now a
+        thin wrapper owning only the `TimeRangeFilter`/range state), Profile's Saved Stations (was
+        fully unpaginated), Station's Visit History (was unpaginated with a plain, uncounted `Text`
+        header), and the new Line Visit History above. Pagination resets to the collapsed view only via
+        an opt-in `resetKey` prop (`TripHistoryList` passes its `range`) — a plain list with no filter
+        concept (Saved Stations, both Visit Histories) never auto-collapses just because its data
+        refetched in the background, matching the original hand-rolled behavior exactly. The
+        Achievements list page (Completed/Ongoing) has this identical stale unpaginated/uncounted
+        pattern too — confirmed, deliberately deferred to a later round, not touched here.
+      - **Favorites bar charts — reworked twice more after initial on-device feedback.** Round 1's
+        bars only filled ~half their row (label text ate a flexible slot the bar should have had) and
+        Top Lines showed a redundant text label next to icons that already bake in the letter/number.
+        First pass: extracted `components/profile/BarAndCount.tsx` (shared bar+count, both charts),
+        renamed `HorizontalBarChart.tsx` → `LinesBarChart.tsx` (icon+bar+count, no label), added
+        `StationsBarChart.tsx` (two-row: bar+count row, then icon(s)+name row, aligned via a shared
+        `ICON_COLUMN_WIDTH` blank-spacer so both charts' bars started at the same x) — shipped with
+        `rx: 0` square bars and `Svg width="100%" style={{flex:1}}` for the flexible bar.
+        **Real bug hit on-device immediately**: `width="100%"` didn't reliably resolve against the
+        flex-computed box — bars rendered wider than the screen, pushing the count off it. Fixed by
+        measuring the wrapping `View`'s real pixel width via `onLayout` and passing that literal number
+        to `Svg` instead of a percentage string. Second pass, per further feedback: bars reverted to
+        rounded (`rx: BAR_HEIGHT/2`) since square read as an unwanted stylistic break from the rest of
+        the page; both charts restructured to two rows each (icon moved to its own row 2 for Lines too,
+        matching Stations) so row 1 is *only* ever the bar+count with nothing before it — the
+        `ICON_COLUMN_WIDTH` blank-spacer trick was no longer needed at all once neither chart's bar row
+        has an icon to align around.
       - New shared `components/ui/SectionHeader.tsx` bug caught mid-build: Profile's old *local*
         `SectionHeader` (a same-named duplicate, not the actual shared component achievements/
         `[questId].tsx` already used) got consolidated into the real shared one — but that component's

@@ -16,6 +16,23 @@ import { IS_DEV_MODE } from '../lib/devMode';
 
 const LAST_SEEN_USER_KEY = 'subwayquest_last_seen_user_id';
 
+/** Deletes every local trip/leg/event/saved-station/preference row --
+ *  children before parents (sync_status -> events' event_id FK, legs ->
+ *  trips' trip_id FK) so this doesn't trip a foreign-key violation
+ *  (foreign_keys is ON during normal runtime -- see DatabaseContext.tsx).
+ *  Shared by wipeIfDifferentAccount below and the debug screen's manual
+ *  "Force Rehydrate" action -- same operation, two different triggers. */
+async function wipeLocalProjection(db: SQLite.SQLiteDatabase): Promise<void> {
+    await db.withTransactionAsync(async () => {
+        await db.execAsync('DELETE FROM sync_status;');
+        await db.execAsync('DELETE FROM legs;');
+        await db.execAsync('DELETE FROM trips;');
+        await db.execAsync('DELETE FROM events;');
+        await db.execAsync('DELETE FROM saved_stations;');
+        await db.execAsync('DELETE FROM trivia_global_preference;');
+    });
+}
+
 /** Wipes local trips/legs/events/saved_stations if a DIFFERENT account has
  *  signed in on this device before this one. The whole app shares one local
  *  SQLite file regardless of which account is active (DatabaseContext.tsx's
@@ -40,22 +57,8 @@ export async function wipeIfDifferentAccount(db: SQLite.SQLiteDatabase, userId: 
     const lastSeen = await SecureStore.getItemAsync(LAST_SEEN_USER_KEY);
     if (lastSeen !== userId) {
         if (lastSeen !== null) {
-            // A different account was signed in on this device before this
-            // one -- clear every local table, children before parents
-            // (sync_status -> events' event_id FK, legs -> trips' trip_id
-            // FK) so this doesn't trip a foreign-key violation (foreign_keys
-            // is ON during normal runtime -- see DatabaseContext.tsx).
-            await db.withTransactionAsync(async () => {
-                await db.execAsync('DELETE FROM sync_status;');
-                await db.execAsync('DELETE FROM legs;');
-                await db.execAsync('DELETE FROM trips;');
-                await db.execAsync('DELETE FROM events;');
-                await db.execAsync('DELETE FROM saved_stations;');
-                // Not strictly required for correctness -- this table is
-                // user_id-scoped from day one, unlike saved_stations' original
-                // bug -- but consistent hygiene with the rest of this wipe.
-                await db.execAsync('DELETE FROM trivia_global_preference;');
-            });
+            // A different account was signed in on this device before this one.
+            await wipeLocalProjection(db);
         }
         await SecureStore.setItemAsync(LAST_SEEN_USER_KEY, userId);
     }
@@ -165,4 +168,22 @@ export async function rehydrateFromRemote(
         tripsSkippedDeleted: plan.skippedDeleted.length,
         savedStationsRestored: savedStations.length,
     };
+}
+
+/** Dev-only manual override for the debug screen's "Force Rehydrate" button.
+ *  needsRehydration()'s automatic check only fires once per install (when
+ *  local `trips` is empty for this user) -- it has no way to notice that a
+ *  DIFFERENT install (e.g. a TestFlight build) has since synced up new
+ *  events under the same account, so a dev client with any local history of
+ *  its own never re-pulls. This bypasses that gate entirely: wipes local
+ *  data unconditionally, then re-pulls everything from Supabase fresh, same
+ *  as a brand-new install would. Caller is responsible for wrapping this in
+ *  withDbLock (see RehydrationGate.tsx for why) -- not done here so the
+ *  debug screen can show its own loading state around the whole call. */
+export async function forceRehydrate(
+    db: SQLite.SQLiteDatabase,
+    userId: string
+): Promise<{ tripsRestored: number; tripsSkippedDeleted: number; savedStationsRestored: number }> {
+    await wipeLocalProjection(db);
+    return rehydrateFromRemote(db, userId);
 }

@@ -9,15 +9,20 @@ import { useFocusEffect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useDb } from '../contexts/DatabaseContext';
+import { useUserId } from '../contexts/AuthContext';
 import { useSyncEngine } from '../contexts/SyncContext';
+import { forceRehydrate } from '../db/rehydrate';
+import { withDbLock } from '../lib/dbLock';
 
 type BannerKind = 'info' | 'success' | 'error';
 
 export default function DebugScreen() {
     const db = useDb();
+    const userId = useUserId();
     const insets = useSafeAreaInsets();
     const [data, setData] = useState<Record<string, unknown[]> | null>(null);
     const { triggerSync, isSyncing, lastSyncAt, lastSyncError } = useSyncEngine();
+    const [isRehydrating, setIsRehydrating] = useState(false);
 
     const [banner, setBanner] = useState<{ text: string; kind: BannerKind } | null>(null);
     const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,6 +106,31 @@ export default function DebugScreen() {
         triggerSync();
     }
 
+    // Bypasses needsRehydration()'s "only if local trips is empty" gate --
+    // useful when another install (e.g. a TestFlight build) has synced up
+    // events under this same account that this install's local DB was never
+    // going to pull down on its own, since its local trips table already has
+    // rows of its own. Wipes local data and re-pulls everything from
+    // Supabase fresh, same as a brand-new install would see.
+    async function handleForceRehydrate() {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        console.log('[debug] Force Rehydrate pressed');
+        showBanner('Wiping local data and re-pulling from Supabase…', 'info', 2500);
+        setIsRehydrating(true);
+        try {
+            const result = await withDbLock(() => forceRehydrate(db, userId));
+            console.log('[debug] Force Rehydrate complete:', result);
+            await refresh();
+            showBanner(`Rehydrated — ${result.tripsRestored} trip(s) restored`, 'success', 4000);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error('[debug] Force Rehydrate failed:', err);
+            showBanner(`Rehydrate failed: ${message}`, 'error', 4000);
+        } finally {
+            setIsRehydrating(false);
+        }
+    }
+
     function handleBack() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         console.log('[debug] Back pressed');
@@ -137,17 +167,24 @@ export default function DebugScreen() {
                 <View style={styles.syncButtons}>
                     <Pressable
                         onPress={handleTriggerSync}
-                        disabled={isSyncing}
-                        style={({ pressed }) => [styles.syncButton, pressed && styles.pressed, isSyncing && styles.syncButtonDisabled]}
+                        disabled={isSyncing || isRehydrating}
+                        style={({ pressed }) => [styles.syncButton, pressed && styles.pressed, (isSyncing || isRehydrating) && styles.syncButtonDisabled]}
                     >
                         <Text style={styles.syncButtonText}>{isSyncing ? 'Syncing…' : 'Trigger Sync'}</Text>
                     </Pressable>
                     <Pressable
                         onPress={handleForceResyncAll}
-                        disabled={isSyncing}
-                        style={({ pressed }) => [styles.syncButton, pressed && styles.pressed, isSyncing && styles.syncButtonDisabled]}
+                        disabled={isSyncing || isRehydrating}
+                        style={({ pressed }) => [styles.syncButton, pressed && styles.pressed, (isSyncing || isRehydrating) && styles.syncButtonDisabled]}
                     >
                         <Text style={styles.syncButtonText}>Force Re-sync All</Text>
+                    </Pressable>
+                    <Pressable
+                        onPress={handleForceRehydrate}
+                        disabled={isSyncing || isRehydrating}
+                        style={({ pressed }) => [styles.syncButton, styles.rehydrateButton, pressed && styles.pressed, (isSyncing || isRehydrating) && styles.syncButtonDisabled]}
+                    >
+                        <Text style={styles.syncButtonText}>{isRehydrating ? 'Rehydrating…' : 'Force Rehydrate'}</Text>
                     </Pressable>
                 </View>
             </View>
@@ -186,8 +223,11 @@ const styles = StyleSheet.create({
     syncBar: { paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
     syncText: { fontSize: 13, color: '#444', marginBottom: 4 },
     syncError: { fontSize: 12, color: '#c00', marginBottom: 6 },
-    syncButtons: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    syncButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
     syncButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#111', borderRadius: 14 },
+    // Distinct color -- unlike the other two buttons (push-only, non-destructive),
+    // this one wipes local data first.
+    rehydrateButton: { backgroundColor: '#a04a1f' },
     syncButtonDisabled: { backgroundColor: '#999' },
     syncButtonText: { color: '#fff', fontWeight: '600', fontSize: 12 },
 });

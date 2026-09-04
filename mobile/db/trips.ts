@@ -7,7 +7,6 @@
 import type * as SQLite from 'expo-sqlite';
 import { testDataFilterSql } from './testDataFilter';
 import { routeIdsForLine } from '../lib/subwayData';
-import { groupLegsByStopPure, type LineLegEntry, type StopRideEvent } from './trips_logic';
 
 export type TripEndpoints = {
     entryRouteId: string | null;
@@ -85,43 +84,35 @@ export async function getTripHistory(db: SQLite.SQLiteDatabase, userId: string):
     }));
 }
 
-/** Every leg this user has ridden on any of the given route_ids -- batched
- *  (one query for every route id), same pattern as getTripEndpoints. Feeds
- *  getLineStopRideHistory below. */
-export async function getLegsForRoutes(
-    db: SQLite.SQLiteDatabase,
-    userId: string,
-    routeIds: string[]
-): Promise<LineLegEntry[]> {
-    if (routeIds.length === 0) return [];
-
-    const placeholders = routeIds.map(() => '?').join(',');
-    const rows = await db.getAllAsync<{
-        leg_id: string; trip_id: string; entry_station_id: string; exit_station_id: string;
-        boarded_at: string; alighted_at: string;
-    }>(
-        `SELECT l.leg_id, l.trip_id, l.entry_station_id, l.exit_station_id, l.boarded_at, l.alighted_at
-         FROM legs l JOIN trips t ON l.trip_id = t.trip_id
-         WHERE t.user_id = ? AND l.route_id IN (${placeholders}) ${testDataFilterSql('t.')}
-         ORDER BY l.boarded_at DESC`,
-        [userId, ...routeIds]
-    );
-    return rows.map((r) => ({
-        legId: r.leg_id, tripId: r.trip_id,
-        entryStationId: r.entry_station_id, exitStationId: r.exit_station_id,
-        boardedAt: r.boarded_at, alightedAt: r.alighted_at,
-    }));
-}
-
-/** This user's ride history on a given display line, grouped by stop_id --
- *  feeds the Line page's per-stop "ride history" disclosure. `lineId` is the
- *  Line page's display id (e.g. 'S' for the combined shuttle overview), not
- *  necessarily a real route_id -- see routeIdsForLine. */
-export async function getLineStopRideHistory(
+/** Every trip that included at least one leg on the given display line, most
+ *  recent first -- feeds the Line page's Visit History, same row shape (date
+ *  + overall origin/exit, via getTripEndpoints) as the Station page's
+ *  per-station visit history. `lineId` is the Line page's display id (e.g.
+ *  'S' for the combined shuttle overview), not necessarily a real route_id --
+ *  see routeIdsForLine. DISTINCT matters here: a trip can have more than one
+ *  qualifying leg (e.g. riding the same route twice in one trip, or two
+ *  different real shuttle route_ids under lineId === 'S'). */
+export async function getLineVisitHistory(
     db: SQLite.SQLiteDatabase,
     userId: string,
     lineId: string
-): Promise<Record<string, StopRideEvent[]>> {
-    const legs = await getLegsForRoutes(db, userId, routeIdsForLine(lineId));
-    return groupLegsByStopPure(legs);
+): Promise<TripHistoryEntry[]> {
+    const routeIds = routeIdsForLine(lineId);
+    if (routeIds.length === 0) return [];
+
+    const placeholders = routeIds.map(() => '?').join(',');
+    const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
+        `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
+         WHERE t.user_id = ? AND l.route_id IN (${placeholders}) ${testDataFilterSql('t.')}
+         ORDER BY t.started_at DESC`,
+        [userId, ...routeIds]
+    );
+    if (visitRows.length === 0) return [];
+
+    const endpoints = await getTripEndpoints(db, visitRows.map((r) => r.trip_id));
+    return visitRows.map((v) => ({
+        tripId: v.trip_id,
+        startedAt: v.started_at,
+        ...(endpoints.get(v.trip_id) ?? { entryRouteId: null, entryStationId: null, exitRouteId: null, exitStationId: null }),
+    }));
 }
