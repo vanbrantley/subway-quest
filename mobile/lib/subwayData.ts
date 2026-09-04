@@ -7,6 +7,7 @@ import routeStops from '../data/route_stops.json';
 import stations from '../data/stations.json';
 import transfers from '../data/transfers.json';
 import triviaData from '../data/trivia.json';
+import neighborhoodsData from '../data/neighborhoods.json';
 import { LINE_ICONS } from '../constants/lineIcons';
 import { LINE_COLORS, sortRouteIds } from '../constants/lineColors';
 
@@ -61,6 +62,17 @@ const DISPLAY_ROUTE_ALIASES: Record<string, string> = { SIR: 'SI', '6X': '6', '7
 const ROUTE_STOPS = routeStops as unknown as RouteStops;
 const STATIONS = stations as unknown as Stations;
 const TRANSFERS = transfers as unknown as Transfers;
+// complex_id -> neighborhood name, trimmed from network/processed/final_
+// neighborhoods.json by build_static_data.py. Deliberately no borough field
+// of its own -- see that script's comment on why stations.json's borough
+// code is the one source of truth for borough everywhere in the app.
+const NEIGHBORHOODS = neighborhoodsData as unknown as Record<string, string>;
+// complex_id -> borough, precomputed once for searchAreas' neighborhood
+// matching rather than scanning all of STATIONS per neighborhood entry.
+const COMPLEX_TO_BOROUGH: Record<string, string> = {};
+for (const s of Object.values(STATIONS)) {
+    if (!(s.complex_id in COMPLEX_TO_BOROUGH)) COMPLEX_TO_BOROUGH[s.complex_id] = s.borough;
+}
 
 // The three real, separately-completable shuttle routes 'S' groups for display.
 // route_stops.json has no 'S' key at all — only these three real route_ids.
@@ -100,6 +112,99 @@ export function getStation(stopId: string): Station | undefined {
 
 export function getBoroughName(code: string): string {
     return BOROUGH_NAMES[code] ?? code;
+}
+
+export function getAllBoroughCodes(): string[] {
+    return Object.keys(BOROUGH_NAMES);
+}
+
+export function getNeighborhoodForStation(stopId: string): string | undefined {
+    const complexId = getComplexId(stopId);
+    return complexId !== undefined ? NEIGHBORHOODS[complexId] : undefined;
+}
+
+export function getStationsByBorough(boroughCode: string): Station[] {
+    return Object.values(STATIONS).filter((s) => s.borough === boroughCode);
+}
+
+export function getStationsByNeighborhood(boroughCode: string, neighborhood: string): Station[] {
+    return getStationsByBorough(boroughCode).filter(
+        (s) => getNeighborhoodForStation(s.stop_id) === neighborhood
+    );
+}
+
+export function getNeighborhoodsForBorough(boroughCode: string): string[] {
+    const names = new Set<string>();
+    for (const s of getStationsByBorough(boroughCode)) {
+        const n = getNeighborhoodForStation(s.stop_id);
+        if (n) names.add(n);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+export type BoroughStationItem =
+    | { kind: 'station'; stopId: string }
+    | { kind: 'neighborhoodHeader'; label: string };
+
+// A borough's stations grouped by neighborhood (alphabetical, stations
+// within a group sorted by name) -- unlike getLineStationItems, there's no
+// geographic ordering to preserve here, so this is a plain group-by rather
+// than the trie-based branch logic lines need. "Other" catches any station
+// missing from the trimmed neighborhood map (none as of the 445/445
+// complexes currently covered, but not guaranteed to stay that way).
+export function getBoroughStationItems(boroughCode: string): BoroughStationItem[] {
+    const groups = new Map<string, Station[]>();
+    for (const s of getStationsByBorough(boroughCode)) {
+        const label = getNeighborhoodForStation(s.stop_id) ?? 'Other';
+        if (!groups.has(label)) groups.set(label, []);
+        groups.get(label)!.push(s);
+    }
+
+    const labels = [...groups.keys()].sort((a, b) => {
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
+        return a.localeCompare(b);
+    });
+
+    const items: BoroughStationItem[] = [];
+    for (const label of labels) {
+        items.push({ kind: 'neighborhoodHeader', label });
+        const sorted = [...groups.get(label)!].sort((a, b) => a.name.localeCompare(b.name));
+        for (const s of sorted) items.push({ kind: 'station', stopId: s.stop_id });
+    }
+    return items;
+}
+
+export type AreaSearchResult =
+    | { kind: 'borough'; code: string; name: string }
+    | { kind: 'neighborhood'; boroughCode: string; name: string };
+
+// Separate from searchStations (name-only, unchanged) rather than merged
+// into one result type -- StationSearchResult is relied on elsewhere as a
+// pure station shape, and area hits (a borough, or a neighborhood scoped to
+// its borough) need different fields and a different destination route.
+export function searchAreas(query: string): AreaSearchResult[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const results: AreaSearchResult[] = [];
+    for (const code of getAllBoroughCodes()) {
+        const name = getBoroughName(code);
+        if (name.toLowerCase().includes(q)) results.push({ kind: 'borough', code, name });
+    }
+
+    const seen = new Set<string>();
+    for (const [complexId, neighborhood] of Object.entries(NEIGHBORHOODS)) {
+        if (!neighborhood.toLowerCase().includes(q)) continue;
+        const boroughCode = COMPLEX_TO_BOROUGH[complexId];
+        if (!boroughCode) continue;
+        const key = `${boroughCode}:${neighborhood}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push({ kind: 'neighborhood', boroughCode, name: neighborhood });
+    }
+
+    return results;
 }
 
 // ---- Trivia: the fact text half of the feature (whether it's UNLOCKED yet

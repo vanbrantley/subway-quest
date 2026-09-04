@@ -272,7 +272,8 @@ export async function writeProductEvent(
     db: SQLite.SQLiteDatabase,
     eventType: 'screen_viewed' | 'station_detail_opened' | 'route_detail_opened' | 'feature_used'
         | 'trip_draft_started' | 'draft_leg_added' | 'draft_leg_removed'
-        | 'trip_draft_committed' | 'trip_draft_abandoned',
+        | 'trip_draft_committed' | 'trip_draft_abandoned'
+        | 'borough_detail_opened' | 'neighborhood_detail_opened',
     payload: object,
     ctx: CommitContext
 ): Promise<void> {

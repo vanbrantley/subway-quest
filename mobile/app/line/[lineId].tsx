@@ -10,53 +10,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDb } from '../../contexts/DatabaseContext';
 import { useUserId } from '../../contexts/AuthContext';
-import { LINE_ICONS } from '../../constants/lineIcons';
-import { LINE_COLORS } from '../../constants/lineColors';
 import { getOrCreateDeviceId } from '../../lib/device';
 import { writeProductEvent } from '../../db/projection';
 import { getAllStationStatuses, type StationStatus } from '../../db/stations';
 import { getLineVisitHistory, type TripHistoryEntry } from '../../db/trips';
-import { getLineStationItems, getShuttleStationItems, getShuttleName, getStationName, getOtherComplexRoutes } from '../../lib/subwayData';
+import { getLineStationItems, getShuttleStationItems, getShuttleName } from '../../lib/subwayData';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LineTriviaFact } from '../../components/trivia/LineTriviaFact';
+import { RouteIcon } from '../../components/ui/RouteIcon';
+import { StationRow } from '../../components/ui/StationRow';
 import { TripHistoryRow } from '../../components/ui/TripHistoryRow';
 import { PaginatedList } from '../../components/ui/PaginatedList';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
-
-function LineIcon({ routeId, size }: { routeId: string; size: number }) {
-    const Icon = LINE_ICONS[routeId];
-    if (Icon) return <Icon width={size} height={size} />;
-    return (
-        <View style={[styles.colorBubble, { width: size, height: size, borderRadius: size / 2, backgroundColor: LINE_COLORS[routeId]?.bg ?? '#ccc' }]}>
-            <Text style={[styles.colorBubbleText, { color: LINE_COLORS[routeId]?.text ?? '#000', fontSize: size * 0.4 }]}>{routeId}</Text>
-        </View>
-    );
-}
-
-function StationRow({ stopId, visited, onPress }: { stopId: string; visited: boolean; onPress: () => void }) {
-    // Lightweight transfer indicator — up to 2 small secondary icons for
-    // other lines reachable at this stop's complex. Deliberately not a
-    // labeled two-group split (that's the Station page's job) — too dense
-    // for a scrolling list of this length.
-    const transferRoutes = useMemo(() => getOtherComplexRoutes(stopId), [stopId]);
-
-    return (
-        <Pressable style={styles.row} onPress={onPress}>
-            <Ionicons
-                name={visited ? 'checkmark-circle' : 'ellipse-outline'}
-                size={20}
-                color={visited ? '#3d9a5c' : '#ccc'}
-            />
-            <Text style={styles.rowText} numberOfLines={1}>{getStationName(stopId)}</Text>
-            {transferRoutes.length > 0 && (
-                <View style={styles.transferIcons}>
-                    {transferRoutes.slice(0, 2).map((r) => <LineIcon key={r} routeId={r} size={16} />)}
-                </View>
-            )}
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
-        </Pressable>
-    );
-}
 
 function BoroughHeader({ label }: { label: string }) {
     return <Text style={styles.boroughLabel}>{label}</Text>;
@@ -154,7 +119,7 @@ export default function LineScreen() {
             ) : (
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                     <View style={styles.lineHeading}>
-                        <LineIcon routeId={lineId} size={64} />
+                        <RouteIcon routeId={lineId} size={64} onPress={null} />
                         {shuttleName && <Text style={styles.shuttleName}>{shuttleName}</Text>}
                     </View>
                     <ProgressBar current={visitedCount} target={totalStations} label="Stations visited" />
@@ -214,10 +179,5 @@ const styles = StyleSheet.create({
     groupLabelSpacing: { marginTop: 16, marginBottom: 4 },
     groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 16, marginBottom: 4 },
     boroughLabel: { fontSize: 12, fontWeight: '600', color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 12, marginBottom: 4 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-    rowText: { flex: 1, fontSize: 15, color: '#222' },
     visitHistorySection: { marginTop: 24 },
-    transferIcons: { flexDirection: 'row', gap: 4 },
-    colorBubble: { justifyContent: 'center', alignItems: 'center' },
-    colorBubbleText: { fontWeight: '700' },
 });

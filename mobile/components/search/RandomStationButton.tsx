@@ -146,6 +146,11 @@ export function RandomStationButton() {
         navigateAway(() => router.push(`/line/${target}`));
     }
 
+    function goToBorough() {
+        if (!resultStation) return;
+        navigateAway(() => router.push(`/borough/${resultStation.borough}`));
+    }
+
     function showOnMap() {
         if (!resultStation) return;
         const { stop_id: stationId, lat, lon } = resultStation;
@@ -174,7 +179,9 @@ export function RandomStationButton() {
                         {phase === 'result' && resultStation && (
                             <>
                                 <Text style={styles.name} numberOfLines={2}>{resultStation.name}</Text>
-                                <Text style={styles.borough}>{getBoroughName(resultStation.borough)}</Text>
+                                <Pressable onPress={goToBorough} hitSlop={6}>
+                                    <Text style={styles.borough}>{getBoroughName(resultStation.borough)}</Text>
+                                </Pressable>
 
                                 <View style={styles.iconRow}>
                                     {resultStation.daytime_routes.map((r) => (

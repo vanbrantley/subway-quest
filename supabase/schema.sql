@@ -93,11 +93,41 @@ create table raw_events.events (
     --   );
     -- NOTE: an earlier version of this feature also had trivia_fact_shown/
     -- trivia_fact_hidden (per-entity pill visibility, since removed in favor
-    -- of unpersisted local component state) -- if the live constraint was
-    -- already widened to include those two, leaving them permitted there is
-    -- harmless (nothing will ever write them again; a CHECK permitting an
-    -- unused value costs nothing), no need to shrink it back down.
+    -- of unpersisted local component state) -- confirmed still present on
+    -- the live table (is_test=true rows from 2026-08-29 dev testing) when
+    -- the borough/neighborhood widening below hit "check constraint ...
+    -- violated by some row" trying to re-add the constraint without them.
+    -- Kept permitted here rather than deleted: this project treats the
+    -- event log as an immutable, append-only history (same reasoning as
+    -- trip_deleted leaving the underlying event row in place, see the trips
+    -- table's own comment above) -- nothing will ever write these two
+    -- again, but a CHECK permitting an unused value costs nothing, so
+    -- there's no need to touch old rows just to add new allowed values.
     -- See docs/data-layer.md's "Trivia preference events" section.
+    --
+    -- Borough/Neighborhood pages (borough_detail_opened/neighborhood_detail_opened)
+    -- are the same situation again: added here for a fresh database, but the
+    -- live table's constraint needs the equivalent manual statement run once
+    -- in the SQL Editor --
+    --   alter table raw_events.events drop constraint events_grain_check; -- confirm the actual name via pg_constraint first
+    --   alter table raw_events.events add constraint events_grain_check check (
+    --       (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
+    --                                  and trip_id is not null and leg_id is null)
+    --       or
+    --       (event_domain = 'trip'    and event_type in ('leg_boarded', 'leg_alighted')
+    --                                  and trip_id is not null and leg_id is not null)
+    --       or
+    --       (event_domain = 'product' and event_type in ('screen_viewed', 'station_detail_opened',
+    --                                                      'route_detail_opened', 'feature_used',
+    --                                                      'trip_draft_started', 'draft_leg_added',
+    --                                                      'draft_leg_removed', 'trip_draft_committed',
+    --                                                      'trip_draft_abandoned', 'station_saved',
+    --                                                      'station_unsaved', 'trivia_facts_enabled',
+    --                                                      'trivia_facts_disabled', 'borough_detail_opened',
+    --                                                      'neighborhood_detail_opened', 'trivia_fact_shown',
+    --                                                      'trivia_fact_hidden')
+    --                                  and trip_id is null and leg_id is null)
+    --   );
     check (
         (event_domain = 'trip'    and event_type in ('trip_started', 'trip_ended', 'trip_deleted')
                                    and trip_id is not null and leg_id is null)
@@ -111,7 +141,9 @@ create table raw_events.events (
                                                        'draft_leg_removed', 'trip_draft_committed',
                                                        'trip_draft_abandoned', 'station_saved',
                                                        'station_unsaved', 'trivia_facts_enabled',
-                                                       'trivia_facts_disabled')
+                                                       'trivia_facts_disabled', 'borough_detail_opened',
+                                                       'neighborhood_detail_opened', 'trivia_fact_shown',
+                                                       'trivia_fact_hidden')
                                    and trip_id is null and leg_id is null)
     )
 );

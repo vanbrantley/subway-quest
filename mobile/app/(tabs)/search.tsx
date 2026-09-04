@@ -9,9 +9,12 @@ import { LINE_COLORS } from '../../constants/lineColors';
 import {
     getDisplayableRoutes,
     searchStations,
+    searchAreas,
+    getAllBoroughCodes,
     getBoroughName,
     normalizeRouteIdForIcon,
     type StationSearchResult,
+    type AreaSearchResult,
 } from '../../lib/subwayData';
 import { TAB_BAR_HEIGHT } from '../../components/CustomTabBar';
 import { RandomStationButton } from '../../components/search/RandomStationButton';
@@ -48,12 +51,78 @@ function ResultRow({ result }: { result: StationSearchResult }) {
     );
 }
 
+function BoroughRow({ code }: { code: string }) {
+    return (
+        <Pressable style={styles.row} onPress={() => router.push(`/borough/${code}`)}>
+            <View style={styles.areaIcon}>
+                <Ionicons name="business-outline" size={20} color="#666" />
+            </View>
+            <View style={styles.rowText}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{getBoroughName(code)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#ccc" />
+        </Pressable>
+    );
+}
+
+function AreaResultRow({ area }: { area: AreaSearchResult }) {
+    if (area.kind === 'borough') {
+        return (
+            <Pressable style={styles.row} onPress={() => router.push(`/borough/${area.code}`)}>
+                <View style={styles.areaIcon}>
+                    <Ionicons name="business-outline" size={20} color="#666" />
+                </View>
+                <View style={styles.rowText}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{area.name}</Text>
+                    <Text style={styles.rowSubtitle}>Borough</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            </Pressable>
+        );
+    }
+    return (
+        <Pressable
+            style={styles.row}
+            onPress={() => router.push(`/neighborhood/${area.boroughCode}/${encodeURIComponent(area.name)}`)}
+        >
+            <View style={styles.areaIcon}>
+                <Ionicons name="location-outline" size={20} color="#666" />
+            </View>
+            <View style={styles.rowText}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{area.name}</Text>
+                <Text style={styles.rowSubtitle}>{getBoroughName(area.boroughCode)} neighborhood</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#ccc" />
+        </Pressable>
+    );
+}
+
+type SearchListItem =
+    | { key: string; kind: 'area'; area: AreaSearchResult }
+    | { key: string; kind: 'station'; station: StationSearchResult };
+
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const [query, setQuery] = useState('');
 
-    const results = useMemo(() => searchStations(query), [query]);
+    const areaResults = useMemo(() => searchAreas(query), [query]);
+    const stationResults = useMemo(() => searchStations(query), [query]);
     const isSearching = query.trim().length > 0;
+
+    // Area hits (boroughs, then neighborhoods) surface above station name
+    // matches -- typing "Astoria" should lead with the neighborhood itself,
+    // not bury it under every station whose name happens to contain it.
+    const listItems: SearchListItem[] = useMemo(
+        () => [
+            ...areaResults.map((area) => ({
+                key: area.kind === 'borough' ? `area-b-${area.code}` : `area-n-${area.boroughCode}-${area.name}`,
+                kind: 'area' as const,
+                area,
+            })),
+            ...stationResults.map((station) => ({ key: `station-${station.stopId}`, kind: 'station' as const, station })),
+        ],
+        [areaResults, stationResults]
+    );
 
     return (
         <View style={styles.container}>
@@ -78,23 +147,30 @@ export default function SearchScreen() {
             </View>
 
             {!isSearching ? (
-                <ScrollView contentContainerStyle={[styles.grid, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
-                    {AVAILABLE_ROUTES.map((routeId) => (
-                        <Pressable key={routeId} style={styles.bubble} onPress={() => router.push(`/line/${routeId}`)}>
-                            <RouteIcon routeId={routeId} size={44} />
-                        </Pressable>
-                    ))}
+                <ScrollView contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }}>
+                    <View style={styles.grid}>
+                        {AVAILABLE_ROUTES.map((routeId) => (
+                            <Pressable key={routeId} style={styles.bubble} onPress={() => router.push(`/line/${routeId}`)}>
+                                <RouteIcon routeId={routeId} size={44} />
+                            </Pressable>
+                        ))}
+                    </View>
+
+                    <Text style={styles.sectionLabel}>Browse by borough</Text>
+                    <View style={styles.list}>
+                        {getAllBoroughCodes().map((code) => <BoroughRow key={code} code={code} />)}
+                    </View>
                 </ScrollView>
-            ) : results.length === 0 ? (
+            ) : listItems.length === 0 ? (
                 <View style={styles.emptyWrap}>
                     <Text style={styles.emptyText}>No stations match &quot;{query.trim()}&quot;</Text>
                 </View>
             ) : (
                 <FlatList
-                    data={results}
-                    keyExtractor={(r) => r.stopId}
+                    data={listItems}
+                    keyExtractor={(item) => item.key}
                     contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
-                    renderItem={({ item }) => <ResultRow result={item} />}
+                    renderItem={({ item }) => (item.kind === 'area' ? <AreaResultRow area={item.area} /> : <ResultRow result={item.station} />)}
                     keyboardShouldPersistTaps="handled"
                 />
             )}
@@ -128,9 +204,11 @@ const styles = StyleSheet.create({
     bubble: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
     colorBubble: { justifyContent: 'center', alignItems: 'center' },
     colorBubbleText: { fontWeight: '700' },
+    sectionLabel: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 16, marginBottom: 8 },
     list: { paddingHorizontal: 16, paddingBottom: 24 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
     rowIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, width: '25%' },
+    areaIcon: { width: '25%', alignItems: 'flex-start' },
     rowText: { flex: 1 },
     rowTitle: { fontSize: 15, fontWeight: '600', color: '#222' },
     rowSubtitle: { fontSize: 12, color: '#999', marginTop: 1 },

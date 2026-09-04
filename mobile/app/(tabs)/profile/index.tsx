@@ -17,7 +17,7 @@ import { bucketRidesByLocalDay, computeStreaksPure } from '../../../db/ride_acti
 import type { FavoriteStation, RouteRideCount } from '../../../db/stations_logic';
 import { ProfileQuestsSummary } from '../../../components/quests/ProfileQuestsSummary';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
-import { RouteIcon } from '../../../components/ui/RouteIcon';
+import { StationLinesRow } from '../../../components/ui/StationLinesRow';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { PaginatedList } from '../../../components/ui/PaginatedList';
 import { FavoritesCharts } from '../../../components/profile/FavoritesCharts';
@@ -125,13 +125,13 @@ export default function ProfileScreen() {
 
                 <SectionHeader title="By borough" style={styles.sectionSpacing} />
                 {stats.pctVisitedByBorough.map((b) => (
-                    <View key={b.borough} style={styles.boroughRow}>
+                    <Pressable key={b.borough} style={styles.boroughRow} onPress={() => router.push(`/borough/${b.borough}`)}>
                         <View style={styles.boroughHeaderRow}>
                             <Text style={styles.boroughName}>{getBoroughName(b.borough)}</Text>
                             <Text style={styles.boroughPct}>{b.pct}%</Text>
                         </View>
                         <ProgressBar current={b.visited} target={b.total} />
-                    </View>
+                    </Pressable>
                 ))}
 
                 <SectionHeader title="Activity" style={styles.sectionSpacing} />
@@ -157,23 +157,16 @@ export default function ProfileScreen() {
                     itemNoun="stations"
                     emptyText="No saved stations yet."
                     headerStyle={styles.sectionSpacing}
-                    renderItem={(s) => {
-                        const routes = getStation(s.stationId)?.daytime_routes ?? [];
-                        return (
-                            <Pressable style={styles.row} onPress={() => router.push(`/station/${s.stationId}`)}>
-                                <Ionicons
-                                    name={s.visited ? 'checkmark-circle' : 'bookmark'}
-                                    size={18}
-                                    color={s.visited ? '#3d9a5c' : '#999'}
-                                />
-                                <View style={styles.rowIcons}>
-                                    {routes.map((r) => <RouteIcon key={r} routeId={r} onPress={null} size={20} />)}
-                                </View>
-                                <Text style={styles.rowText} numberOfLines={1}>{s.name}</Text>
-                                <Ionicons name="chevron-forward" size={16} color="#ccc" />
-                            </Pressable>
-                        );
-                    }}
+                    renderItem={(s) => (
+                        <StationLinesRow
+                            stopId={s.stationId}
+                            routeIds={getStation(s.stationId)?.daytime_routes ?? []}
+                            visited={s.visited}
+                            onPress={() => router.push(`/station/${s.stationId}`)}
+                            unvisitedIconName="bookmark"
+                            unvisitedIconColor="#999"
+                        />
+                    )}
                 />
             </ScrollView>
         </View>
@@ -208,7 +201,4 @@ const styles = StyleSheet.create({
     boroughName: { fontSize: 14, color: '#333' },
     boroughPct: { fontSize: 14, color: '#888' },
     emptyText: { fontSize: 14, color: '#999', fontStyle: 'italic' },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
-    rowIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flexShrink: 0 },
-    rowText: { flex: 1, fontSize: 15, color: '#222' },
 });

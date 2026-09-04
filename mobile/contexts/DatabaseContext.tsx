@@ -23,7 +23,7 @@ const DatabaseContext = createContext<SQLite.SQLiteDatabase | null>(null);
 // `run` rather than a plain SQL string, deliberately — migration 3 below
 // needs more than one statement plus a specific ordering, and a future
 // migration might too.
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promise<void> }[] = [
     {
         // Adds saved_stations — see schema.sql's own comment on this table
@@ -241,6 +241,72 @@ const MIGRATIONS: { toVersion: number; run: (db: SQLite.SQLiteDatabase) => Promi
                 CHECK (enabled IN (0, 1)),
                 CHECK (is_test IN (0, 1))
             );`);
+        },
+    },
+    {
+        // Borough/neighborhood pages: widens events' CHECK to accept 2 new
+        // event_types (borough_detail_opened/neighborhood_detail_opened,
+        // written on opening those pages same as station/route detail).
+        // Same rename/recreate recipe as migrations 3 and 6 for the CHECK
+        // widening — SQLite still has no ALTER TABLE for modifying a CHECK
+        // constraint in place. Includes is_test in the rebuilt table (this
+        // runs on devices already past migration 5, which added that
+        // column). Never rename the live `events` table away first — see
+        // migration 3's own comment on why that corrupts sync_status's FK.
+        toVersion: 7,
+        run: async (db) => {
+            await db.execAsync(`DROP INDEX IF EXISTS idx_events_trip_id;`);
+            await db.execAsync(`DROP INDEX IF EXISTS idx_events_occurred_at;`);
+            await db.execAsync(`DROP TRIGGER IF EXISTS trg_events_create_sync_status;`);
+            await db.execAsync(`
+                CREATE TABLE events_v7_new (
+                    event_id        TEXT PRIMARY KEY,
+                    event_type      TEXT NOT NULL,
+                    event_domain    TEXT NOT NULL,
+                    event_version   INTEGER NOT NULL,
+                    occurred_at     TEXT NOT NULL,
+                    recorded_at     TEXT NOT NULL,
+                    device_id       TEXT NOT NULL,
+                    user_id         TEXT NOT NULL,
+                    trip_id         TEXT,
+                    leg_id          TEXT,
+                    payload         TEXT NOT NULL,
+                    is_test         INTEGER NOT NULL DEFAULT 0,
+                    CHECK (event_version >= 1),
+                    CHECK (json_valid(payload)),
+                    CHECK (is_test IN (0, 1)),
+                    CHECK (date(occurred_at) <= date(recorded_at)),
+                    CHECK (
+                        (event_domain = 'trip'    AND event_type IN ('trip_started', 'trip_ended', 'trip_deleted')
+                                                   AND trip_id IS NOT NULL AND leg_id IS NULL)
+                        OR
+                        (event_domain = 'trip'    AND event_type IN ('leg_boarded', 'leg_alighted')
+                                                   AND trip_id IS NOT NULL AND leg_id IS NOT NULL)
+                        OR
+                        (event_domain = 'product' AND event_type IN ('screen_viewed', 'station_detail_opened',
+                                                                       'route_detail_opened', 'feature_used',
+                                                                       'trip_draft_started', 'draft_leg_added',
+                                                                       'draft_leg_removed', 'trip_draft_committed',
+                                                                       'trip_draft_abandoned', 'station_saved',
+                                                                       'station_unsaved', 'trivia_facts_enabled',
+                                                                       'trivia_facts_disabled', 'borough_detail_opened',
+                                                                       'neighborhood_detail_opened')
+                                                   AND trip_id IS NULL AND leg_id IS NULL)
+                    )
+                );
+            `);
+            await db.execAsync(`INSERT INTO events_v7_new SELECT * FROM events;`);
+            await db.execAsync(`DROP TABLE events;`);
+            await db.execAsync(`ALTER TABLE events_v7_new RENAME TO events;`);
+            await db.execAsync(`CREATE INDEX idx_events_trip_id ON events (trip_id) WHERE trip_id IS NOT NULL;`);
+            await db.execAsync(`CREATE INDEX idx_events_occurred_at ON events (occurred_at);`);
+            await db.execAsync(`
+                CREATE TRIGGER trg_events_create_sync_status
+                AFTER INSERT ON events
+                BEGIN
+                    INSERT INTO sync_status (event_id, status) VALUES (NEW.event_id, 'pending');
+                END;
+            `);
         },
     },
     // A future migration slots in here as { toVersion: N, run: ... } — bump

@@ -6,7 +6,7 @@
 // stations."
 import type * as SQLite from 'expo-sqlite';
 import { testDataFilterSql } from './testDataFilter';
-import { routeIdsForLine } from '../lib/subwayData';
+import { routeIdsForLine, getStationsByBorough, getStationsByNeighborhood } from '../lib/subwayData';
 
 export type TripEndpoints = {
     entryRouteId: string | null;
@@ -121,4 +121,56 @@ export async function getLineVisitHistory(
         startedAt: v.started_at,
         ...(endpoints.get(v.trip_id) ?? { entryRouteId: null, entryStationId: null, exitRouteId: null, exitStationId: null }),
     }));
+}
+
+/** Shared by getBoroughVisitHistory/getNeighborhoodVisitHistory -- both are
+ *  "every trip with a leg entering or exiting one of these stop ids," same
+ *  query shape as getLineVisitHistory but matching stop ids instead of
+ *  route ids, and on either end of the leg (a route_id leg has exactly one
+ *  route, but a station can be entered on one line and exited on another). */
+async function getVisitHistoryForStopIds(
+    db: SQLite.SQLiteDatabase,
+    userId: string,
+    stopIds: string[]
+): Promise<TripHistoryEntry[]> {
+    if (stopIds.length === 0) return [];
+
+    const placeholders = stopIds.map(() => '?').join(',');
+    const visitRows = await db.getAllAsync<{ trip_id: string; started_at: string }>(
+        `SELECT DISTINCT t.trip_id, t.started_at FROM legs l JOIN trips t ON l.trip_id = t.trip_id
+         WHERE t.user_id = ? AND (l.entry_station_id IN (${placeholders}) OR l.exit_station_id IN (${placeholders})) ${testDataFilterSql('t.')}
+         ORDER BY date(t.started_at, 'localtime') DESC, t.rowid DESC`,
+        [userId, ...stopIds, ...stopIds]
+    );
+    if (visitRows.length === 0) return [];
+
+    const endpoints = await getTripEndpoints(db, visitRows.map((r) => r.trip_id));
+    return visitRows.map((v) => ({
+        tripId: v.trip_id,
+        startedAt: v.started_at,
+        ...(endpoints.get(v.trip_id) ?? { entryRouteId: null, entryStationId: null, exitRouteId: null, exitStationId: null }),
+    }));
+}
+
+/** Every trip that touched a station in the given borough (entry or exit on
+ *  any leg), most recent first -- feeds the Borough page's Visit History. */
+export async function getBoroughVisitHistory(
+    db: SQLite.SQLiteDatabase,
+    userId: string,
+    boroughCode: string
+): Promise<TripHistoryEntry[]> {
+    const stopIds = getStationsByBorough(boroughCode).map((s) => s.stop_id);
+    return getVisitHistoryForStopIds(db, userId, stopIds);
+}
+
+/** Same as getBoroughVisitHistory, scoped to one neighborhood -- feeds the
+ *  Neighborhood page's Visit History. */
+export async function getNeighborhoodVisitHistory(
+    db: SQLite.SQLiteDatabase,
+    userId: string,
+    boroughCode: string,
+    neighborhood: string
+): Promise<TripHistoryEntry[]> {
+    const stopIds = getStationsByNeighborhood(boroughCode, neighborhood).map((s) => s.stop_id);
+    return getVisitHistoryForStopIds(db, userId, stopIds);
 }

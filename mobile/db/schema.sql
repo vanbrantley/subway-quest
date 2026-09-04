@@ -74,7 +74,8 @@ CREATE TABLE events (
                                                        'draft_leg_removed', 'trip_draft_committed',
                                                        'trip_draft_abandoned', 'station_saved',
                                                        'station_unsaved', 'trivia_facts_enabled',
-                                                       'trivia_facts_disabled')
+                                                       'trivia_facts_disabled', 'borough_detail_opened',
+                                                       'neighborhood_detail_opened')
                                    AND trip_id IS NULL AND leg_id IS NULL)
                                    -- trip_id/leg_id stay NULL here even for trip_draft_committed,
                                    -- whose payload does reference a real trip_id — kept as JSON, not

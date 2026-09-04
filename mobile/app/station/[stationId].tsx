@@ -83,6 +83,11 @@ export default function StationScreen() {
         router.push(`/line/${target}`);
     }
 
+    function goToBorough() {
+        if (!station) return;
+        router.push(`/borough/${station.borough}`);
+    }
+
     function viewOnMap() {
         if (!station) return;
         setPendingMapHighlight({ stationId: station.stop_id, lat: station.lat, lon: station.lon });
@@ -125,13 +130,11 @@ export default function StationScreen() {
 
             <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }]}>
                 <Text style={styles.stationNameHeading} numberOfLines={2}>{station.name}</Text>
-                <Text style={styles.borough}>{getBoroughName(station.borough)}</Text>
+                <Pressable onPress={goToBorough} hitSlop={6}>
+                    <Text style={styles.borough}>{getBoroughName(station.borough)}</Text>
+                </Pressable>
 
-                {complexId !== undefined && (
-                    <View style={styles.groupSection}>
-                        <StationTriviaFact complexId={Number(complexId)} />
-                    </View>
-                )}
+                {complexId !== undefined && <StationTriviaFact complexId={Number(complexId)} />}
 
                 <View style={styles.groupSection}>
                     <Text style={styles.groupLabel}>This platform</Text>
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     label: { fontSize: 15, color: '#444' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
-    content: { padding: 20, gap: 4 },
+    content: { padding: 20 },
     stationNameHeading: { fontSize: 26, fontWeight: '700', textAlign: 'center', marginTop: 12, marginBottom: 4 },
     borough: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 24 },
     groupSection: { marginBottom: 24 },

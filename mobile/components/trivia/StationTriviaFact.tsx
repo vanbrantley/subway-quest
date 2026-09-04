@@ -43,7 +43,7 @@ export function StationTriviaFact({ complexId }: { complexId: number }) {
 }
 
 const styles = StyleSheet.create({
-    container: { gap: 8 },
+    container: { gap: 8, marginBottom: 24 },
     chip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#f5f5f5' },
     chipText: { fontSize: 13, fontWeight: '700', color: '#666' },
     factText: { fontSize: 15, color: '#333', lineHeight: 20 },

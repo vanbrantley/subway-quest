@@ -250,6 +250,18 @@ def build_route_branches(trips: pd.DataFrame, stop_times: pd.DataFrame, shapes: 
     return route_stops, route_shapes
 
 
+# final_neighborhoods.json is a manually-finalized, notebook-consolidated
+# dataset (see network/notebooks/neighborhood_explorer.ipynb) -- never
+# regenerated here, only trimmed for the app. Its own "borough" field is
+# dropped: stations.json's single-letter borough code is the one the app
+# already trusts everywhere else, and the two can disagree at NTA boundary
+# edge cases.
+def build_neighborhoods_json() -> dict:
+    final_path = OUT / "final_neighborhoods.json"
+    final = json.loads(final_path.read_text())
+    return {complex_id: entry["neighborhood"] for complex_id, entry in final.items()}
+
+
 def main():
     stations, complexes, shapes, trips, routes, stop_times = load_raw()
 
@@ -262,10 +274,14 @@ def main():
     print("Building route_stops.json and route_shapes.json...")
     route_stops_json, route_shapes_json = build_route_branches(trips, stop_times, shapes, routes, stations_json)
 
+    print("Building neighborhoods.json...")
+    neighborhoods_json = build_neighborhoods_json()
+
     (OUT / "stations.json").write_text(json.dumps(stations_json, indent=2))
     (OUT / "transfers.json").write_text(json.dumps(transfers_json, indent=2))
     (OUT / "route_stops.json").write_text(json.dumps(route_stops_json, indent=2))
     (OUT / "route_shapes.json").write_text(json.dumps(route_shapes_json, indent=2))
+    (OUT / "neighborhoods.json").write_text(json.dumps(neighborhoods_json, indent=2))
 
     print("\nDone. Summary:")
     print(f"  stations.json: {len(stations_json)} stations")
@@ -274,6 +290,7 @@ def main():
     total_branches = sum(len(v) for r in route_shapes_json.values() for v in [r])
     total_branch_count = sum(len(branches) for branches in route_shapes_json.values())
     print(f"  route_shapes.json: {len(route_shapes_json)} routes, {total_branch_count} total branches")
+    print(f"  neighborhoods.json: {len(neighborhoods_json)} complexes")
 
 
 if __name__ == "__main__":
